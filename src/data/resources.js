@@ -726,7 +726,24 @@ export const cardanoResources = {
         github: "https://github.com/CardanoSolutions/ogmios"
       },
       category: "Core Infrastructure"
-    }
+    },
+    {
+  id: 48,
+  name: "Dingo",
+  logo: "https://blinklabs.io/static/media/blink-labs-logo.478f51c57fbda2b8924e1739a3bb47ae.svg",
+  description: "A Cardano blockchain data node written in Go",
+  fullDescription: "A Cardano blockchain data node written in Go which actively participates in network communications on the Cardano blockchain using the Ouroboros Network Node-to-Node family of mini-protocols.",
+  keySolutions: ["data node", "Direct blockchain access", "Chain sync"
+  ],
+  website: "https://blinklabs.io/",
+  social: {
+    github: "https://github.com/blinklabs-io/dingo",
+    discord: "https://discord.gg/5fPRZnX4qW",
+    x: "https://twitter.com/blinklabs_io"
+  },
+  category: "Core Infrastructure",
+  docs: "https://docs.blinklabs.io/home/"
+}
   ],
   "Layer 2 Scaling Solutions": [
     {
