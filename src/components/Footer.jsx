@@ -22,12 +22,12 @@ const Footer = () => {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="x"
-            className="hover:scale-110 transition-transform duration-200"
+            className="hover:scale-110 transition-transform duration-200 p-2"
           >
             <XIcon />
           </a>
         </div>
-        <p className="text-gray-500 text-xs text-center">
+        <p className="text-gray-500 text-xs text-center px-4">
           Built for the Cardano Developer Community
         </p>
       </div>

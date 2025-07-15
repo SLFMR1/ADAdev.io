@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Plus, ExternalLink, Github, AlertCircle, CheckCircle, Copy } from 'lucide-react'
+import Portal from './Portal'
 
 const initialForm = {
   name: '',
@@ -17,29 +18,30 @@ const initialForm = {
   customTabContent: ''
 }
 
-const AddResourceWidget = () => {
-  const [isExpanded, setIsExpanded] = useState(false)
+const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => {
   const [collapseTimeout, setCollapseTimeout] = useState(null)
   const [form, setForm] = useState(initialForm)
   const [codeSnippet, setCodeSnippet] = useState('')
   const [customCategory, setCustomCategory] = useState('')
   const [showInstructions, setShowInstructions] = useState(false)
   const [copySuccess, setCopySuccess] = useState(false)
+  const modalRef = useRef(null)
 
-  // Handle click outside to collapse widget
+  // Handle click outside to collapse widget (only when modal is open)
   useEffect(() => {
+    if (!isExpanded) return
     const handleClickOutside = (event) => {
-      if (isExpanded && !event.target.closest('.add-resource-widget')) {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
         if (collapseTimeout) {
           clearTimeout(collapseTimeout)
           setCollapseTimeout(null)
         }
-        setIsExpanded(false)
+        onCollapse()
       }
     }
-    document.addEventListener('click', handleClickOutside)
-    return () => document.removeEventListener('click', handleClickOutside)
-  }, [isExpanded, collapseTimeout])
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isExpanded, collapseTimeout, onCollapse])
 
   // Generate code snippet
   const generateSnippet = () => {
@@ -123,113 +125,97 @@ const AddResourceWidget = () => {
   ]
 
   return (
-    <div 
-      className={`fixed left-0 top-1/2 transform -translate-y-1/2 ${isExpanded ? 'z-[9999]' : 'z-40'} hidden lg:block add-resource-widget`}
-      style={{ top: 'calc(50% + 80px)' }}
-      onMouseEnter={() => {
-        if (collapseTimeout) {
-          clearTimeout(collapseTimeout)
-          setCollapseTimeout(null)
-        }
-        setIsExpanded(true)
-      }}
-      onMouseLeave={() => {
-        const timeout = setTimeout(() => setIsExpanded(false), 2500)
-        setCollapseTimeout(timeout)
-      }}
-    >
-      <div
-        className={`
-          bg-card-bg/95 backdrop-blur-md border border-gray-700 rounded-r-xl shadow-2xl
-          transition-all duration-300 ease-in-out transform
-          ${isExpanded ? 'w-96 translate-x-0' : 'w-16 -translate-x-1'}
-          overflow-hidden
-          ${isExpanded ? 'origin-top-left' : 'origin-center'}
-        `}
-      >
-        {/* Collapsed State */}
-        {!isExpanded && (
-          <div className="flex flex-col items-center justify-center h-16 w-16">
-            <Plus size={24} className="text-emerald-400 mb-2" />
-            <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+    <>
+      {/* Collapsed Floating Button for Sidebar Grouping */}
+      {!isExpanded ? (
+        <div
+          className="relative z-50 w-16 h-16"
+          onClick={onExpand}
+        >
+          <div className="flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl">
+            <Plus size={24} className="text-emerald-400" />
           </div>
-        )}
-        {/* Expanded State */}
-        {isExpanded && (
-          <div className="p-4 max-h-[85vh] overflow-y-auto pb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Plus size={20} className="text-emerald-400" />
-                <h3 className="text-white font-semibold text-sm">Add Resource</h3>
-              </div>
-              <div className="flex items-center space-x-1 text-xs text-gray-400">
-                <Github size={14} />
-                <span>PR</span>
-              </div>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-2">
-              <input name="name" value={form.name} onChange={handleChange} placeholder="Name" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
-              <input name="logo" value={form.logo} onChange={handleChange} placeholder="Logo URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
-              <input name="description" value={form.description} onChange={handleChange} placeholder="Short Description" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
-              <textarea name="fullDescription" value={form.fullDescription} onChange={handleChange} placeholder="Full Description" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
-              <input name="keySolutions" value={form.keySolutions} onChange={handleChange} placeholder="Key Solutions (comma separated)" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
-              <input name="website" value={form.website} onChange={handleChange} placeholder="Website" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
-              <input name="github" value={form.github} onChange={handleChange} placeholder="GitHub URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
-              <input name="discord" value={form.discord} onChange={handleChange} placeholder="Discord URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
-              <input name="x" value={form.x} onChange={handleChange} placeholder="X (Twitter) URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
-              <input name="docs" value={form.docs} onChange={handleChange} placeholder="Docs URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
-              <select name="category" value={form.category} onChange={e => {
-                handleChange(e)
-                if (e.target.value !== 'Other') setCustomCategory('')
-              }} className="w-full bg-gray-800 text-white rounded p-2 text-xs" required>
-                <option value="" disabled>Select Category</option>
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-                <option value="Other">Other</option>
-              </select>
-              {form.category === 'Other' && (
-                <input
-                  name="customCategory"
-                  value={customCategory}
-                  onChange={e => setCustomCategory(e.target.value)}
-                  placeholder="Enter custom category"
-                  className="w-full bg-gray-800 text-white rounded p-2 text-xs"
-                  required
-                />
-              )}
-              <input name="customTabTitle" value={form.customTabTitle} onChange={handleChange} placeholder="Custom Tab Title (optional)" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
-              <textarea name="customTabContent" value={form.customTabContent} onChange={handleChange} placeholder="Custom Tab Content (optional)" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
-              <button type="submit" className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 group mt-4 mb-2"> <Github size={16} />
-                <span>Create Pull Request</span>
+        </div>
+      ) : (
+        /* Expanded Centered Widget */
+        <Portal>
+          <div ref={modalRef} className="fixed z-[9999] p-4 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-96 bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg max-h-[85vh] overflow-y-auto pb-6 transition-all duration-500 ease-in-out opacity-100 scale-100">
+              <button
+                className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white bg-gray-800/70 rounded-full p-2 transition-colors"
+                onClick={onCollapse}
+                aria-label="Close"
+              >
+                <span style={{fontSize: 20, fontWeight: 'bold', lineHeight: 1}}>×</span>
               </button>
-            </form>
-            {codeSnippet && (
-              <div className="mt-4">
-                <div className="text-xs text-gray-400 mb-1 flex items-center justify-between">
-                  <span>Prefilled PR Template:</span>
-                  <button onClick={handleCopy} title="Copy PR template" className="ml-2 p-1 rounded hover:bg-gray-700">
-                    {copySuccess ? <CheckCircle size={16} className="text-emerald-400" /> : <Copy size={16} />}
-                  </button>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Plus size={20} className="text-emerald-400" />
+                    <h3 className="text-white font-semibold text-sm">Add Resource</h3>
+                  </div>
                 </div>
-                <pre className="bg-gray-900/80 text-gray-200 rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap"><code>{generatePRTemplate(codeSnippet)}</code></pre>
+                <form onSubmit={handleSubmit} className="space-y-2">
+                  <input name="name" value={form.name} onChange={handleChange} placeholder="Name" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
+                  <input name="logo" value={form.logo} onChange={handleChange} placeholder="Logo URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
+                  <input name="description" value={form.description} onChange={handleChange} placeholder="Short Description" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
+                  <textarea name="fullDescription" value={form.fullDescription} onChange={handleChange} placeholder="Full Description" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
+                  <input name="keySolutions" value={form.keySolutions} onChange={handleChange} placeholder="Key Solutions (comma separated)" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
+                  <input name="website" value={form.website} onChange={handleChange} placeholder="Website" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
+                  <input name="github" value={form.github} onChange={handleChange} placeholder="GitHub URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
+                  <input name="discord" value={form.discord} onChange={handleChange} placeholder="Discord URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
+                  <input name="x" value={form.x} onChange={handleChange} placeholder="X (Twitter) URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
+                  <input name="docs" value={form.docs} onChange={handleChange} placeholder="Docs URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
+                  <select name="category" value={form.category} onChange={e => {
+                    handleChange(e)
+                    if (e.target.value !== 'Other') setCustomCategory('')
+                  }} className="w-full bg-gray-800 text-white rounded p-2 text-xs" required>
+                    <option value="" disabled>Select Category</option>
+                    {categories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    <option value="Other">Other</option>
+                  </select>
+                  {form.category === 'Other' && (
+                    <input
+                      name="customCategory"
+                      value={customCategory}
+                      onChange={e => setCustomCategory(e.target.value)}
+                      placeholder="Enter custom category"
+                      className="w-full bg-gray-800 text-white rounded p-2 text-xs"
+                      required
+                    />
+                  )}
+                  <input name="customTabTitle" value={form.customTabTitle} onChange={handleChange} placeholder="Custom Tab Title (optional)" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
+                  <textarea name="customTabContent" value={form.customTabContent} onChange={handleChange} placeholder="Custom Tab Content (optional)" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
+                  <button type="submit" className="btn-primary w-full flex items-center justify-center space-x-2 group mt-4 mb-2"> <Github size={16} />
+                    <span>Create Pull Request</span>
+                  </button>
+                </form>
+                {codeSnippet && (
+                  <div className="mt-4">
+                    <div className="text-xs text-gray-400 mb-1 flex items-center justify-between">
+                      <span>Prefilled PR Template:</span>
+                      <button onClick={handleCopy} title="Copy PR template" className="ml-2 p-1 rounded hover:bg-gray-700">
+                        {copySuccess ? <CheckCircle size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                      </button>
+                    </div>
+                    <pre className="bg-gray-900/80 text-gray-200 rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap"><code>{generatePRTemplate(codeSnippet)}</code></pre>
+                  </div>
+                )}
+                {showInstructions && (
+                  <div className="mt-3 text-xs text-gray-300 space-y-1 border-t border-gray-700 pt-3">
+                    <div className="font-semibold mb-1">Next steps:</div>
+                    <ol className="list-decimal list-inside space-y-0.5">
+                      <li>Fork repo <a href="https://github.com/SLFMR1/ADAdev.io/fork" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">(link)</a></li>
+                      <li>Add to <span className="font-mono">resources.js</span></li>
+                      <li>Push</li>
+                      <li>Open PR</li>
+                    </ol>
+                  </div>
+                )}
               </div>
-            )}
-            {showInstructions && (
-              <div className="mt-3 text-xs text-gray-300 space-y-1 border-t border-gray-700 pt-3">
-                <div className="font-semibold mb-1">Next steps:</div>
-                <ol className="list-decimal list-inside space-y-0.5">
-                  <li>Fork repo <a href="https://github.com/SLFMR1/ADAdev.io/fork" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">(link)</a></li>
-                  <li>Add to <span className="font-mono">resources.js</span></li>
-                  <li>Push</li>
-                  <li>Open PR</li>
-                </ol>
-              </div>
-            )}
-          </div>
+            </Portal>
         )}
-      </div>
-    </div>
+    </>
   )
 }
 

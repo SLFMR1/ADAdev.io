@@ -48,6 +48,14 @@
     @apply bg-transparent border border-gray-600 text-gray-300 px-6 py-3 rounded-full font-semibold hover:border-gray-500 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-custom-bg;
   }
   
+  .accent-gradient {
+    @apply bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 bg-clip-text text-transparent;
+  }
+  
+  .accent-gradient-hover {
+    @apply hover:from-emerald-500 hover:via-cyan-500 hover:to-sky-500;
+  }
+  
   .card-minimal {
     @apply transition-all duration-200 hover:bg-gray-900/80 hover:border-gray-700;
   }
@@ -123,6 +131,88 @@
   }
 }
 
+/* Mobile-specific styles */
+@layer utilities {
+  /* Improved touch targets for mobile */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Mobile-friendly scrolling */
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Mobile-specific text sizes */
+  .mobile-text-sm {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .mobile-text-base {
+    @apply text-sm sm:text-base;
+  }
+  
+  .mobile-text-lg {
+    @apply text-base sm:text-lg;
+  }
+  
+  /* Mobile-specific spacing */
+  .mobile-px {
+    @apply px-4 sm:px-6;
+  }
+  
+  .mobile-py {
+    @apply py-4 sm:py-6;
+  }
+  
+  /* Mobile-specific grid layouts */
+  .mobile-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3;
+  }
+  
+  /* Mobile-specific flex layouts */
+  .mobile-flex-col {
+    @apply flex flex-col sm:flex-row;
+  }
+  
+  /* Mobile-specific button sizes */
+  .mobile-btn {
+    @apply px-4 py-2 sm:px-6 sm:py-3;
+  }
+  
+  /* Mobile-specific card styles */
+  .mobile-card {
+    @apply p-4 sm:p-6;
+  }
+  
+  /* Mobile-specific chart container */
+  .mobile-chart {
+    @apply overflow-x-auto;
+  }
+  
+  /* Mobile-specific modal styles */
+  .mobile-modal {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+  }
+  
+  /* Mobile-specific navigation */
+  .mobile-nav {
+    @apply fixed top-0 left-0 h-full w-80 bg-card-bg/95 backdrop-blur-md border-r border-gray-800 z-50;
+  }
+  
+  /* Mobile-specific sidebar */
+  .mobile-sidebar {
+    @apply hidden lg:flex;
+  }
+  
+  /* Mobile-specific header */
+  .mobile-header {
+    @apply lg:hidden fixed top-0 left-0 right-0 z-40 bg-card-bg/80 backdrop-blur-md border-b border-gray-800;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -145,4 +235,61 @@
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-500;
+} 
+
+/* Matrix overlay animations */
+.animate-blink { animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { to { visibility: hidden; } }
+.animate-fade-in { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Mobile-specific responsive utilities */
+@media (max-width: 640px) {
+  .mobile-only {
+    display: block;
+  }
+  
+  .desktop-only {
+    display: none;
+  }
+  
+  /* Mobile-specific touch improvements */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Mobile-specific text improvements */
+  .mobile-text {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  /* Mobile-specific spacing */
+  .mobile-spacing {
+    padding: 16px;
+    margin: 8px;
+  }
+  
+  /* Mobile-specific chart improvements */
+  .mobile-chart-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Mobile-specific modal improvements */
+  .mobile-modal-overlay {
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+  }
+}
+
+@media (min-width: 641px) {
+  .mobile-only {
+    display: none;
+  }
+  
+  .desktop-only {
+    display: block;
+  }
 } 

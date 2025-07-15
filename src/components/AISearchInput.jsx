@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Search, Loader2 } from 'lucide-react'
 import { analyzeUserRequirements } from '../services/ai'
 
-const AISearchInput = ({ onAnalysisComplete, onLoadingChange }) => {
+const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false, triggerTyping = false, onTypingComplete }) => {
   const [inputValue, setInputValue] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState('')
@@ -12,12 +12,52 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange }) => {
   const [showChallenge, setShowChallenge] = useState(false)
   const [challengeAnswer, setChallengeAnswer] = useState('')
   const [suspiciousActivity, setSuspiciousActivity] = useState(0)
+  const [isTyping, setIsTyping] = useState(false)
+  const [typedText, setTypedText] = useState('')
   const progressInterval = useRef(null)
+  const typingTimeoutRef = useRef(null)
+  const prevTriggerTyping = useRef(false)
+  const currentIndexRef = useRef(0)
 
   // Rate limiting: max 5 submissions per minute
   const RATE_LIMIT_SUBMISSIONS = 5
   const RATE_LIMIT_WINDOW = 60000 // 1 minute in ms
   const MIN_SUBMISSION_INTERVAL = 2000 // 2 seconds between submissions
+
+  // Matrix typing animation
+  useEffect(() => {
+    if (triggerTyping && !prevTriggerTyping.current && !isTyping) {
+      setIsTyping(true)
+      setTypedText('')
+      currentIndexRef.current = 0
+      const message = "Wake up, Neo..."
+      const typeNext = () => {
+        if (currentIndexRef.current < message.length) {
+          setTypedText(message.slice(0, currentIndexRef.current + 1))
+          currentIndexRef.current++
+          let delay = 100
+          if (currentIndexRef.current === 4) delay = 200 // Pause after 'Wake'
+          else if (currentIndexRef.current === 8) delay = 250 // Pause after 'Wake up,'
+          typingTimeoutRef.current = setTimeout(typeNext, delay)
+        } else {
+          typingTimeoutRef.current = setTimeout(() => {
+            setTypedText('')
+            setIsTyping(false)
+            onTypingComplete?.()
+          }, 2000)
+        }
+      }
+      typeNext()
+    }
+    prevTriggerTyping.current = triggerTyping
+  }, [triggerTyping, onTypingComplete])
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    }
+  }, [])
 
   const checkRateLimit = () => {
     const now = Date.now()
@@ -197,7 +237,20 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange }) => {
   return (
     <div className="w-full max-w-2xl mx-auto mb-8">
       <form onSubmit={handleSubmit} className="relative">
-        <div className="relative w-full rounded-full border border-gray-700 bg-card-bg/50 backdrop-blur-md pl-10 pr-8 py-4">
+        <div className={`relative w-full rounded-full border border-gray-700 bg-card-bg/50 backdrop-blur-md pl-10 pr-8 py-4 transition-all duration-300 ${
+          isGlowing 
+            ? 'shadow-[0_0_20px_rgba(20,184,166,0.9),0_0_40px_rgba(20,184,166,0.6),0_0_60px_rgba(20,184,166,0.3)] border-teal-400' 
+            : 'shadow-[0_0_8px_rgba(20,184,166,0.8)]'
+        }`}>
+          {/* Matrix Overlay */}
+          {isTyping && (
+            <div className="absolute inset-0 flex items-center z-50 pointer-events-none">
+              <span className="text-emerald-400 font-mono text-sm tracking-wide pl-10">
+                {typedText}
+                <span className="animate-blink">|</span>
+              </span>
+            </div>
+          )}
           {/* Progress Bar */}
           {isAnalyzing && (
             <div className="absolute inset-0 z-0 rounded-full overflow-hidden">
@@ -214,11 +267,11 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange }) => {
           {/* Input Field */}
           <input
             type="text"
-            value={inputValue}
+            value={isTyping ? '' : inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="What are you building?"
+            placeholder={isTyping ? '' : "What are you building?"}
             className="w-full bg-transparent border-none text-white placeholder-gray-400 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none transition-all duration-200 text-lg relative z-10 pr-10"
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || isTyping}
             style={{ 
               position: 'relative',
               outline: 'none',
@@ -229,21 +282,19 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange }) => {
           {!isAnalyzing && (
             <button
               type="submit"
-              disabled={!inputValue.trim()}
+              disabled={!inputValue.trim() || isTyping}
               className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 text-black px-5 py-5 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-custom-bg disabled:opacity-50 disabled:cursor-not-allowed hover:from-emerald-500 hover:via-cyan-500 hover:to-sky-500 hover:scale-105 active:scale-95 z-40"
             >
             </button>
           )}
         </div>
       </form>
-      
       {/* Error Message */}
       {error && (
         <div className="mt-3 text-red-400 text-sm text-center">
           {error}
         </div>
       )}
-      
       {/* Challenge Modal */}
       {showChallenge && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -293,7 +344,6 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange }) => {
           </div>
         </div>
       )}
-      
       {/* Help Text */}
       <div className="mt-4 text-center">
       </div>
@@ -302,3 +352,10 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange }) => {
 }
 
 export default AISearchInput 
+
+// Animations
+// Add to your global CSS (e.g., index.css):
+// .animate-blink { animation: blink 1s steps(2, start) infinite; }
+// @keyframes blink { to { visibility: hidden; } }
+// .animate-fade-in { animation: fadeIn 0.3s ease; }
+// @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } 

@@ -624,40 +624,7 @@ export const cardanoResources = {
       },
       category: "AI & Machine Learning"
     },
-    {
-      id: 21,
-      name: "Kodosumi",
-      logo: "https://c-ipfs-gw.nmkr.io/ipfs/QmVhGs1DhzPCZZ4P1ex5ssePhTDXiCEnFGHcwBVt5kB2e7",
-      description: "Runtime environment to manage and execute agentic services at scale using Ray distributed computing framework.",
-      fullDescription: "Kodosumi provides a runtime environment for managing and executing AI agentic services at scale. It leverages the Ray distributed computing framework and is designed with a Python-first approach for seamless integration. It is a part of the Masumi Network ecosystem.",
-      keySolutions: ["Agentic services", "Distributed computing", "Python-first", "Ray framework", "AI agentic services", "AI agentic economy", "AI agentic infrastructure", "AI agentic marketplace", "AI agentic identity", "AI agentic discovery"],
-      website: "https://kodosumi.io/",
-      social: {
-        docs: "https://docs.kodosumi.io/",
-        github: "https://github.com/masumi-network/kodosumi",
-        x: "https://x.com/masumi_network",
-        discord: "https://discord.com/invite/aj4QfnTS92",
-        telegram: "https://t.me/masumi_network"
-      },
-      category: "AI & Machine Learning"
-    },
-    {
-      id: 22,
-      name: "Sokosumi",
-      logo: "https://c-ipfs-gw.nmkr.io/ipfs/QmUqHkovUfQ4zM9GyVsMFuC1Mps9xeqDMpLMPBtttFyL32",
-      description: "AI-powered research and analysis platform built on the Masumi Network, providing comprehensive tools for all kinds of research.",
-      fullDescription: "Sokosumi is an AI-powered research and analysis platform that leverages the Masumi Network infrastructure. It provides comprehensive tools for various types of research, enabling users to conduct thorough analysis and gather insights using advanced AI capabilities. If you are building an AI agentic service, Sokosumi is where you want to deploy it.",
-      keySolutions: ["AI research tools", "Data analysis", "Research platform", "AI-powered insights", "Masumi Network integration", "Comprehensive research", "AI analysis tools"],
-      website: "https://www.sokosumi.com/",
-      social: {
-        github: "https://github.com/masumi-network",
-        docs: "https://docs.masumi.network/",
-        x: "https://x.com/masumi_network",
-        discord: "https://discord.com/invite/aj4QfnTS92",
-        telegram: "https://t.me/masumi_network"
-      },
-      category: "AI & Machine Learning"
-    }
+
   ],
   "Development Platforms": [
     {

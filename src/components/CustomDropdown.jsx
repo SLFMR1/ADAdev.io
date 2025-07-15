@@ -33,7 +33,7 @@ const CustomDropdown = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-2 bg-card-bg/50 backdrop-blur-md border border-gray-700 rounded-full text-white focus:outline-none focus:border-gray-600 transition-colors duration-200 text-sm"
+        className="w-full flex items-center justify-between px-4 py-3 sm:py-2 bg-card-bg/50 backdrop-blur-md border border-gray-700 rounded-full text-white focus:outline-none focus:border-gray-600 transition-colors duration-200 text-sm touch-target"
       >
         <span className="truncate">{value || placeholder}</span>
         <ChevronDown 
@@ -44,13 +44,13 @@ const CustomDropdown = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full mt-1 w-full bg-card-bg/50 backdrop-blur-md border border-gray-700 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto">
+        <div className="absolute top-full mt-1 w-full bg-card-bg/50 backdrop-blur-md border border-gray-700 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto mobile-scroll">
           {options.map((option, index) => (
             <button
               key={index}
               type="button"
               onClick={() => handleSelect(option)}
-              className={`w-full text-left px-4 py-3 text-sm transition-colors duration-200 hover:bg-gray-800/70 first:rounded-t-xl last:rounded-b-xl ${
+              className={`w-full text-left px-4 py-3 sm:py-3 text-sm transition-colors duration-200 hover:bg-gray-800/70 first:rounded-t-xl last:rounded-b-xl touch-target ${
                 value === option 
                   ? 'bg-gray-800/70 text-primary-500' 
                   : 'text-gray-300'

@@ -1,11 +1,14 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { 
   ExternalLink, Github, MessageCircle,
   TerminalSquare, Database, Wallet, Image as ImageIcon, Users,
   ShieldCheck, Zap, BarChart2, Bot, Moon, HardDrive, Building2,
-  BookOpen, UserCheck, Eye, Cpu, Heart, Server, GitBranch
+  BookOpen, UserCheck, Eye, Cpu, Heart, Server, GitBranch, Share2, Loader2
 } from 'lucide-react'
 import GitHubUpdates from './GitHubUpdates'
+import WeeklyCommitCount from './WeeklyCommitCount'
+import WeeklyActivityChart from './WeeklyActivityChart'
+import html2canvas from 'html2canvas'
 
 const XIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -48,9 +51,15 @@ const getSocialIcon = (platform) => {
 }
 
 const ResourceCard = ({ resource }) => {
-  const [isHovered, setIsHovered] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState('about')
-  const hoverTimeoutRef = useRef(null)
+  const [isScrolling, setIsScrolling] = useState(false)
+  const expandTimeoutRef = useRef(null)
+  const scrollTimeoutRef = useRef(null)
+  const cardRef = useRef(null)
+  const chartContainerRef = useRef(null)
+  const [isSharing, setIsSharing] = useState(false)
+  const [screenshotMode, setScreenshotMode] = useState(false)
 
   const IconComponent = categoryIconComponents[resource.category] || categoryIconComponents.default;
 
@@ -63,7 +72,10 @@ const ResourceCard = ({ resource }) => {
 
   const TabButton = ({ tabName, children }) => (
     <button
-      onClick={() => setActiveTab(tabName)}
+      onClick={(e) => {
+        e.stopPropagation()
+        setActiveTab(tabName)
+      }}
       onMouseEnter={() => setActiveTab(tabName)}
       className={`px-3 py-1 text-sm rounded-md transition-all duration-200  ${
         activeTab === tabName 
@@ -75,32 +87,143 @@ const ResourceCard = ({ resource }) => {
     </button>
   );
 
-  const handleMouseEnter = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current)
+  // Handle scroll detection
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolling(true)
+      
+      // Clear existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+      
+      // Set scrolling to false after scroll stops
+      scrollTimeoutRef.current = setTimeout(() => {
+        setIsScrolling(false)
+      }, 150) // 150ms delay after scroll stops
     }
-    setIsHovered(true)
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Handle clicks outside the card
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isExpanded && cardRef.current && !cardRef.current.contains(event.target)) {
+        setIsExpanded(false)
+      }
+    }
+
+    if (isExpanded) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isExpanded])
+
+  const handleCardClick = () => {
+    // Don't trigger expand if currently scrolling
+    if (isScrolling) return
+    // Only expand if not already expanded
+    if (!isExpanded) {
+      setIsExpanded(true)
+    }
+    // Do nothing if already expanded (let outside click handler handle collapse)
   }
 
-  const handleMouseLeave = () => {
-    hoverTimeoutRef.current = setTimeout(() => {
-      setIsHovered(false)
-    }, 300) // 300ms delay before collapsing
+  // Share logic for activity chart
+  const handleShareActivityChart = async () => {
+    if (!chartContainerRef.current) return;
+    setScreenshotMode(true);
+    setIsSharing(true);
+    await new Promise(resolve => setTimeout(resolve, 100)); // allow re-render
+    // Hide tooltips if any (no hover/focus)
+    const tooltips = chartContainerRef.current.querySelectorAll('[class*=tooltip]');
+    tooltips.forEach(el => el.style.display = 'none');
+    // Screenshot chart container
+    const canvas = await html2canvas(chartContainerRef.current, {
+      backgroundColor: '#1a1a1a',
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false
+    });
+    const blob = await new Promise(resolve => {
+      canvas.toBlob(resolve, 'image/png', 0.95);
+    });
+    // Compose tweet text
+    const tweetText = `Cardano Project Activity\n\n${resource.name} - ${resource.category}\n#Cardano #Development #OpenSource\n\nSee more at: https://adadev.io`;
+    try {
+      if (navigator.clipboard && navigator.clipboard.write) {
+        const clipboardItems = [
+          new ClipboardItem({
+            'image/png': blob,
+            'text/plain': new Blob([tweetText], { type: 'text/plain' })
+          })
+        ];
+        await navigator.clipboard.write(clipboardItems);
+        setTimeout(() => {
+          window.open('https://x.com/intent/tweet', '_blank');
+        }, 2000);
+      } else {
+        await navigator.clipboard.writeText(tweetText);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `cardano-activity-${resource.name.replace(/\s+/g, '')}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setTimeout(() => {
+          window.open('https://x.com/intent/tweet', '_blank');
+        }, 2000);
+      }
+    } catch (clipboardError) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `cardano-activity-${resource.name.replace(/\s+/g, '')}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      try {
+        await navigator.clipboard.writeText(tweetText);
+      } catch {}
+      setTimeout(() => {
+        window.open('https://x.com/intent/tweet', '_blank');
+      }, 2000);
+    }
+    setIsSharing(false);
+    setScreenshotMode(false);
   }
 
   return (
     <div 
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      className="relative bg-card-bg/50 backdrop-blur-md border border-gray-800 rounded-xl p-4 transition-all duration-300 ease-in-out transform-gpu shadow-lg hover:shadow-2xl"
-              style={{
-          height: isHovered ? '15rem' : '6rem',
-          transform: isHovered ? 'scale(1.03)' : 'scale(1)',
-          zIndex: isHovered ? 10 : 1,
-        }}
+      ref={cardRef}
+      onClick={handleCardClick}
+      className="relative bg-card-bg/50 backdrop-blur-md border border-gray-800 rounded-xl p-4 transition-all duration-300 ease-in-out transform-gpu shadow-lg hover:shadow-2xl cursor-pointer"
+      style={{
+        height: isExpanded ? 'auto' : '6rem',
+        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? '25rem' : '38rem') : isExpanded ? (window.innerWidth < 1024 ? '18rem' : '22rem') : undefined,
+        width: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? '100%' : '60rem') : undefined,
+        maxWidth: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? '100%' : '60rem') : undefined,
+        transform: isExpanded ? (window.innerWidth < 1024 ? 'scale(1)' : 'scale(1.03)') : 'scale(1)',
+        zIndex: isExpanded && activeTab === 'activity' ? 50 : isExpanded ? 10 : 1,
+      }}
     >
       {/* Collapsed View */}
-      <div className={`transition-opacity duration-200 ${isHovered ? 'opacity-0' : 'opacity-100'}`}>
+      <div className={`transition-opacity duration-200 ${isExpanded ? 'opacity-0' : 'opacity-100'}`}>
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-4">
             <IconComponent size={28} className="text-gray-400" />
@@ -109,12 +232,19 @@ const ResourceCard = ({ resource }) => {
               <p className="text-gray-400 text-sm line-clamp-2">{resource.description}</p>
             </div>
           </div>
+          {resource.social?.github && (
+            <WeeklyCommitCount resource={resource} />
+          )}
         </div>
       </div>
 
       {/* Expanded View */}
-      <div className={`absolute top-0 left-0 w-full h-full p-4 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <div className="flex flex-col h-full">
+      <div className={`absolute top-0 left-0 w-full p-4 transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ 
+        minHeight: activeTab === 'activity' ? (window.innerWidth < 1024 ? '25rem' : '38rem') : (window.innerWidth < 1024 ? '18rem' : '22rem'), 
+        zIndex: activeTab === 'activity' ? 50 : 10, 
+        width: activeTab === 'activity' ? (window.innerWidth < 1024 ? '100%' : '60rem') : '100%' 
+      }}>
+        <div className="flex flex-col min-h-full">
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
@@ -129,6 +259,7 @@ const ResourceCard = ({ resource }) => {
                 rel="noopener noreferrer"
                 className="hover:opacity-80 transition-opacity duration-200"
                 aria-label={`Visit ${resource.name} website`}
+                onClick={(e) => e.stopPropagation()}
               >
                 {resource.logo ? (
                   <img src={resource.logo} alt={`${resource.name} logo`} className="h-6 w-auto max-w-[80px] object-contain" />
@@ -146,29 +277,32 @@ const ResourceCard = ({ resource }) => {
           </div>
 
           {/* Tabs */}
-          <div className="flex space-x-1 mb-3 border-b border-gray-700/50">
+          <div className="flex space-x-1 mb-3 border-b border-gray-700/50 overflow-x-auto">
             <TabButton tabName="about">About</TabButton>
             <TabButton tabName="solutions">Solutions</TabButton>
             <TabButton tabName="links">Links</TabButton>
             {resource.social?.github && (
               <TabButton tabName="updates">Updates</TabButton>
             )}
+            {resource.social?.github && (
+              <TabButton tabName="activity">Activity</TabButton>
+            )}
           </div>
 
           {/* Tab Content */}
-          <div className={`flex-grow overflow-hidden text-sm text-gray-300 pr-2 ${activeTab === 'updates' ? 'overflow-y-auto' : ''}`}>
+          <div className={`flex-grow overflow-hidden text-sm text-gray-300 pr-2 ${activeTab === 'updates' || activeTab === 'activity' ? 'overflow-y-auto' : ''}`}>
             {activeTab === 'about' && <p>{resource.fullDescription || resource.description}</p>}
             {activeTab === 'solutions' && (
               <div className="flex flex-wrap gap-1">
                 {resource.keySolutions.map((solution) => (
-                  <span key={solution} className="bg-gray-800 text-gray-300 px-2 py-1 rounded-full border border-gray-700">
+                  <span key={solution} className="bg-gray-800 text-gray-300 px-2 py-1 rounded-full border border-gray-700 text-xs">
                     {solution}
                   </span>
                 ))}
               </div>
             )}
             {activeTab === 'links' && (
-              <div className="flex flex-col space-y-2">
+              <div className="flex flex-col space-y-2" onClick={(e) => e.stopPropagation()}>
                 {resource.website && (
                    <a href={resource.website} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 hover:text-cyan-300">
                      <ExternalLink size={14} /> <span>Website</span>
@@ -183,6 +317,27 @@ const ResourceCard = ({ resource }) => {
             )}
             {activeTab === 'updates' && resource.social?.github && (
               <GitHubUpdates resource={resource} />
+            )}
+            {activeTab === 'activity' && resource.social?.github && (
+              <div className="mb-2 flex justify-end">
+                <button
+                  onClick={handleShareActivityChart}
+                  className={`share-button text-cyan-400 hover:text-white bg-gray-800/70 rounded-full p-2 transition-colors ${isSharing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title="Share Activity Chart"
+                  disabled={isSharing}
+                >
+                  {isSharing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Share2 className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            )}
+            {activeTab === 'activity' && resource.social?.github && (
+              <div ref={chartContainerRef}>
+                <WeeklyActivityChart resource={resource} showThreeYearOption={false} hidePeriodSwitches={screenshotMode} hideActivityLevelInfo={true} />
+              </div>
             )}
           </div>
         </div>

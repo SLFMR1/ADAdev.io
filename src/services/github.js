@@ -3,14 +3,14 @@ import logger from '../utils/logger'
 // Server API configuration
 const SERVER_API_BASE = '/api/github'
 
-// NEW: Client-side service that uses server cache
+// NEW: Client-side service that uses server cache and Supabase
 class GitHubService {
   constructor() {
     this.serverBase = SERVER_API_BASE
   }
 
   /**
-   * Fetch GitHub updates for a resource using server cache
+   * Fetch GitHub updates for a resource using server cache and Supabase
    * @param {Object} resource - Resource object with social.github URL
    * @returns {Promise<Object>} - Combined GitHub data
    */
@@ -24,6 +24,7 @@ class GitHubService {
     logger.log(`🔍 Client requesting GitHub data for ${resource.name} from server`)
     
     try {
+      // Always fetch fresh data from server for releases and commits
       const response = await fetch(`${this.serverBase}/updates`, {
         method: 'POST',
         headers: {
@@ -41,7 +42,8 @@ class GitHubService {
       logger.log(`📊 Client received data for ${resource.name}:`, {
         releases: data.releases?.length || 0,
         commits: data.commits?.length || 0,
-        repoInfo: data.repoInfo ? 'available' : 'none'
+        repoInfo: data.repoInfo ? 'available' : 'none',
+        weeklyRecords: data.commitsPerWeekDetailed?.length || 0
       })
       
       return data

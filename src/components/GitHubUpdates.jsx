@@ -9,7 +9,7 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react'
-import { fetchGitHubUpdates, formatRelativeTime, getCachedGitHubData } from '../services/github'
+import { fetchGitHubUpdates, formatRelativeTime } from '../services/github'
 
 const GitHubUpdates = ({ resource }) => {
   const [githubData, setGithubData] = useState(null)
@@ -27,31 +27,41 @@ const GitHubUpdates = ({ resource }) => {
 
       try {
         setLoading(true)
+        setError(null)
         
-        // Check cache first
-        const cachedData = await getCachedGitHubData(resource)
-        if (cachedData) {
-          setGithubData(cachedData)
+        console.log(`🔍 [GitHubUpdates] Fetching data for ${resource.name}`)
+        
+        // Fetch fresh data from server
+        const data = await fetchGitHubUpdates(resource)
+        
+        console.log(`🔍 [GitHubUpdates] Received data for ${resource.name}:`, {
+          releases: data?.releases?.length || 0,
+          commits: data?.commits?.length || 0,
+          commitsPerWeek: data?.commitsPerWeek || 0,
+          hasRepoInfo: !!data?.repoInfo
+        })
+        
+        // Check if we got valid data
+        if (data && (data.releases?.length > 0 || data.commits?.length > 0)) {
+          setGithubData(data)
           
           // Default to commits tab if no releases
-          if (cachedData.releases.length === 0 && cachedData.commits.length > 0) {
+          if (data.releases.length === 0 && data.commits.length > 0) {
             setActiveTab('commits')
           }
-          setLoading(false)
-          return
-        }
-        
-        // If no cache, fetch fresh data
-        const data = await fetchGitHubUpdates(resource)
-        setGithubData(data)
-        
-        // Default to commits tab if no releases
-        if (data.releases.length === 0 && data.commits.length > 0) {
-          setActiveTab('commits')
+          
+          console.log(`✅ [GitHubUpdates] Successfully loaded data for ${resource.name}`)
+        } else {
+          // No data available
+          console.log(`⚠️ [GitHubUpdates] No data available for ${resource.name}`)
+          setGithubData({ releases: [], commits: [], commitsPerWeek: 0, repoInfo: null })
+          setError('No recent activity available')
         }
       } catch (err) {
+        console.error(`❌ [GitHubUpdates] Error loading data for ${resource.name}:`, err)
         setError('Failed to load GitHub data')
-        console.error('GitHub data loading error:', err)
+        // Set empty data structure so UI can still render
+        setGithubData({ releases: [], commits: [], commitsPerWeek: 0, repoInfo: null })
       } finally {
         setLoading(false)
       }
@@ -78,7 +88,7 @@ const GitHubUpdates = ({ resource }) => {
     )
   }
 
-  const { releases, commits, repoInfo } = githubData
+  const { releases, commits, commitsPerWeek, repoInfo } = githubData
 
   const TabButton = ({ tabName, count, children, icon: Icon }) => (
     <button
@@ -113,6 +123,12 @@ const GitHubUpdates = ({ resource }) => {
               <GitFork size={10} />
               <span>{repoInfo.forksCount}</span>
             </div>
+            {commitsPerWeek > 0 && (
+              <div className="flex items-center space-x-1">
+                <GitCommit size={10} />
+                <span>{commitsPerWeek}/week</span>
+              </div>
+            )}
             {repoInfo.language && (
               <span className="bg-gray-700 px-1 py-0.5 rounded-full text-xs">
                 {repoInfo.language}

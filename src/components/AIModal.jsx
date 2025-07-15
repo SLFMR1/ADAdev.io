@@ -22,29 +22,29 @@ const AIWidget = ({ aiResults, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card-bg/95 backdrop-blur-md border border-gray-700 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+      <div className="bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-hidden transition-all duration-500 ease-in-out opacity-100 scale-100">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700">
           <div className="flex items-center space-x-3">
             <Sparkles className="h-6 w-6 text-cyan-400" />
-            <h2 className="text-xl font-bold text-white">AI Development Plan</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-white">AI Development Plan</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 hover:text-white transition-colors p-2 touch-target"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex h-[calc(90vh-120px)]">
+        <div className="flex flex-col lg:flex-row h-[calc(90vh-120px)]">
           {/* Tabs */}
-          <div className="w-64 border-r border-gray-700 bg-gray-900/50">
-            <div className="p-4">
+          <div className="w-full lg:w-64 border-b lg:border-b-0 lg:border-r border-gray-700 bg-gray-900/50">
+            <div className="p-4 flex lg:flex-col space-x-4 lg:space-x-0 lg:space-y-2">
               <button
                 onClick={() => setActiveTab('plan')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                className={`flex-1 lg:w-full text-left px-4 py-3 rounded-lg transition-colors touch-target ${
                   activeTab === 'plan'
                     ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                     : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
@@ -55,7 +55,7 @@ const AIWidget = ({ aiResults, onClose }) => {
               </button>
               <button
                 onClick={() => setActiveTab('tools')}
-                className={`w-full text-left px-4 py-3 rounded-lg transition-colors mt-2 ${
+                className={`flex-1 lg:w-full text-left px-4 py-3 rounded-lg transition-colors touch-target ${
                   activeTab === 'tools'
                     ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                     : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
@@ -70,12 +70,12 @@ const AIWidget = ({ aiResults, onClose }) => {
           {/* Main Content */}
           <div className="flex-1 overflow-y-auto">
             {activeTab === 'plan' && (
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
+              <div className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 space-y-2 sm:space-y-0">
                   <h3 className="text-lg font-semibold text-white">Development Plan</h3>
                   <button
                     onClick={handleCopyPlan}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+                    className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors touch-target"
                   >
                     {copied ? (
                       <>
@@ -94,18 +94,18 @@ const AIWidget = ({ aiResults, onClose }) => {
                 {/* Analysis */}
                 <div className="mb-6">
                   <h4 className="text-md font-semibold text-white mb-3">Project Analysis</h4>
-                  <p className="text-gray-300 leading-relaxed">{analysis}</p>
+                  <p className="text-gray-300 leading-relaxed text-sm sm:text-base">{analysis}</p>
                 </div>
 
                 {/* Development Approaches */}
                 <div className="space-y-6">
                   <h4 className="text-md font-semibold text-white">Development Approaches</h4>
-                  <p className="text-gray-300 mb-4">{developmentPlan.overview}</p>
+                  <p className="text-gray-300 mb-4 text-sm sm:text-base">{developmentPlan.overview}</p>
                   
                   {developmentPlan.approaches.map((approach, index) => (
                     <div key={index} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                      <div className="flex items-center justify-between mb-3">
-                        <h5 className="text-white font-medium">{approach.name}</h5>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 space-y-2 sm:space-y-0">
+                        <h5 className="text-white font-medium text-sm sm:text-base">{approach.name}</h5>
                         <div className="flex items-center space-x-2">
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             approach.complexity === 'beginner' ? 'bg-green-500/20 text-green-400' :
@@ -114,12 +114,12 @@ const AIWidget = ({ aiResults, onClose }) => {
                           }`}>
                             {approach.complexity}
                           </span>
-                          <span className="text-gray-400 text-sm">{approach.estimatedTime}</span>
+                          <span className="text-gray-400 text-xs sm:text-sm">{approach.estimatedTime}</span>
                         </div>
                       </div>
-                      <p className="text-gray-300 text-sm mb-3">{approach.description}</p>
+                      <p className="text-gray-300 text-xs sm:text-sm mb-3">{approach.description}</p>
                       <div>
-                        <span className="text-gray-400 text-sm">Required Tools:</span>
+                        <span className="text-gray-400 text-xs sm:text-sm">Required Tools:</span>
                         <div className="flex flex-wrap gap-2 mt-2">
                           {approach.tools.map((tool, toolIndex) => (
                             <span key={toolIndex} className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs">
@@ -135,15 +135,15 @@ const AIWidget = ({ aiResults, onClose }) => {
             )}
 
             {activeTab === 'tools' && (
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 <h3 className="text-lg font-semibold text-white mb-6">Recommended Tools</h3>
                 <div className="space-y-4">
                   {recommendedResources.map((resource, index) => (
                     <div key={resource.id} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h4 className="text-white font-medium">{resource.name}</h4>
+                          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mb-2">
+                            <h4 className="text-white font-medium text-sm sm:text-base">{resource.name}</h4>
                             <span className={`px-2 py-1 rounded-full text-xs ${
                               resource.priority === 'high' ? 'bg-red-500/20 text-red-400' :
                               resource.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
@@ -152,16 +152,16 @@ const AIWidget = ({ aiResults, onClose }) => {
                               {resource.priority} priority
                             </span>
                           </div>
-                          <p className="text-gray-300 text-sm mb-2">{resource.description}</p>
-                          <p className="text-gray-400 text-sm mb-3">
+                          <p className="text-gray-300 text-xs sm:text-sm mb-2">{resource.description}</p>
+                          <p className="text-gray-400 text-xs sm:text-sm mb-3">
                             <strong>Why recommended:</strong> {resource.reason}
                           </p>
-                          <div className="flex items-center space-x-4 text-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 text-xs sm:text-sm">
                             <a
                               href={resource.website}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                              className="text-cyan-400 hover:text-cyan-300 transition-colors touch-target"
                             >
                               Visit Website
                             </a>
@@ -170,7 +170,7 @@ const AIWidget = ({ aiResults, onClose }) => {
                                 href={resource.docs}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                                className="text-cyan-400 hover:text-cyan-300 transition-colors touch-target"
                               >
                                 Documentation
                               </a>

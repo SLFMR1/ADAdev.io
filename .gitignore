@@ -101,6 +101,10 @@ jspm_packages/
 SECURITY.md
 ANTI_SPAM.md
 
+# Supabase documentation (keep out of version control)
+SUPABASE_SETUP.md
+SUPABASE_INTEGRATION_SUMMARY.md
+
 # Design files
 *.psd
 ADAdev_logo.psd

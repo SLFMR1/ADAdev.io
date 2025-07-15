@@ -9,7 +9,7 @@ import {
   AlertCircle,
   Github
 } from 'lucide-react'
-import { fetchGitHubUpdates, formatRelativeTime, getCachedGitHubData } from '../services/github'
+import { fetchGitHubUpdates, formatRelativeTime } from '../services/github'
 import { cardanoResources } from '../data/resources'
 import logger from '../utils/logger'
 
@@ -95,55 +95,7 @@ const GitHubUpdatesSection = () => {
   useEffect(() => {
     if (!hasLoaded) {
       setHasLoaded(true)
-      
-      // Check if we have cached data first
-      const checkCachedData = async () => {
-        try {
-          const resourcesWithGitHub = Object.entries(cardanoResources).flatMap(([category, resources]) =>
-            resources
-              .filter(resource => resource.social?.github)
-              .map(resource => ({ ...resource, category }))
-          )
-          
-          if (resourcesWithGitHub.length > 0) {
-            // Try to get cached data for multiple resources
-            const cachedDataArray = []
-            for (const resource of resourcesWithGitHub.slice(0, 3)) {
-              const cachedData = await getCachedGitHubData(resource)
-              if (cachedData && (cachedData.releases.length > 0 || cachedData.commits.length > 0)) {
-                cachedDataArray.push({ resource, ...cachedData })
-              }
-            }
-            
-            if (cachedDataArray.length > 0) {
-              // Sort cached data by latest activity
-              const sortedCachedData = cachedDataArray.sort((a, b) => {
-                const aLatest = Math.max(
-                  ...a.releases.map(r => new Date(r.publishedAt).getTime()),
-                  ...a.commits.map(c => new Date(c.date).getTime())
-                )
-                const bLatest = Math.max(
-                  ...b.releases.map(r => new Date(r.publishedAt).getTime()),
-                  ...b.commits.map(c => new Date(c.date).getTime())
-                )
-                return bLatest - aLatest
-              })
-              
-              setGithubData(sortedCachedData)
-              setIsLoading(false)
-              logger.log(`📋 Showing cached data for ${sortedCachedData.length} resources`)
-              return // Don't load fresh data if we have valid cached data
-            }
-          }
-        } catch (error) {
-          logger.log('No cached data available, loading fresh data...')
-        }
-        
-        // Load fresh data if no cache
-        loadAllGitHubData()
-      }
-      
-      checkCachedData()
+      loadAllGitHubData()
     }
   }, [hasLoaded])
 
