@@ -216,6 +216,20 @@ export const cardanoResources = {
       },
       docs: "https://github.com/FutureFest/NMKR-Studio-Unity-SDK#readme",
       category: "Minting and NFTs"
+    },
+    {
+      id: "[next available id]",
+      name: "Kuber",
+      logo: "https://dquadrant.com/wp-content/uploads/2024/07/Dquadrant-Small-logo-white-orange.webp",
+      description: "Kuber transaction library/api",
+      fullDescription: "Javascript and Plutus/Haskell library for simple, CIP-1694 and Hydra transactions (currently under development)",
+      keySolutions: [ "Blockchain integration", "Wallet integration", "Network integration", "Hydra integration", "Transaction management" ],
+      website: "https://dquadrant.com",
+      social: {
+        github: "https://github.com/dQuadrant/kuber"
+     },
+     docs: "https://github.com/dQuadrant/kuber/#readme", 
+     category: "Libraries & Languages"
     }
   ],
   "Infrastructure & APIs": [
@@ -342,6 +356,20 @@ export const cardanoResources = {
       website: "https://docs.cardano.org/cardano-testnet/security/",
       social: {},
       category: "Security & Auditing"
+    },
+    {
+      id: "[next available id]",
+      name: "Autonomous Agent Testing",
+      logo: "https://dquadrant.com/wp-content/uploads/2024/07/Dquadrant-Small-logo-white-orange.webp",
+      description: "Solution to test CIP-1694 at scale to catch issues early",
+      fullDescription: "Agent based solution for testing Cardano governance",
+      keySolutions: [ "Blockchain integration", "CIP-1694 integration", "Agents" ],
+      website: "https://agents.cardanoapi.io/",
+      social: {
+        github: "https://github.com/cardanoapi/autonomous-agents"
+      },
+      docs: "https://github.com/cardanoapi/autonomous-agents/#readme", 
+      category: "Security & Auditing"
     }
   ],
   "Analytics & Data": [
@@ -378,6 +406,20 @@ export const cardanoResources = {
       social: {
         github: "https://github.com/input-output-hk/cardano-db-sync"
       },
+      category: "Analytics & Data"
+    },
+    {
+      id: "[next available id]",
+      name: "Mempool Explorer",
+      logo: "https://dquadrant.com/wp-content/uploads/2024/07/Dquadrant-Small-logo-white-orange.webp",
+      description: "Solution to track what's happening in the Mempool of Cardano node",
+      fullDescription: "Web-based development environment similar like Remix to build, test and deploy smart contracts",
+      keySolutions: [ "Blockchain integration", "Mempool integration", "Transaction insights" ],
+      website: "https://mempool.cardanoapi.io/",
+      social: {
+        github: "https://github.com/cardanoapi/mempool-explorer"
+      },
+      docs: "https://github.com/cardanoapi/mempool-explorer/#readme", 
       category: "Analytics & Data"
     }
   ],
@@ -521,6 +563,20 @@ export const cardanoResources = {
       social: {
         x: "https://x.com/tokeo_io"
       },
+      category: "Wallets & User Tools"
+    },
+    {
+      id: "[next available id]",
+      name: "Cardano Test Wallet",
+      logo: "https://dquadrant.com/wp-content/uploads/2024/07/Dquadrant-Small-logo-white-orange.webp",
+      description: "A test wallet integrated with Playwright",
+      fullDescription: "A test wallet for automation of end-to-end testing",
+      keySolutions: [ "Blockchain integration", "Wallet integration", "Playwright integration" ],
+      website: "https://dquadrant.com/",
+      social: {
+      github: "https://github.com/cardanoapi/cardano-test-wallet"
+      },
+      docs: "https://github.com/cardanoapi/cardeno-test-wallet/#readme", 
       category: "Wallets & User Tools"
     }
   ],
@@ -684,6 +740,20 @@ export const cardanoResources = {
       social: {
         github: "https://github.com/txpipe"
       },
+      category: "Development Platforms"
+    },
+    {
+      id: "[next available id]",
+      name: "KuberIDE",
+      logo: "https://dquadrant.com/wp-content/uploads/2024/07/Dquadrant-Small-logo-white-orange.webp",
+      description: "KuberIDE Plutus/Haskell based smart contract development platform",
+      fullDescription: "Web-based development environment similar like Remix to build, test and deploy smart contracts",
+      keySolutions: [ "Blockchain integration", "Wallet integration", "Network integration", "Hydra integration", "Transaction management" ],
+      website: "https://kuberide.com",
+      social: {
+        github: "https://github.com/dQuadrant/kuber-playground"
+      },
+      docs: "https://github.com/dQuadrant/kuber-playground/#readme", 
       category: "Development Platforms"
     }
   ],
