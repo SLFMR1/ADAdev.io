@@ -22,6 +22,14 @@ services:
     scope: RUN_TIME
     value: ${GITHUB_TOKEN}
     type: SECRET
+  - key: VITE_SUPABASE_URL
+    scope: RUN_AND_BUILD_TIME
+    value: ${VITE_SUPABASE_URL}
+    type: SECRET
+  - key: VITE_SUPABASE_ANON_KEY
+    scope: RUN_AND_BUILD_TIME
+    value: ${VITE_SUPABASE_ANON_KEY}
+    type: SECRET
   - key: NODE_ENV
     value: production
     scope: RUN_TIME

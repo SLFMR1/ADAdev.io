@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { Copy, Check, X, FileText, Sparkles } from 'lucide-react'
+import { Copy, Check, X, FileText, Bot, Sparkles } from 'lucide-react'
 import { generateMarkdownPlan } from '../services/ai'
-import logger from '../utils/logger'
+import logger from '../utils/logger-frontend'
 
 const AIWidget = ({ aiResults, onClose }) => {
   const [copied, setCopied] = useState(false)
@@ -26,7 +26,7 @@ const AIWidget = ({ aiResults, onClose }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700">
           <div className="flex items-center space-x-3">
-            <Sparkles className="h-6 w-6 text-cyan-400" />
+            <Bot className="h-6 w-6 text-teal-400" />
             <h2 className="text-lg sm:text-xl font-bold text-white">AI Development Plan</h2>
           </div>
           <button

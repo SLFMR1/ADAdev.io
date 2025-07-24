@@ -3,40 +3,566 @@ require('dotenv').config()
 const express = require('express')
 const path = require('path')
 const cors = require('cors')
+const compression = require('compression')
 const OpenAI = require('openai')
-const fs = require('fs')
 const { createClient } = require('@supabase/supabase-js')
 
 const app = express()
 const PORT = process.env.PORT || 3000
 
-// Initialize OpenAI client (server-side only)
+// Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.VITE_OPENAI_API_KEY,
 })
 
-// Initialize Supabase client (server-side)
-const supabaseUrl = process.env.VITE_SUPABASE_URL
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
 
-if (supabase) {
-  console.log('✅ Supabase client initialized')
-} else {
-  console.log('❌ Supabase not configured - activity data will not be persisted')
+// GitHub API configuration
+const GITHUB_API_BASE = 'https://api.github.com'
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN
+const RATE_LIMIT = GITHUB_TOKEN ? 5000 : 60
+const REQUEST_INTERVAL = 200 // ms between requests
+
+// In-memory cache for performance
+const CACHE = {
+  data: new Map(),
+  timestamps: new Map(),
+  maxSize: 500,
+  ttl: {
+    recent: 5 * 60 * 1000, // 5 minutes for recent data
+    weekly: 30 * 60 * 1000, // 30 minutes for weekly data
+    historical: 24 * 60 * 60 * 1000 // 24 hours for historical data
+  }
 }
 
-// Security: Configure CORS with specific origins
-const corsOptions = {
+// Rate limiting
+let requestCount = 0
+let lastRequestTime = 0
+
+const rateLimitedFetch = async (url, options = {}) => {
+  const now = Date.now()
+  const timeSinceLastRequest = now - lastRequestTime
+  
+  if (timeSinceLastRequest < REQUEST_INTERVAL) {
+    await new Promise(resolve => setTimeout(resolve, REQUEST_INTERVAL - timeSinceLastRequest))
+  }
+  
+  lastRequestTime = Date.now()
+  requestCount++
+  
+  const response = await fetch(url, {
+    headers: {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'adaDEV-Platform',
+      ...(GITHUB_TOKEN && { 'Authorization': `token ${GITHUB_TOKEN}` }),
+      ...options.headers
+    },
+    ...options
+  })
+  
+  if (!response.ok) {
+    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+  }
+  
+  return response
+}
+
+// Cache utilities
+const generateCacheKey = (type, identifier, params = {}) => {
+  const paramString = Object.keys(params).length > 0 
+    ? `_${JSON.stringify(params)}` 
+    : ''
+  return `${type}_${identifier}${paramString}`
+}
+
+const getCachedData = (key) => {
+  const timestamp = CACHE.timestamps.get(key)
+  if (!timestamp) return null
+  
+  const now = Date.now()
+  const data = CACHE.data.get(key)
+  
+  // Determine TTL based on data type
+  let ttl = CACHE.ttl.recent
+  if (key.includes('weekly')) ttl = CACHE.ttl.weekly
+  if (key.includes('historical')) ttl = CACHE.ttl.historical
+  
+  if (now - timestamp > ttl) {
+    CACHE.data.delete(key)
+    CACHE.timestamps.delete(key)
+    return null
+  }
+  
+  return data
+}
+
+const setCachedData = (key, data) => {
+  // Cleanup if cache is full
+  if (CACHE.data.size >= CACHE.maxSize) {
+    const oldestKey = CACHE.timestamps.entries().next().value?.[0]
+    if (oldestKey) {
+      CACHE.data.delete(oldestKey)
+      CACHE.timestamps.delete(oldestKey)
+    }
+  }
+  
+  CACHE.data.set(key, data)
+  CACHE.timestamps.set(key, Date.now())
+}
+
+// GitHub API functions
+const fetchRepoCommits = async (repoPath, since = null) => {
+  const cacheKey = generateCacheKey('commits', repoPath, { since })
+  const cached = getCachedData(cacheKey)
+  if (cached) return cached
+  
+  try {
+    let url = `${GITHUB_API_BASE}/repos/${repoPath}/commits?per_page=100`
+    if (since) {
+      url += `&since=${since}`
+    }
+    
+    const response = await rateLimitedFetch(url)
+    const commits = await response.json()
+    
+    // Validate that commits is an array
+    if (!Array.isArray(commits)) {
+      console.warn(`Invalid commits response for ${repoPath}:`, typeof commits)
+      return []
+    }
+    
+    setCachedData(cacheKey, commits)
+    return commits
+  } catch (error) {
+    if (error.message.includes('404')) {
+      console.warn(`Repository ${repoPath} not found or not accessible`)
+      return []
+    }
+    if (error.message.includes('409')) {
+      console.warn(`Repository ${repoPath} is empty or has no commits`)
+      return []
+    }
+    console.error(`Error fetching commits for ${repoPath}:`, error.message)
+    return []
+  }
+}
+
+const fetchRepoReleases = async (repoPath, limit = 10) => {
+  const cacheKey = generateCacheKey('releases', repoPath, { limit })
+  const cached = getCachedData(cacheKey)
+  if (cached) return cached
+  
+  try {
+    const url = `${GITHUB_API_BASE}/repos/${repoPath}/releases?per_page=${limit}`
+    const response = await rateLimitedFetch(url)
+    const releases = await response.json()
+    
+    // Validate that releases is an array
+    if (!Array.isArray(releases)) {
+      console.warn(`Invalid releases response for ${repoPath}:`, typeof releases)
+      return []
+    }
+    
+    setCachedData(cacheKey, releases)
+    return releases
+  } catch (error) {
+    if (error.message.includes('404')) {
+      console.warn(`Repository ${repoPath} not found or not accessible`)
+      return []
+    }
+    console.error(`Error fetching releases for ${repoPath}:`, error.message)
+    return []
+  }
+}
+
+const fetchOrgRepos = async (orgName) => {
+  const cacheKey = generateCacheKey('org_repos', orgName)
+  const cached = getCachedData(cacheKey)
+  if (cached) return cached
+  
+  try {
+    const url = `${GITHUB_API_BASE}/orgs/${orgName}/repos?type=public&per_page=100`
+    const response = await rateLimitedFetch(url)
+    const repos = await response.json()
+    
+    setCachedData(cacheKey, repos)
+    return repos
+  } catch (error) {
+    if (error.message.includes('404')) {
+      console.warn(`Organization ${orgName} not found or not accessible`)
+      return []
+    }
+    console.error(`Error fetching repos for ${orgName}:`, error.message)
+    return []
+  }
+}
+
+const fetchOrgCommits = async (orgName, since) => {
+  try {
+    const repos = await fetchOrgRepos(orgName)
+    if (!repos || repos.length === 0) {
+      console.warn(`No repositories found for organization: ${orgName}`)
+      return []
+    }
+    
+    const allCommits = []
+    
+    for (const repo of repos.slice(0, 20)) { // Limit to 20 repos to avoid rate limits
+      try {
+        const commits = await fetchRepoCommits(repo.full_name, since)
+        if (commits && Array.isArray(commits)) {
+          allCommits.push(...commits.map(commit => ({
+            ...commit,
+            repo: repo.name,
+            org: orgName
+          })))
+        }
+      } catch (error) {
+        console.error(`Error fetching commits for ${repo.full_name}:`, error.message)
+        // Continue with other repos instead of failing completely
+      }
+    }
+    
+    return allCommits
+  } catch (error) {
+    console.error(`Error in fetchOrgCommits for ${orgName}:`, error.message)
+    return []
+  }
+}
+
+// Database functions
+const createTables = async () => {
+  if (!supabase) return
+  
+  try {
+    // Weekly activity table
+    await supabase.rpc('create_weekly_activity_table')
+    
+    // Organization activity table
+    await supabase.rpc('create_org_activity_table')
+    
+    console.log('✅ Database tables created/verified')
+  } catch (error) {
+    console.log('⚠️ Database tables may already exist:', error.message)
+  }
+}
+
+const storeWeeklyActivity = async (resource, weeklyData) => {
+  if (!supabase) return
+  
+  try {
+    // Extract repo path from GitHub URL
+    const repoPath = resource.social?.github?.replace('https://github.com/', '')
+    if (!repoPath) {
+      console.error(`No valid GitHub URL for ${resource.name}`)
+      return
+    }
+    
+    const { error } = await supabase
+      .from('github_activity')
+      .upsert(weeklyData.map(week => ({
+        resource_id: repoPath, // Use repoPath as resource_id
+        repo_path: repoPath,
+        week_start: week.weekStart,
+        commit_count: week.count,
+        year: week.year,
+        week_number: week.week,
+        fetched_at: new Date().toISOString()
+      })), { onConflict: 'resource_id,repo_path,week_start' })
+    
+    if (error) throw error
+  } catch (error) {
+    console.error('Error storing weekly activity:', error)
+  }
+}
+
+const getWeeklyActivity = async (resource, startDate, endDate) => {
+  if (!supabase) return []
+  
+  try {
+    // Extract repo path from GitHub URL
+    const repoPath = resource.social?.github?.replace('https://github.com/', '')
+    if (!repoPath) {
+      console.error(`No valid GitHub URL for ${resource.name}`)
+      return []
+    }
+    
+    const { data, error } = await supabase
+      .from('github_activity')
+      .select('*')
+      .eq('repo_path', repoPath)
+      .gte('week_start', startDate)
+      .lte('week_start', endDate)
+      .order('week_start')
+    
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error fetching weekly activity:', error)
+    return []
+  }
+}
+
+// Data processing functions
+const processCommitsToWeekly = (commits) => {
+  const weeklyData = new Map()
+  
+  commits.forEach((commit, index) => {
+    const commitDate = commit.commit?.author?.date || commit.date
+    if (!commitDate) {
+      return
+    }
+    
+    const date = new Date(commitDate)
+    if (isNaN(date.getTime())) {
+      return
+    }
+    
+    const weekStart = new Date(date)
+    weekStart.setDate(date.getDate() - date.getDay())
+    weekStart.setHours(0, 0, 0, 0)
+    
+    const weekKey = weekStart.toISOString().slice(0, 10)
+    weeklyData.set(weekKey, (weeklyData.get(weekKey) || 0) + 1)
+  })
+  
+  return Array.from(weeklyData.entries()).map(([weekStart, count]) => {
+    // Ensure weekStart is a valid date string
+    const weekStartDate = new Date(weekStart)
+    if (isNaN(weekStartDate.getTime())) {
+      console.warn(`Invalid weekStart date: ${weekStart}`)
+      return null
+    }
+    
+    return {
+      weekStart: weekStart,
+      count: count,
+      year: weekStartDate.getFullYear(),
+      week: Math.ceil((weekStartDate.getDate() + weekStartDate.getDay()) / 7)
+    }
+  }).filter(Boolean) // Remove null entries
+}
+
+// Process commits into daily data for 7-day view
+const processCommitsToDaily = (commits) => {
+  const dailyData = new Map()
+  
+  // Get the last 7 days
+  const today = new Date()
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    const dateKey = date.toISOString().slice(0, 10)
+    dailyData.set(dateKey, 0) // Initialize with 0
+  }
+  
+  // Count commits for each day
+  commits.forEach(commit => {
+    const date = new Date(commit.date)
+    const dateKey = date.toISOString().slice(0, 10)
+    if (dailyData.has(dateKey)) {
+      dailyData.set(dateKey, dailyData.get(dateKey) + 1)
+    }
+  })
+  
+  return Array.from(dailyData.entries()).map(([date, count]) => ({
+    weekStart: date,
+    count: count,
+    year: new Date(date).getFullYear(),
+    week: 1
+  }))
+}
+
+const getRecentActivity = async (resource, useDailyProcessing = false) => {
+  let commits = []
+  let repoInfo = null
+  
+  try {
+    // Determine the time window based on processing type
+    const timeWindow = useDailyProcessing ? 7 : 30; // 7 days for daily, 30 days for weekly
+    const since = new Date(Date.now() - timeWindow * 24 * 60 * 60 * 1000).toISOString();
+    
+    if (resource.type === 'organization') {
+      // Use the organization field or extract from GitHub URL
+      const orgName = resource.organization || resource.social.github.replace('https://github.com/', '')
+      commits = await fetchOrgCommits(orgName, since)
+    } else if (resource.type === 'repository' && resource.social?.github) {
+      const repoPath = resource.social.github.replace('https://github.com/', '')
+      commits = await fetchRepoCommits(repoPath, since) // Use time-based filtering
+      
+      // Also fetch repository info
+      try {
+        const url = `${GITHUB_API_BASE}/repos/${repoPath}`
+        const response = await rateLimitedFetch(url)
+        repoInfo = await response.json()
+      } catch (error) {
+        console.error(`Error fetching repo info for ${repoPath}:`, error.message)
+      }
+    } else {
+      // Handle resources without proper GitHub URL
+      console.warn(`Skipping ${resource.name} - no valid GitHub URL found`)
+      return {
+        commits: [],
+        commitsPerWeek: 0,
+        weeklyData: [],
+        repoInfo: null
+      }
+    }
+    
+    // Ensure commits is an array
+    if (!Array.isArray(commits)) {
+      console.warn(`Invalid commits data for ${resource.name}:`, typeof commits)
+      commits = []
+    }
+    
+    // Transform commits to match frontend expectations
+    const transformedCommits = commits.map(commit => ({
+      sha: commit.sha,
+      message: commit.commit?.message || commit.message || '',
+      date: commit.commit?.author?.date || commit.date || new Date().toISOString(),
+      htmlUrl: commit.html_url || commit.htmlUrl || '',
+      author: commit.commit?.author?.name || commit.author?.name || 'Unknown',
+      repo: resource.name
+    }))
+    
+    // Use daily processing for 7-day view, weekly processing for other views
+    const processedData = useDailyProcessing 
+      ? processCommitsToDaily(transformedCommits)
+      : processCommitsToWeekly(transformedCommits)
+    
+    return {
+      commits: transformedCommits.slice(0, 20), // Latest 20 commits
+      commitsPerWeek: transformedCommits.length,
+      weeklyData: processedData,
+      repoInfo
+    }
+  } catch (error) {
+    console.error(`Error in getRecentActivity for ${resource.name}:`, error.message)
+    return {
+      commits: [],
+      commitsPerWeek: 0,
+      weeklyData: [],
+      repoInfo: null
+    }
+  }
+}
+
+const getHistoricalActivity = async (resource, startDate, endDate) => {
+  // Organizations always use GitHub API since they aggregate multiple repos
+  // Individual repositories can use database cache
+  let dbData = []
+  
+  if (resource.type !== 'organization') {
+    dbData = await getWeeklyActivity(resource, startDate, endDate)
+  }
+  
+  if (dbData.length > 0) {
+    const mappedData = dbData.map(row => ({
+      weekStart: row.week_start,
+      count: row.commit_count,
+      year: row.year,
+      week: row.week_number
+    }))
+    
+    // Aggregate duplicate weeks by summing commit counts
+    const aggregatedWeeks = new Map()
+    
+    mappedData.forEach(week => {
+      const key = week.weekStart
+      if (aggregatedWeeks.has(key)) {
+        // Sum the commit counts for duplicate weeks
+        const existing = aggregatedWeeks.get(key)
+        existing.count += week.count
+      } else {
+        aggregatedWeeks.set(key, { ...week })
+      }
+    })
+    
+    const finalData = Array.from(aggregatedWeeks.values()).sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart))
+    
+    return finalData
+  }
+  
+  // Fallback to GitHub API
+  const since = new Date(startDate).toISOString()
+  let commits = []
+  
+  if (resource.type === 'organization') {
+    // Use the organization field or extract from GitHub URL
+    const orgName = resource.organization || resource.social.github.replace('https://github.com/', '')
+    commits = await fetchOrgCommits(orgName, since)
+  } else {
+    const repoPath = resource.social.github.replace('https://github.com/', '')
+    commits = await fetchRepoCommits(repoPath, since)
+  }
+  
+  const weeklyData = processCommitsToWeekly(commits)
+  
+  // Store in database for future use (only for individual repositories)
+  if (resource.type !== 'organization') {
+    await storeWeeklyActivity(resource, weeklyData)
+  }
+  
+  return weeklyData
+}
+
+// Load resources
+const loadResources = async () => {
+  try {
+    const { cardanoResources } = require('./src/data/resources_server.js')
+    const allResources = []
+    
+    // Flatten all resources from all categories
+    Object.values(cardanoResources).forEach(category => {
+      if (Array.isArray(category)) {
+        allResources.push(...category)
+      }
+    })
+    
+    return allResources.map(resource => {
+      // Use existing type field if available, otherwise determine from GitHub URL
+      let type = resource.type || 'unknown'
+      
+      if (type === 'unknown' && resource.social?.github) {
+        const githubUrl = resource.social.github
+        if (githubUrl.includes('/') && !githubUrl.endsWith('/')) {
+          type = 'repository'
+        } else {
+          type = 'organization'
+        }
+      } else if (type === 'unknown' && resource.organization && resource.repository) {
+        type = 'repository'
+      } else if (type === 'unknown' && resource.organization && !resource.repository) {
+        type = 'organization'
+      }
+      
+      return {
+        ...resource,
+        type
+      }
+    })
+  } catch (error) {
+    console.error('Error loading resources:', error)
+    return []
+  }
+}
+
+// Middleware
+app.use(compression())
+app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://adadev.io', 'https://www.adadev.io'] // Production domain
+    ? ['https://adadev.io', 'https://www.adadev.io']
     : ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true,
-  optionsSuccessStatus: 200
-}
-app.use(cors(corsOptions))
+  credentials: true
+}))
 
-// Security: Add basic security headers
+app.use(express.json({ limit: '1mb' }))
+app.use(express.static(path.join(__dirname, 'dist')))
+
+// Security headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('X-Frame-Options', 'DENY')
@@ -45,1705 +571,380 @@ app.use((req, res, next) => {
   next()
 })
 
-// Add JSON body parsing middleware with size limit
-app.use(express.json({ limit: '1mb' }))
+// API Routes
 
-// Serve static files from dist directory
-app.use(express.static(path.join(__dirname, 'dist')))
-
-// Persistent cache storage
-const CACHE_DIR = path.join(__dirname, '.cache')
-const CACHE_FILE = path.join(CACHE_DIR, 'github-cache.json')
-const CACHE_TIMESTAMPS_FILE = path.join(CACHE_DIR, 'github-cache-timestamps.json')
-
-// Ensure cache directory exists
-if (!fs.existsSync(CACHE_DIR)) {
-  fs.mkdirSync(CACHE_DIR, { recursive: true })
-}
-
-// Load cache from disk
-const loadCacheFromDisk = () => {
+// Get recent activity for a resource
+app.post('/api/github/updates', async (req, res) => {
   try {
-    if (fs.existsSync(CACHE_FILE) && fs.existsSync(CACHE_TIMESTAMPS_FILE)) {
-      const cacheData = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'))
-      const timestampsData = JSON.parse(fs.readFileSync(CACHE_TIMESTAMPS_FILE, 'utf8'))
-      
-      GITHUB_CACHE.data = new Map(Object.entries(cacheData))
-      GITHUB_CACHE.timestamps = new Map(Object.entries(timestampsData))
-      
-      console.log(`📂 Loaded ${GITHUB_CACHE.data.size} cache entries from disk`)
-    }
-  } catch (error) {
-    console.log('📂 No existing cache found, starting fresh')
-  }
-}
-
-// Save cache to disk
-const saveCacheToDisk = () => {
-  try {
-    const cacheData = Object.fromEntries(GITHUB_CACHE.data)
-    const timestampsData = Object.fromEntries(GITHUB_CACHE.timestamps)
-    
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(cacheData, null, 2))
-    fs.writeFileSync(CACHE_TIMESTAMPS_FILE, JSON.stringify(timestampsData, null, 2))
-    
-    console.log(`💾 Saved ${GITHUB_CACHE.data.size} cache entries to disk`)
-  } catch (error) {
-    console.error('❌ Failed to save cache to disk:', error)
-  }
-}
-
-// Initialize cache with persistent storage
-const GITHUB_CACHE = {
-  data: new Map(),
-  timestamps: new Map(),
-  CACHE_DURATION: 24 * 60 * 60 * 1000, // 24 hours
-  lastCleanup: Date.now(),
-  lastSave: Date.now()
-}
-
-// Load existing cache on startup
-loadCacheFromDisk()
-
-// Cache cleanup function
-const cleanupExpiredCache = () => {
-  const now = Date.now()
-  const expiredKeys = []
-  
-  for (const [key, timestamp] of GITHUB_CACHE.timestamps.entries()) {
-    if (now - timestamp > GITHUB_CACHE.CACHE_DURATION) {
-      expiredKeys.push(key)
-    }
-  }
-  
-  expiredKeys.forEach(key => {
-    GITHUB_CACHE.data.delete(key)
-    GITHUB_CACHE.timestamps.delete(key)
-  })
-  
-  if (expiredKeys.length > 0) {
-    console.log(`🧹 Cleaned up ${expiredKeys.length} expired cache entries`)
-    saveCacheToDisk() // Save after cleanup
-  }
-  
-  GITHUB_CACHE.lastCleanup = now
-}
-
-// Clean up expired cache every hour
-setInterval(cleanupExpiredCache, 60 * 60 * 1000)
-
-// GitHub API utilities
-const GITHUB_API_BASE = 'https://api.github.com'
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN || null // Use token if available
-
-// Log token status (without exposing sensitive information)
-console.log(`🔐 GitHub Token Status: ${GITHUB_TOKEN ? '✅ Token available' : '❌ No token found'}`)
-
-// Check current rate limit status
-const checkRateLimitStatus = async () => {
-  try {
-    const response = await fetch(`${GITHUB_API_BASE}/rate_limit`, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'adaDEV-Platform',
-        ...(GITHUB_TOKEN && { 'Authorization': `token ${GITHUB_TOKEN}` })
-      }
-    })
-    
-    if (response.ok) {
-      const data = await response.json()
-      const core = data.resources.core
-      console.log(`📊 Rate limit status: ${core.remaining}/${core.limit} requests remaining, resets at ${new Date(core.reset * 1000).toISOString()}`)
-      return core
-    }
-  } catch (error) {
-    console.error('❌ Failed to check rate limit status:', error.message)
-  }
-  return null
-}
-
-// Rate limiting for server-side requests
-let requestCount = 0
-const MAX_REQUESTS_PER_HOUR = 5000 // GitHub allows 5000/hour for authenticated requests
-let lastRequestTime = 0
-const MIN_REQUEST_INTERVAL = 200 // 200ms between requests to stay well under limits
-
-const rateLimitedFetch = async (url, options = {}) => {
-  const now = Date.now()
-  
-  // Rate limiting
-  const timeSinceLastRequest = now - lastRequestTime
-  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-    const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest
-    await new Promise(resolve => setTimeout(resolve, waitTime))
-  }
-  
-  requestCount++
-  lastRequestTime = Date.now()
-  
-  console.log(`📡 Server making GitHub API request (${requestCount}/${MAX_REQUESTS_PER_HOUR}): ${url}`)
-  
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'adaDEV-Platform',
-        ...(GITHUB_TOKEN && { 'Authorization': `token ${GITHUB_TOKEN}` }),
-        ...options.headers
-      }
-    })
-    
-    // Check rate limit headers
-    const remaining = response.headers.get('x-ratelimit-remaining')
-    const reset = response.headers.get('x-ratelimit-reset')
-    
-    if (remaining !== null) {
-      console.log(`📊 Rate limit: ${remaining} requests remaining, resets at ${new Date(reset * 1000).toISOString()}`)
+    const resource = req.body
+    if (!resource?.name || !resource?.social?.github) {
+      return res.status(400).json({ error: 'Invalid resource data' })
     }
     
-    if (response.status === 429) {
-      const retryAfter = response.headers.get('retry-after')
-      console.error(`❌ Rate limit exceeded for ${url}. Retry after: ${retryAfter}s`)
-      throw new Error(`GitHub API rate limit exceeded. Retry after ${retryAfter || 60} seconds`)
-    }
-    
-    if (!response.ok) {
-      console.error(`❌ GitHub API error ${response.status} for ${url}`)
-      throw new Error(`GitHub API error: ${response.status}`)
-    }
-    
-    return response
-  } catch (error) {
-    console.error(`❌ GitHub API request failed: ${error.message}`)
-    throw error
-  }
-}
-
-// Extract repo path from GitHub URL
-const extractRepoPath = (githubUrl) => {
-  if (!githubUrl) return null
-  
-  // Handle organization URLs (e.g., https://github.com/masumi-network)
-  const orgMatch = githubUrl.match(/github\.com\/([^\/]+)$/)
-  if (orgMatch) {
-    return orgMatch[1]
-  }
-  
-  // Handle repository URLs (e.g., https://github.com/owner/repo)
-  const repoMatch = githubUrl.match(/github\.com\/([^\/]+\/[^\/]+)/)
-  return repoMatch ? repoMatch[1] : null
-}
-
-// Supabase activity storage functions
-const storeActivityData = async (resource, weeklyData) => {
-  console.log(`🔍 storeActivityData called for ${resource.name} with ${weeklyData.length} records`)
-  if (!supabase) {
-    console.log('❌ Supabase not available, skipping activity storage')
-    return { error: 'Supabase not configured' }
-  }
-
-  try {
-          const resourceId = String(resource.id || resource.name)
-    const repoPath = extractRepoPath(resource.social?.github)
-    
-    if (!repoPath) {
-      console.log(`❌ Invalid GitHub URL for ${resource.name}`)
-      return { error: 'Invalid GitHub URL' }
-    }
-
-    // Helper function to get ISO week number
-    const getISOWeekNumber = (date) => {
-      const d = new Date(date)
-      d.setHours(0, 0, 0, 0)
-      // Thursday in current week decides the year
-      d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
-      // January 4 is always in week 1
-      const week1 = new Date(d.getFullYear(), 0, 4)
-      // Adjust to Thursday in week 1 and count number of weeks from date to week1
-      return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
-    }
-
-    // Helper function to get week start date (Monday)
-    const getWeekStart = (date) => {
-      const d = new Date(date)
-      const day = d.getDay()
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
-      const monday = new Date(d.setDate(diff))
-      return monday.toISOString().split('T')[0]
-    }
-
-    // STRICT VALIDATION: Ensure we only store real GitHub data
-    const validateWeeklyData = (week) => {
-      if (!week || !week.weekStart || typeof week.count !== 'number') {
-        console.warn(`⚠️ Invalid week data:`, week)
-        return false
-      }
-      
-      // Ensure commit count is a real integer from GitHub
-      if (!Number.isInteger(week.count) || week.count < 0) {
-        console.warn(`⚠️ Invalid commit count: ${week.count}`, week)
-        return false
-      }
-      
-      // Validate date format
-      const date = new Date(week.weekStart)
-      if (isNaN(date.getTime())) {
-        console.warn(`⚠️ Invalid date: ${week.weekStart}`, week)
-        return false
-      }
-      
-      return true
-    }
-    
-    // Validate and prepare data for insertion
-    const activityRecords = weeklyData
-      .filter(validateWeeklyData)
-      .map(week => {
-        const weekStartDate = new Date(week.weekStart)
-        
-        return {
-          resource_id: resourceId,
-          repo_path: repoPath,
-          week_start: getWeekStart(weekStartDate),
-          year: weekStartDate.getFullYear(),
-          week_number: getISOWeekNumber(weekStartDate),
-          commit_count: week.count,
-          fetched_at: new Date().toISOString()
-        }
-      })
-
-    if (activityRecords.length === 0) {
-      console.log(`⚠️ No valid weekly data to store for ${resource.name}`)
-      console.log(`🔍 Original data sample:`, weeklyData.slice(0, 3))
-      return { success: true, count: 0 }
-    }
-
-    console.log(`💾 Storing ${activityRecords.length} weekly records for ${resource.name}`)
-    console.log(`📋 Sample record:`, activityRecords[0])
-    console.log(`📊 Data summary: ${activityRecords.filter(r => r.commit_count > 0).length} weeks with commits`)
-    console.log(`📅 Date range: ${activityRecords[0]?.week_start} to ${activityRecords[activityRecords.length - 1]?.week_start}`)
-    // Detailed logging of actual records
-    console.log('🟢 About to upsert to Supabase (first 5):', JSON.stringify(activityRecords.slice(0, 5), null, 2))
-    if (activityRecords.length > 10) {
-      console.log('🟢 About to upsert to Supabase (last 5):', JSON.stringify(activityRecords.slice(-5), null, 2))
-    }
-
-    // Check if records already exist for this resource
-    const { data: existingRecords, error: checkError } = await supabase
-      .from('github_activity')
-      .select('week_start, commit_count')
-      .eq('resource_id', resourceId)
-      .eq('repo_path', repoPath)
-      .order('week_start', { ascending: true })
-
-    if (checkError) {
-      console.error(`❌ Failed to check existing records for ${resource.name}:`, checkError)
-      return { error: checkError.message }
-    }
-
-    // Compare existing data with new data
-    let needsUpdate = false
-    if (existingRecords && existingRecords.length > 0) {
-      console.log(`📊 Found ${existingRecords.length} existing records for ${resource.name}`)
-      
-      // Check if data is different (simplified comparison)
-      const existingWeeks = existingRecords.length
-      const newWeeks = activityRecords.length
-      
-      if (existingWeeks !== newWeeks) {
-        needsUpdate = true
-        console.log(`🔄 Data length changed: ${existingWeeks} → ${newWeeks} weeks`)
-      } else {
-        // Check if any commit counts are different
-        for (let i = 0; i < Math.min(existingRecords.length, activityRecords.length); i++) {
-          if (existingRecords[i].commit_count !== activityRecords[i].commit_count) {
-            needsUpdate = true
-            console.log(`🔄 Data changed at week ${existingRecords[i].week_start}: ${existingRecords[i].commit_count} → ${activityRecords[i].commit_count}`)
-            break
-          }
-        }
-      }
-    } else {
-      needsUpdate = true
-      console.log(`🆕 No existing records found for ${resource.name}, will insert new data`)
-    }
-
-    // Always use upsert to update data - no need to delete first
-    console.log(`🔄 Upserting ${activityRecords.length} records for ${resource.name}`)
-
-    // Use upsert to handle duplicates properly
-    const { data, error } = await supabase
-      .from('github_activity')
-      .upsert(activityRecords, {
-        onConflict: 'resource_id,repo_path,week_start'
-      })
-
-    if (error) {
-      console.error(`❌ Failed to store activity data for ${resource.name}:`, error)
-      console.error(`🔍 Error details:`, { code: error.code, message: error.message, details: error.details })
-      return { error: error.message }
-    }
-
-    console.log(`✅ Stored ${data?.length || 0} activity records for ${resource.name}`)
-    console.log(`📊 Upsert result:`, { data: data?.length, error: error?.message })
-    return { success: true, count: data?.length || 0 }
-  } catch (error) {
-    console.error(`❌ Error storing activity data for ${resource.name}:`, error)
-    return { error: error.message }
-  }
-}
-
-// Merge existing database data with new GitHub data
-const mergeHistoricalData = async (resource, newWeeklyData) => {
-  if (!supabase) {
-    return newWeeklyData
-  }
-
-  try {
-    const resourceId = String(resource.id || resource.name)
-    const repoPath = extractRepoPath(resource.social?.github)
-    
-    if (!repoPath) {
-      return newWeeklyData
-    }
-
-    // Get existing data from database (up to 3 years worth)
-    const threeYearsAgo = new Date()
-    threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3)
-    
-    const { data: existingData, error } = await supabase
-      .from('github_activity')
-      .select('week_start, commit_count')
-      .eq('resource_id', resourceId)
-      .eq('repo_path', repoPath)
-      .gte('week_start', threeYearsAgo.toISOString().slice(0, 10))
-      .order('week_start', { ascending: true })
-
-    if (error) {
-      console.log(`⚠️ Error fetching existing data for ${resource.name}:`, error.message)
-      return newWeeklyData
-    }
-
-    if (!existingData || existingData.length === 0) {
-      console.log(`📊 No existing data found for ${resource.name}, using new data only`)
-      return newWeeklyData
-    }
-
-    // Create a map of existing data by week_start
-    const existingDataMap = new Map()
-    existingData.forEach(record => {
-      existingDataMap.set(record.week_start, record.commit_count)
-    })
-
-    // Merge new data with existing data
-    const mergedData = newWeeklyData.map(week => {
-      const existingCount = existingDataMap.get(week.weekStart)
-      
-      // If we have existing data for this week, use the higher count
-      // (this handles cases where GitHub data might be incomplete)
-      if (existingCount !== undefined) {
-        return {
-          weekStart: week.weekStart,
-          count: Math.max(week.count, existingCount)
-        }
-      }
-      
-      return week
-    })
-
-    // Add any existing weeks that aren't in the new data
-    existingData.forEach(record => {
-      const weekExists = mergedData.some(week => week.weekStart === record.week_start)
-      if (!weekExists) {
-        mergedData.push({
-          weekStart: record.week_start,
-          count: record.commit_count
-        })
-      }
-    })
-
-    // Sort by date
-    mergedData.sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart))
-
-    console.log(`📊 Merged data for ${resource.name}: ${existingData.length} existing + ${newWeeklyData.length} new = ${mergedData.length} total weeks`)
-    
-    return mergedData
-  } catch (error) {
-    console.error(`❌ Error merging historical data for ${resource.name}:`, error)
-    return newWeeklyData
-  }
-}
-
-// Fetch latest releases
-const fetchLatestReleases = async (repoPath, limit = 3) => {
-  try {
-    const response = await rateLimitedFetch(`${GITHUB_API_BASE}/repos/${repoPath}/releases?per_page=${limit}`)
-    const releases = await response.json()
-    
-    return releases.map(release => ({
-      id: release.id,
-      name: release.name || release.tag_name,
-      tagName: release.tag_name,
-      publishedAt: release.published_at,
-      body: release.body,
-      htmlUrl: release.html_url,
-      prerelease: release.prerelease,
-      draft: release.draft
-    }))
-  } catch (error) {
-    if (error.message.includes('404')) {
-      console.log(`⚠️ No releases found for ${repoPath} (repository might be private or moved)`)
-    } else {
-      console.error(`Error fetching releases for ${repoPath}:`, error)
-    }
-    return []
-  }
-}
-
-// Fetch weekly commit statistics using GitHub API
-// Uses /stats/participation endpoint which returns weekly commit counts for the last 52 weeks
-// Falls back to manual calculation for repos with >10,000 commits (422 error)
-const fetchWeeklyCommitStats = async (repoPath) => {
-  try {
-    // Get the last 52 weeks of commit activity
-    const response = await rateLimitedFetch(`${GITHUB_API_BASE}/repos/${repoPath}/stats/participation`)
-    
-    // Handle different response statuses
-    if (response.status === 202) {
-      console.log(`⏳ Weekly stats for ${repoPath} are being computed, will retry later`)
-      return 0
-    }
-    
-    if (response.status === 204) {
-      console.log(`📭 No weekly stats available for ${repoPath}`)
-      return 0
-    }
-    
-    const stats = await response.json()
-    
-    if (!stats.all || stats.all.length === 0) {
-      return 0
-    }
-    
-    // STRICT VALIDATION: Ensure this is real GitHub data
-    if (!validateGitHubData(stats.all, `GitHub API for ${repoPath}`)) {
-      console.error(`❌ Invalid data from GitHub API for ${repoPath}, returning 0`)
-      return 0
-    }
-    
-    // Get the most recent week's commit count
-    const lastWeekCommits = stats.all[stats.all.length - 1]
-    return lastWeekCommits || 0
-  } catch (error) {
-    if (error.message.includes('422')) {
-      console.log(`⚠️ Repository ${repoPath} has more than 10,000 commits, using fallback method`)
-      // Fallback: calculate from recent commits
-      return await calculateCommitsFromRecent(repoPath)
-    }
-    console.log(`⚠️ Could not fetch weekly stats for ${repoPath}:`, error.message)
-    return 0
-  }
-}
-
-// Validate that data comes from real GitHub API
-const validateGitHubData = (data, source) => {
-  if (!data || !Array.isArray(data)) {
-    console.warn(`⚠️ Invalid data structure from ${source}`)
-    return false
-  }
-  
-  // Check that all values are real numbers
-  for (let i = 0; i < data.length; i++) {
-    const value = data[i]
-    if (typeof value !== 'number' || value < 0 || !Number.isInteger(value)) {
-      console.warn(`⚠️ Invalid commit count at index ${i}: ${value} (from ${source})`)
-      return false
-    }
-  }
-  
-  // Check that we have exactly 52 values (GitHub API standard)
-  if (data.length !== 52) {
-    console.warn(`⚠️ Expected 52 weeks, got ${data.length} from ${source}`)
-    return false
-  }
-  
-  console.log(`✅ Validated ${data.length} weeks of real GitHub data from ${source}`)
-  return true
-}
-
-// Fallback method for repositories with >10,000 commits
-const calculateCommitsFromRecent = async (repoPath) => {
-  try {
-    const response = await rateLimitedFetch(`${GITHUB_API_BASE}/repos/${repoPath}/commits?per_page=100`)
-    const commits = await response.json()
-    
-    const now = new Date()
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    
-    const commitsInLastWeek = commits.filter(commit => {
-      const commitDate = new Date(commit.commit.author.date)
-      return commitDate >= oneWeekAgo
-    })
-    
-    return commitsInLastWeek.length
-  } catch (error) {
-    console.log(`⚠️ Fallback calculation failed for ${repoPath}:`, error.message)
-    return 0
-  }
-}
-
-// Fetch recent commits and weekly stats
-const fetchRecentCommits = async (repoPath, limit = 5) => {
-  try {
-    const [commitsResponse, weeklyStats] = await Promise.all([
-      rateLimitedFetch(`${GITHUB_API_BASE}/repos/${repoPath}/commits?per_page=${limit}`),
-      fetchWeeklyCommitStats(repoPath)
-    ])
-    
-    const commits = await commitsResponse.json()
-    
-    const commitData = commits.map(commit => ({
-      sha: commit.sha,
-      message: commit.commit.message,
-      author: commit.commit.author,
-      date: commit.commit.author.date,
-      htmlUrl: commit.html_url,
-      shortSha: commit.sha.substring(0, 7)
-    }))
-    
-    return {
-      commits: commitData,
-      commitsPerWeek: weeklyStats
-    }
-  } catch (error) {
-    if (error.message.includes('404')) {
-      console.log(`⚠️ No commits found for ${repoPath} (repository might be private or moved)`)
-    } else {
-      console.error(`Error fetching commits for ${repoPath}:`, error)
-    }
-    return { commits: [], commitsPerWeek: 0 }
-  }
-}
-
-// Fetch repository information
-const fetchRepositoryInfo = async (repoPath) => {
-  try {
-    const response = await rateLimitedFetch(`${GITHUB_API_BASE}/repos/${repoPath}`)
-    const repo = await response.json()
-    
-    return {
-      name: repo.name,
-      fullName: repo.full_name,
-      description: repo.description,
-      stargazersCount: repo.stargazers_count,
-      forksCount: repo.forks_count,
-      language: repo.language,
-      pushedAt: repo.pushed_at,
-      htmlUrl: repo.html_url
-    }
-  } catch (error) {
-    if (error.message.includes('404')) {
-      console.log(`⚠️ Repository info not found for ${repoPath} (repository might be private or moved)`)
-    } else {
-      console.error(`Error fetching repository info for ${repoPath}:`, error)
-    }
-    return null
-  }
-}
-
-// Fetch organization repositories
-const fetchOrganizationRepos = async (orgName, limit = 5) => {
-  try {
-    const response = await rateLimitedFetch(`${GITHUB_API_BASE}/orgs/${orgName}/repos?sort=updated&per_page=${limit}`)
-    const repos = await response.json()
-    
-    return repos.map(repo => ({
-      name: repo.name,
-      fullName: repo.full_name,
-      description: repo.description,
-      stargazersCount: repo.stargazers_count,
-      forksCount: repo.forks_count,
-      language: repo.language,
-      pushedAt: repo.pushed_at,
-      htmlUrl: repo.html_url,
-      updatedAt: repo.updated_at
-    }))
-  } catch (error) {
-    console.error(`Error fetching organization repos for ${orgName}:`, error)
-    return []
-  }
-}
-
-// Fetch organization-wide commit statistics
-const fetchOrganizationCommitStats = async (orgName, maxRepos = 10) => {
-  try {
-    console.log(`🏢 Fetching organization-wide stats for ${orgName}`)
-    
-    // Get all repositories for the organization
-    const response = await rateLimitedFetch(`${GITHUB_API_BASE}/orgs/${orgName}/repos?sort=updated&per_page=${maxRepos}`)
-    const repos = await response.json()
-    
-    if (repos.length === 0) {
-      console.log(`⚠️ No repositories found for organization ${orgName}`)
-      return { totalCommitsPerWeek: 0, totalRepos: 0 }
-    }
-    
-    console.log(`📦 Found ${repos.length} repositories for ${orgName}`)
-    
-    // Fetch weekly commit stats for each repository
-    const weeklyStatsPromises = repos.map(async (repo) => {
-      try {
-        // Get the full 52-week participation data for each repository
-        const statsResponse = await rateLimitedFetch(`${GITHUB_API_BASE}/repos/${repo.full_name}/stats/participation`)
-        
-        if (statsResponse.status === 202) {
-          console.log(`⏳ Weekly stats for ${repo.full_name} are being computed`)
-          return {
-            repoName: repo.name,
-            fullName: repo.full_name,
-            commitsPerWeek: 0,
-            all: Array(52).fill(0)
-          }
-        }
-        
-        if (statsResponse.status === 204) {
-          console.log(`📭 No weekly stats available for ${repo.full_name}`)
-          return {
-            repoName: repo.name,
-            fullName: repo.full_name,
-            commitsPerWeek: 0,
-            all: Array(52).fill(0)
-          }
-        }
-        
-        const stats = await statsResponse.json()
-        
-        if (!stats.all || stats.all.length === 0) {
-          return {
-            repoName: repo.name,
-            fullName: repo.full_name,
-            commitsPerWeek: 0,
-            all: Array(52).fill(0)
-          }
-        }
-        
-        // Get the most recent week's commit count
-        const lastWeekCommits = stats.all[stats.all.length - 1] || 0
-        
-        return {
-          repoName: repo.name,
-          fullName: repo.full_name,
-          commitsPerWeek: lastWeekCommits,
-          all: stats.all
-        }
-      } catch (error) {
-        console.log(`⚠️ Failed to get stats for ${repo.full_name}: ${error.message}`)
-        return {
-          repoName: repo.name,
-          fullName: repo.full_name,
-          commitsPerWeek: 0,
-          all: Array(52).fill(0)
-        }
-      }
-    })
-    
-    const weeklyStats = await Promise.all(weeklyStatsPromises)
-    
-    // Calculate total commits per week across all repositories
-    const totalCommitsPerWeek = weeklyStats.reduce((total, repo) => total + repo.commitsPerWeek, 0)
-    
-    console.log(`📊 Organization ${orgName} stats:`, {
-      totalRepos: repos.length,
-      totalCommitsPerWeek,
-      reposWithCommits: weeklyStats.filter(repo => repo.commitsPerWeek > 0).length
-    })
-    
-    return {
-      totalCommitsPerWeek,
-      totalRepos: repos.length,
-      repoStats: weeklyStats
-    }
-  } catch (error) {
-    console.error(`Error fetching organization commit stats for ${orgName}:`, error)
-    return { totalCommitsPerWeek: 0, totalRepos: 0 }
-  }
-}
-
-// Generate cache key for a resource
-const generateCacheKey = (resource) => {
-  const githubUrl = resource.social?.github
-  if (!githubUrl) return null
-  
-  const repoPath = extractRepoPath(githubUrl)
-  if (!repoPath) return null
-  
-  const normalizedName = resource.name.toLowerCase().replace(/[^a-z0-9]/g, '_')
-  return `github_${normalizedName}_${repoPath.replace('/', '_')}`
-}
-
-// Get cached data for a resource
-const getCachedData = (resource) => {
-  const cacheKey = generateCacheKey(resource)
-  if (!cacheKey) {
-    console.log(`❌ No cache key generated for ${resource.name}`)
-    return null
-  }
-  
-  const cached = GITHUB_CACHE.data.get(cacheKey)
-  const timestamp = GITHUB_CACHE.timestamps.get(cacheKey)
-  
-  if (cached && timestamp && (Date.now() - timestamp) < GITHUB_CACHE.CACHE_DURATION) {
-    console.log(`📋 Server cache hit for ${resource.name} (${cached.releases?.length || 0} releases, ${cached.commits?.length || 0} commits)`)
-    return cached
-  }
-  
-  console.log(`❌ Server cache miss for ${resource.name} (cache key: ${cacheKey})`)
-  return null
-}
-
-// Set cached data for a resource
-const setCachedData = (resource, data) => {
-  const cacheKey = generateCacheKey(resource)
-  if (!cacheKey) return false
-  
-  GITHUB_CACHE.data.set(cacheKey, data)
-  GITHUB_CACHE.timestamps.set(cacheKey, Date.now())
-  
-  // Save to disk periodically (every 10 cache operations)
-  const now = Date.now()
-  if (now - GITHUB_CACHE.lastSave > 30000) { // Save every 30 seconds
-    saveCacheToDisk()
-    GITHUB_CACHE.lastSave = now
-  }
-  
-  console.log(`💾 Server cached data for ${resource.name}`)
-  return true
-}
-
-// Fetch monthly commit counts for the last 12 months
-const fetchMonthlyCommitStats = async (repoPath) => {
-  const now = new Date()
-  const months = []
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    months.push({
-      label: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      count: 0
-    })
-  }
-  try {
-    // Get up to 1000 commits (GitHub API max per page is 100, so we may need to paginate)
-    let page = 1
-    let keepFetching = true
-    while (keepFetching && page <= 10) {
-      const response = await rateLimitedFetch(`${GITHUB_API_BASE}/repos/${repoPath}/commits?per_page=100&page=${page}`)
-      const commits = await response.json()
-      if (!Array.isArray(commits) || commits.length === 0) break
-      commits.forEach(commit => {
-        const date = new Date(commit.commit.author.date)
-        const label = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-        const monthObj = months.find(m => m.label === label)
-        if (monthObj) monthObj.count++
-      })
-      if (commits.length < 100) keepFetching = false
-      page++
-    }
-    return months
-  } catch (error) {
-    console.error(`Error fetching monthly commit stats for ${repoPath}:`, error)
-    return months
-  }
-}
-
-// Fetch GitHub updates for a resource (with caching)
-const fetchGitHubUpdates = async (resource) => {
-  const githubUrl = resource.social?.github
-  if (!githubUrl) {
-    return { releases: [], commits: [], commitsPerWeek: 0, repoInfo: null, commitsPerMonth: [], commitsPerWeekDetailed: [] }
-  }
-  
-  const repoPath = extractRepoPath(githubUrl)
-  if (!repoPath) {
-    return { releases: [], commits: [], commitsPerWeek: 0, repoInfo: null, commitsPerMonth: [], commitsPerWeekDetailed: [] }
-  }
-  
-  // Check cache first
-  const cachedData = getCachedData(resource)
-  if (cachedData) {
-    return cachedData
-  }
-  
-  console.log(`🔍 Server fetching fresh GitHub data for ${resource.name} (${repoPath})`)
-  
-  try {
+    const data = await getRecentActivity(resource)
     let releases = []
-    let commits = []
-    let repoInfo = null
-    let commitsPerWeek = 0
-    let commitsPerMonth = []
-    let commitsPerWeekDetailed = [];
     
-    // Check if this is an organization URL
-    if (!repoPath.includes('/')) {
-      console.log(`🏢 Server detected organization: ${repoPath}`)
-      
-      // Get organization-wide commit statistics
-      const orgStats = await fetchOrganizationCommitStats(repoPath, 10)
-      
-      if (orgStats.totalRepos === 0) {
-        return { releases: [], commits: [], commitsPerWeek: 0, repoInfo: null, commitsPerMonth: [], commitsPerWeekDetailed: [] }
+    try {
+      if (resource.type === 'repository') {
+        releases = await fetchRepoReleases(resource.social.github.replace('https://github.com/', ''), 10)
       }
-      
-      // Get the most active repository for releases and recent commits display
-      const repos = await fetchOrganizationRepos(repoPath, 10)
-      // Sum monthly stats across repos
-      let orgMonthly = []
-      for (let i = 0; i < repos.length; i++) {
-        const repoMonthly = await fetchMonthlyCommitStats(repos[i].fullName)
-        if (orgMonthly.length === 0) {
-          orgMonthly = repoMonthly.map(m => ({ ...m }))
-        } else {
-          repoMonthly.forEach((m, idx) => { orgMonthly[idx].count += m.count })
-        }
-      }
-      commitsPerMonth = orgMonthly
-      const mostActiveRepo = repos[0]
-      console.log(`📦 Server using most active repo for display: ${mostActiveRepo.fullName}`)
-      
-      const [repoReleases, repoCommitsData] = await Promise.all([
-        fetchLatestReleases(mostActiveRepo.fullName, 3),
-        fetchRecentCommits(mostActiveRepo.fullName, 20) // For display purposes
-      ])
-      
-      releases = repoReleases
-      commits = repoCommitsData.commits
-      commitsPerWeek = orgStats.totalCommitsPerWeek // Use organization-wide total
-      repoInfo = {
-        ...mostActiveRepo,
-        isOrganization: true,
-        totalRepos: orgStats.totalRepos,
-        totalCommitsPerWeek: orgStats.totalCommitsPerWeek
-      }
-      
-      // Generate weekly data for organizations by aggregating repo stats
-      if (orgStats.repoStats && orgStats.repoStats.length > 0) {
-        // Only use the actual 52 weeks from GitHub API, do NOT repeat
-        const weeklyData = Array(52).fill(0)
-        
-        // Sum up weekly commits across all repositories for the actual 52 weeks
-        for (const repoStat of orgStats.repoStats) {
-          if (repoStat && Array.isArray(repoStat.all) && repoStat.all.length === 52) {
-            // STRICT VALIDATION: Ensure this is real GitHub data
-            if (!validateGitHubData(repoStat.all, `GitHub API for ${repoStat.fullName}`)) {
-              console.error(`❌ Invalid data from GitHub API for ${repoStat.fullName}, skipping`)
-              continue
-            }
-            
-            // Add the actual 52 weeks of data from each repo
-            for (let i = 0; i < 52; i++) {
-              weeklyData[i] += repoStat.all[i] || 0
-            }
-          }
-        }
-        
-        // Calculate proper week start dates (52 weeks back from current week)
-        const now = new Date()
-        const currentWeekStart = new Date(now)
-        currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() + 1) // Monday of current week
-        
-        commitsPerWeekDetailed = weeklyData.map((count, index) => {
-          // Calculate week start date (52 weeks back from current week)
-          const weekStart = new Date(currentWeekStart)
-          weekStart.setDate(weekStart.getDate() - (52 - 1 - index) * 7)
-          
-          return {
-            weekStart: weekStart.toISOString().slice(0, 10),
-            count: count || 0
-          }
-        })
-        
-        console.log(`📊 Generated ${commitsPerWeekDetailed.length} weeks of data for organization ${repoPath}`)
-        console.log(`📅 Date range: ${commitsPerWeekDetailed[0]?.weekStart} to ${commitsPerWeekDetailed[commitsPerWeekDetailed.length - 1]?.weekStart}`)
-      }
-    } else {
-      console.log(`📦 Server detected repository: ${repoPath}`)
-      
-      const [repoReleases, repoCommitsData, repoInfoData, repoMonthly] = await Promise.all([
-        fetchLatestReleases(repoPath, 3),
-        fetchRecentCommits(repoPath, 20), // Increased to get more commits for weekly calculation
-        fetchRepositoryInfo(repoPath),
-        fetchMonthlyCommitStats(repoPath)
-      ])
-      
-      releases = repoReleases
-      commits = repoCommitsData.commits
-      commitsPerWeek = repoCommitsData.commitsPerWeek
-      repoInfo = repoInfoData
-      commitsPerMonth = repoMonthly
-      
-      // Generate weekly data for individual repositories
-      try {
-        // First try to get the standard 52-week participation data
-        const response = await rateLimitedFetch(`${GITHUB_API_BASE}/repos/${repoPath}/stats/participation`)
-        if (response.status === 200) {
-          const stats = await response.json()
-          if (stats && Array.isArray(stats.all) && stats.all.length === 52) {
-            // STRICT VALIDATION: Ensure this is real GitHub data
-            if (!validateGitHubData(stats.all, `GitHub API for ${repoPath}`)) {
-              console.error(`❌ Invalid data from GitHub API for ${repoPath}, skipping weekly data`)
-              return
-            }
-            
-            // Use the actual 52 weeks of data from GitHub
-            const weeklyData = stats.all
-            
-            // Calculate proper week start dates (52 weeks back from current week)
-            const now = new Date()
-            const currentWeekStart = new Date(now)
-            currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay() + 1) // Monday of current week
-            
-            commitsPerWeekDetailed = weeklyData.map((count, index) => {
-              // Calculate week start date (52 weeks back from current week)
-              const weekStart = new Date(currentWeekStart)
-              weekStart.setDate(weekStart.getDate() - (52 - 1 - index) * 7)
-              
-              return {
-                weekStart: weekStart.toISOString().slice(0, 10),
-                count: count || 0
-              }
-            })
-            
-            console.log(`📊 Generated ${commitsPerWeekDetailed.length} weeks of data for ${repoPath}`)
-            console.log(`📅 Date range: ${commitsPerWeekDetailed[0]?.weekStart} to ${commitsPerWeekDetailed[commitsPerWeekDetailed.length - 1]?.weekStart}`)
-          }
-        }
-      } catch (error) {
-        console.log(`⚠️ Could not fetch weekly stats for ${repoPath}:`, error.message)
-        // Fallback: create basic weekly data from current week only
-        const now = new Date()
-        const weekStart = new Date(now)
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1) // Monday of current week
-        commitsPerWeekDetailed = [{
-          weekStart: weekStart.toISOString().slice(0, 10),
-          count: commitsPerWeek
-        }]
-      }
+    } catch (error) {
+      console.error(`Error fetching releases for ${resource.name}:`, error.message)
+      releases = []
     }
     
-    const result = {
-      releases,
-      commits,
-      commitsPerWeek: commitsPerWeek || 0,
-      repoInfo,
-      commitsPerMonth,
-      commitsPerWeekDetailed, // <-- new field
-      lastUpdated: new Date().toISOString()
-    }
-    
-    // Cache the result
-    setCachedData(resource, result)
-    
-    // Store activity data in Supabase
-    if (commitsPerWeekDetailed && commitsPerWeekDetailed.length > 0) {
-      console.log(`🔍 Attempting to store ${commitsPerWeekDetailed.length} weekly records for ${resource.name} in Supabase`)
-      console.log(`📊 Weekly data sample:`, commitsPerWeekDetailed.slice(0, 3))
-      console.log(`📊 Data validation: ${commitsPerWeekDetailed.filter(w => w && w.weekStart && typeof w.count === 'number').length}/${commitsPerWeekDetailed.length} valid records`)
-      
-      try {
-        // Merge with existing historical data before storing
-        const mergedData = await mergeHistoricalData(resource, commitsPerWeekDetailed)
-        
-        const storeResult = await storeActivityData(resource, mergedData)
-        console.log(`📊 Supabase storage result for ${resource.name}:`, storeResult)
-      } catch (error) {
-        console.error(`❌ Failed to store activity data in Supabase for ${resource.name}:`, error)
-      }
-    } else {
-      console.log(`⚠️ No weekly data to store for ${resource.name}`)
-    }
-    
-    console.log(`📊 Server ${resource.name} results:`, {
-      releases: result.releases.length,
-      commits: result.commits.length,
-      commitsPerWeek: result.commitsPerWeek,
-      repoInfo: repoInfo ? 'available' : 'skipped'
+    res.json({
+      resource: resource.name,
+      commits: data.commits || [],
+      releases: releases.slice(0, 10), // Exactly 10 releases
+      commitsPerWeek: data.commitsPerWeek || 0,
+      weeklyData: data.weeklyData || [],
+      repoInfo: data.repoInfo
     })
-    
-    return result
   } catch (error) {
-    console.error(`Server error fetching GitHub updates for ${resource.name}:`, error)
-    return { releases: [], commits: [], commitsPerWeek: 0, repoInfo: null, commitsPerMonth: [], commitsPerWeekDetailed: [] }
+    console.error('API error (updates):', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch updates',
+      resource: req.body?.name || 'unknown'
+    })
   }
-}
+})
 
-// Import resources data for initial fetch
-
-// Load resources data for initial fetch
-const loadResourcesData = () => {
+// Get historical activity
+app.get('/api/github/activity/:resourceId', async (req, res) => {
   try {
-    // Read the resources.js file and extract the data
-    const resourcesPath = path.join(__dirname, 'src', 'data', 'resources.js')
-    const resourcesContent = fs.readFileSync(resourcesPath, 'utf8')
+    const { resourceId } = req.params
+    const { startDate, endDate } = req.query
     
-    // Extract the cardanoResources object using regex
-    const resourcesMatch = resourcesContent.match(/export const cardanoResources = ({[\s\S]*});/)
-    if (!resourcesMatch) {
-      console.log('❌ Could not parse resources data')
-      return []
+    const resources = await loadResources()
+    const resource = resources.find(r => r.id === resourceId)
+    if (!resource) {
+      return res.status(404).json({ error: 'Resource not found' })
     }
     
-    // Evaluate the resources object (safe since it's our own file)
-    const resourcesString = resourcesMatch[1]
-    const resources = eval(`(${resourcesString})`)
-    
-    // Flatten all resources from all categories
-    const allResources = []
-    Object.values(resources).forEach(category => {
-      if (Array.isArray(category)) {
-        allResources.push(...category)
-      }
-    })
-    
-    // Filter resources with GitHub URLs
-    const resourcesWithGitHub = allResources.filter(resource => 
-      resource.social?.github
-    )
-    
-    console.log(`📚 Loaded ${resourcesWithGitHub.length} resources with GitHub URLs`)
-    return resourcesWithGitHub
+    const data = await getHistoricalActivity(resource, startDate, endDate)
+    res.json({ resource: resource.name, weeks: data })
   } catch (error) {
-    console.error('❌ Error loading resources data:', error)
-    return []
+    console.error('API error (activity):', error)
+    res.status(500).json({ error: 'Failed to fetch activity data' })
   }
-}
+})
 
-// Initial data fetch function
-const performInitialDataFetch = async () => {
-  console.log('🚀 Starting initial GitHub data fetch...')
-  
-  const resources = loadResourcesData()
-  if (resources.length === 0) {
-    console.log('❌ No resources found for initial fetch')
-    return
+// Get organization activity
+app.get('/api/github/org-activity/:orgName', async (req, res) => {
+  try {
+    const { orgName } = req.params
+    const { startDate, endDate } = req.query
+    
+    const resource = { id: orgName, name: orgName, type: 'organization' }
+    const data = await getHistoricalActivity(resource, startDate, endDate)
+    
+    res.json({ org: orgName, start: startDate, end: endDate, weeks: data })
+  } catch (error) {
+    console.error('API error (org-activity):', error)
+    res.status(500).json({ error: 'Failed to fetch organization activity' })
   }
-  
-  // Select top 15 most popular resources for initial fetch (increased from 10)
-  const topResources = resources.slice(0, 15)
-  console.log(`📊 Pre-loading cache for ${topResources.length} resources`)
-  
-  let successCount = 0
-  let errorCount = 0
-  
-  for (let i = 0; i < topResources.length; i++) {
-    const resource = topResources[i]
-    try {
-      console.log(`🔄 [${i + 1}/${topResources.length}] Fetching data for ${resource.name}...`)
-      
-      const data = await fetchGitHubUpdates(resource)
-      
-      if (data.releases.length > 0 || data.commits.length > 0) {
-        console.log(`✅ ${resource.name}: ${data.releases.length} releases, ${data.commits.length} commits, ${data.commitsPerWeek}/week`)
-        successCount++
-      } else {
-        console.log(`⚠️ ${resource.name}: No data available`)
-      }
-      
-      // Add delay between requests to respect rate limits
-      if (i < topResources.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000)) // 2 second delay
-      }
-      
-    } catch (error) {
-      console.error(`❌ Error fetching data for ${resource.name}:`, error.message)
-      errorCount++
-    }
-  }
-  
-  console.log(`🎉 Initial fetch complete: ${successCount} successful, ${errorCount} errors`)
-  console.log(`📊 Cache now contains ${GITHUB_CACHE.data.size} entries`)
-  
-  // Start background process to load remaining resources
-  setTimeout(() => {
-    performBackgroundDataFetch(resources.slice(15))
-  }, 5000) // 5 second delay before starting background fetch
-}
+})
 
-// Background data fetch for remaining resources
-const performBackgroundDataFetch = async (remainingResources) => {
-  if (remainingResources.length === 0) {
-    console.log('✅ No remaining resources to fetch')
-    return
-  }
-  
-  console.log(`🔄 Starting background fetch for ${remainingResources.length} remaining resources...`)
-  
-  let successCount = 0
-  let errorCount = 0
-  
-  for (let i = 0; i < remainingResources.length; i++) {
-    const resource = remainingResources[i]
-    try {
-      console.log(`🔄 Background [${i + 1}/${remainingResources.length}] Fetching data for ${resource.name}...`)
-      
-      const data = await fetchGitHubUpdates(resource)
-      
-      if (data.releases.length > 0 || data.commits.length > 0) {
-        console.log(`✅ Background ${resource.name}: ${data.releases.length} releases, ${data.commits.length} commits, ${data.commitsPerWeek}/week`)
-        successCount++
-      } else {
-        console.log(`⚠️ Background ${resource.name}: No data available`)
+// Get development activity for dashboard
+app.get('/api/development-activity', async (req, res) => {
+  try {
+    const { viewMode = 'repository', period = 'current' } = req.query;
+    const resources = await loadResources();
+    console.log(`Processing ${resources.length} total resources for ${viewMode} view, ${period} period...`);
+    
+    // Determine date range based on period
+    const getDateRange = (period) => {
+      const now = new Date();
+      switch (period) {
+        case 'current':
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return { since: weekAgo.toISOString(), days: 7 };
+        case 'monthly':
+          const monthAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+          return { since: monthAgo.toISOString(), days: 28 };
+        case '3months':
+          const threeMonthsAgo = new Date(now.getTime() - 13 * 7 * 24 * 60 * 60 * 1000);
+          return { since: threeMonthsAgo.toISOString(), days: 91 };
+        case '52weeks':
+          const yearAgo = new Date(now.getTime() - 52 * 7 * 24 * 60 * 60 * 1000);
+          return { since: yearAgo.toISOString(), days: 364 };
+        case '3years':
+          const threeYearsAgo = new Date(now.getTime() - 156 * 7 * 24 * 60 * 60 * 1000);
+          return { since: threeYearsAgo.toISOString(), days: 1092 };
+        default:
+          const defaultWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return { since: defaultWeekAgo.toISOString(), days: 7 };
       }
-      
-      // Longer delay for background fetch to be less aggressive
-      if (i < remainingResources.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 3000)) // 3 second delay
-      }
-      
-    } catch (error) {
-      console.error(`❌ Background error fetching data for ${resource.name}:`, error.message)
-      errorCount++
-    }
-  }
-  
-  console.log(`🎉 Background fetch complete: ${successCount} successful, ${errorCount} errors`)
-  console.log(`📊 Cache now contains ${GITHUB_CACHE.data.size} entries`)
-}
+    };
 
-// AI Processing Functions
-const filterRelevantResources = (allResources, userInput) => {
-  const inputLower = userInput.toLowerCase()
-  const keywords = inputLower.split(' ').filter(word => word.length > 2)
-  
-  // Define category priorities based on keywords
-  const categoryPriorities = {
-    'smart contract': ['Development Tools', 'Libraries & Languages'],
-    'defi': ['Development Tools', 'Infrastructure & APIs', 'Wallets & User Tools'],
-    'nft': ['Minting and NFTs', 'Development Tools'],
-    'wallet': ['Wallets & User Tools', 'Development Tools'],
-    'api': ['Infrastructure & APIs', 'Development Tools'],
-    'security': ['Security & Auditing', 'Development Tools'],
-    'ai': ['AI & Machine Learning', 'Development Tools'],
-    'oracle': ['Oracles & External Data', 'Infrastructure & APIs'],
-    'privacy': ['Privacy & Zero-Knowledge', 'Security & Auditing'],
-    'identity': ['Identity & Authentication', 'Security & Auditing'],
-    'analytics': ['Analytics & Data', 'Infrastructure & APIs'],
-    'education': ['Education & Documentation'],
-    'community': ['Community & Engagement'],
-    'infrastructure': ['Core Infrastructure', 'Infrastructure & APIs'],
-    'scaling': ['Layer 2 Scaling Solutions', 'Infrastructure & APIs'],
-    'governance': ['Governance & DAOs', 'Community & Engagement']
-  }
-  
-  // Score resources based on relevance
-  const scoredResources = allResources.map(resource => {
-    let score = 0
+    const { since, days } = getDateRange(period);
     
-    // Check category priority
-    for (const [keyword, priorityCategories] of Object.entries(categoryPriorities)) {
-      if (inputLower.includes(keyword) && priorityCategories.includes(resource.category)) {
-        score += 10
+    const activityPromises = resources.map(async (resource) => {
+      try {
+        // Use the type field from the resource data to determine if it's an organization or repository
+        const isOrganization = resource.type === 'organization';
+        const isRepository = resource.type === 'repository';
+        
+        // For organization view, only process organizations
+        if (viewMode === 'organization' && !isOrganization) {
+          return null;
+        }
+        
+        // For repository view, only process repositories
+        if (viewMode === 'repository' && !isRepository) {
+          return null;
+        }
+        
+        let activityData;
+        
+        if (period === 'current') {
+          // For 7-day period, use getRecentActivity to get recent commits and process them into daily data
+          const recentData = await getRecentActivity(resource, true); // Use daily processing
+          activityData = recentData.weeklyData; // This contains daily data processed from recent commits
+        } else {
+          // For other periods, use getHistoricalActivity to get weekly data
+          if (isOrganization && resource.social?.github) {
+            activityData = await getHistoricalActivity(resource, since, new Date().toISOString());
+          } else if (isRepository && resource.social?.github) {
+            activityData = await getHistoricalActivity(resource, since, new Date().toISOString());
+          } else {
+            console.warn(`Skipping ${resource.name} - no valid GitHub URL or type`);
+            return null;
+          }
+        }
+        
+        // Calculate total commits for the period
+        const totalCommits = activityData.reduce((sum, week) => sum + week.count, 0);
+        
+        return {
+          resource,
+          data: {
+            commitsPerWeek: totalCommits,
+            weeklyData: activityData
+          },
+          releases: [],
+          commits: []
+        };
+      } catch (error) {
+        console.error(`Error fetching data for ${resource.name}:`, error);
+        return {
+          resource,
+          data: { commitsPerWeek: 0, weeklyData: [] },
+          releases: [],
+          commits: []
+        };
       }
-    }
-    
-    // Check name and description matches
-    if (resource.name.toLowerCase().includes(inputLower)) score += 5
-    if (resource.description.toLowerCase().includes(inputLower)) score += 3
-    
-    // Check key solutions
-    resource.keySolutions.forEach(solution => {
-      if (solution.toLowerCase().includes(inputLower)) score += 2
-    })
-    
-    return { ...resource, relevanceScore: score }
-  })
-  
-  // Sort by relevance and return top 30
-  return scoredResources
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, 30)
-    .map(({ relevanceScore, ...resource }) => resource)
-}
+    });
+
+    const results = await Promise.allSettled(activityPromises);
+    const successfulResults = results
+      .filter(result => result.status === 'fulfilled' && result.value !== null)
+      .map(result => result.value)
+      .filter(item => item.data.commitsPerWeek > 0)
+      .sort((a, b) => b.data.commitsPerWeek - a.data.commitsPerWeek);
+
+    console.log(`Successfully processed ${successfulResults.length} ${viewMode}s with activity for ${period} period`);
+
+    // Calculate metrics based on the selected period
+    const totalActiveRepos = successfulResults.length;
+    const totalCommits = successfulResults.reduce((sum, item) => sum + item.data.commitsPerWeek, 0);
+    const avgCommitsPerRepo = totalActiveRepos > 0 ? Math.round(totalCommits / totalActiveRepos) : 0;
+
+    const response = {
+      dailyLeaderboard: successfulResults.map(item => ({
+        resource: item.resource,
+        totalCommits: item.data.commitsPerWeek
+      })),
+      weeklyLeaderboard: successfulResults.map(item => ({
+        resource: item.resource,
+        totalCommits: item.data.commitsPerWeek
+      })),
+      dailyChartData: successfulResults.map(item => {
+        // For daily chart data, always use consistent structure
+        const chartData = item.data.weeklyData || [];
+        return {
+          resource: item.resource,
+          dailyCounts: chartData.map(d => d.count),
+          weeklyData: chartData // Include full data for consistency
+        };
+      }),
+      weeklyChartData: successfulResults.map(item => {
+        // For weekly chart data, always use consistent structure
+        const chartData = item.data.weeklyData || [];
+        return {
+          resource: item.resource,
+          weeklyCounts: chartData.map(w => w.count),
+          weeklyData: chartData // Include full data for consistency
+        };
+      }),
+      // Add detailed data for GitHub Updates widget
+      githubUpdates: successfulResults.map(item => ({
+        resource: item.resource,
+        commits: item.commits || [],
+        releases: item.releases || [],
+        commitsPerWeek: item.data.commitsPerWeek || 0,
+        weeklyData: item.data.weeklyData || [],
+        repoInfo: item.data.repoInfo
+      })),
+      metrics: {
+        daily: {
+          totalActiveRepos,
+          avgCommitsPerRepo,
+          totalCommits
+        },
+        weekly: {
+          totalActiveRepos,
+          avgCommitsPerRepo,
+          totalCommits
+        }
+      },
+      // Add period information for debugging
+      period,
+      viewMode,
+      dateRange: { since, days }
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('API error (development-activity):', error);
+    res.status(500).json({ error: 'Failed to fetch development activity' });
+  }
+});
 
 // AI Analysis endpoint
 app.post('/api/ai/analyze', async (req, res) => {
   try {
     const { userInput } = req.body
     
-    // Security: Input validation and sanitization
     if (!userInput || typeof userInput !== 'string') {
-      return res.status(400).json({ 
-        error: 'Invalid input',
-        message: 'userInput must be a non-empty string'
-      })
+      return res.status(400).json({ error: 'User input is required and must be a string' })
     }
     
-    // Sanitize input
-    const sanitizedInput = userInput.trim().substring(0, 1000) // Limit length
-    if (sanitizedInput.length < 10) {
-      return res.status(400).json({
-        error: 'Input too short',
-        message: 'Please provide a more detailed description (minimum 10 characters)'
-      })
+    if (userInput.length < 10) {
+      return res.status(400).json({ error: 'Please provide a more detailed description (at least 10 characters)' })
     }
     
-    // Check for suspicious patterns
-    const suspiciousPatterns = [
-      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-      /javascript:/gi,
-      /on\w+\s*=/gi,
-      /data:text\/html/gi
-    ]
-    
-    for (const pattern of suspiciousPatterns) {
-      if (pattern.test(sanitizedInput)) {
-        return res.status(400).json({
-          error: 'Invalid input',
-          message: 'Input contains disallowed content'
-        })
-      }
+    if (userInput.length > 1000) {
+      return res.status(400).json({ error: 'Description too long. Please keep it under 1000 characters' })
     }
-
-    // Load resources data
-    const resources = loadResourcesData()
+    
+    const resources = await loadResources()
     if (resources.length === 0) {
-      return res.status(500).json({ 
-        error: 'No resources available',
-        message: 'Failed to load resources data'
-      })
+      return res.status(500).json({ error: 'No resources available for analysis' })
     }
+    
+    const systemPrompt = `You are an expert Cardano development assistant. Analyze the user's requirements and provide:
 
-    // Filter to most relevant resources
-    const relevantResources = filterRelevantResources(resources, userInput)
+1. A brief analysis of their project requirements
+2. Recommended Cardano tools and resources from the provided list
+3. A development plan with different approaches
 
-    // Create a concise resource summary for the AI
-    const resourceSummary = relevantResources.map(resource => ({
-      name: resource.name,
-      category: resource.category,
-      description: resource.description,
-      keySolutions: resource.keySolutions
-    }))
+Available Cardano resources:
+${resources.map(r => `- ${r.name}: ${r.description} (Category: ${r.category})`).join('\n')}
 
-    const prompt = `
-You are a Cardano development expert. A developer wants to build something on Cardano.
-
-User Requirements: "${sanitizedInput}"
-
-Available Cardano Tools (most relevant):
-${JSON.stringify(resourceSummary, null, 2)}
-
-Analyze the user's requirements and return a JSON object with this structure:
+Respond with valid JSON in this exact format:
 {
-  "analysis": "Brief analysis of what the user wants to build",
-  "recommendedTools": [
+  "analysis": "Brief analysis of the project requirements",
+  "recommendedResources": [
     {
-      "resource": "Resource name from the list",
-      "reason": "Why this tool is recommended",
-      "priority": "high|medium|low"
+      "id": "resource_id",
+      "name": "Resource Name",
+      "description": "Resource description",
+      "category": "Category",
+      "website": "https://website.com",
+      "docs": "https://docs.com",
+      "priority": "high|medium|low",
+      "reason": "Why this resource is recommended"
     }
   ],
   "developmentPlan": {
-    "overview": "Brief overview of the development approach",
+    "overview": "Overview of development approaches",
     "approaches": [
       {
-        "name": "Approach name",
-        "description": "Description of this approach",
-        "tools": ["List of tools for this approach"],
-        "complexity": "beginner|intermediate|advanced"
+        "name": "Approach Name",
+        "description": "Description of the approach",
+        "complexity": "beginner|intermediate|advanced",
+        "estimatedTime": "2-4 weeks",
+        "tools": ["Tool 1", "Tool 2"]
       }
     ]
   }
-}
-
-Keep the response concise and focus on the most relevant tools.`
+}`
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: 'gpt-4',
       messages: [
-        {
-          role: "system",
-          content: "You are a Cardano development expert. Provide accurate, practical advice for building on Cardano. Always return valid JSON. Keep responses concise."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userInput }
       ],
-      temperature: 0.3,
-      max_tokens: 1500
-
-    }).catch(error => {
-      console.error('OpenAI API error:', error)
-      if (error.code === 'insufficient_quota') {
-        throw new Error('AI service quota exceeded. Please try again later.')
-      } else if (error.code === 'rate_limit_exceeded') {
-        throw new Error('AI service rate limit exceeded. Please try again later.')
-      } else if (error.message.includes('context length')) {
-        throw new Error('Request too complex. Please try a more specific description.')
-      } else {
-        throw new Error('AI service temporarily unavailable. Please try again.')
-      }
+      temperature: 0.7,
+      max_tokens: 2000
     })
-
-    const response = completion.choices[0]?.message?.content
-    if (!response) {
-      throw new Error('No response from AI service')
-    }
-
-    let parsedResponse
+    
+    const aiResponse = completion.choices[0].message.content
+    let analysisResult
+    
     try {
-      parsedResponse = JSON.parse(response)
+      analysisResult = JSON.parse(aiResponse)
     } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError)
-      throw new Error('Invalid response format from AI service')
-    }
-
-    // Validate required fields
-    if (!parsedResponse.analysis || !parsedResponse.recommendedTools || !parsedResponse.developmentPlan) {
-      throw new Error('AI response missing required fields')
-    }
-
-    // Map recommended tools back to actual resource objects
-    const recommendedResources = (parsedResponse.recommendedTools || [])
-      .map(rec => {
-        if (!rec || !rec.resource) return null
-        const resource = resources.find(r => r.name === rec.resource)
-        return resource ? { ...resource, reason: rec.reason || 'Recommended for your use case', priority: rec.priority || 'medium' } : null
-      })
-      .filter(Boolean)
-
-    const result = {
-      analysis: parsedResponse.analysis || 'Analysis not available',
-      recommendedResources,
-      developmentPlan: parsedResponse.developmentPlan || { overview: 'Development plan not available', approaches: [] }
-    }
-
-    res.json(result)
-
-  } catch (error) {
-    console.error('AI analysis error:', error)
-    
-    if (error.message.includes('context length') || error.message.includes('tokens')) {
-      return res.status(400).json({ 
-        error: 'Request too complex',
-        message: 'Please try a more specific description of what you want to build.'
-      })
-    }
-    
-    res.status(500).json({ 
-      error: 'AI analysis failed',
-      message: 'Failed to analyze requirements. Please try again.'
-    })
-  }
-})
-
-// API Routes
-
-// Get GitHub updates for a specific resource
-app.get('/api/github/:resourceId', async (req, res) => {
-  try {
-    const { resourceId } = req.params
-    
-    // For now, we'll need to get the resource data from the client
-    // In a real implementation, you'd have a resources database
-    res.json({ 
-      error: 'Resource not found',
-      message: 'Please provide resource data in request body'
-    })
-  } catch (error) {
-    console.error('API error:', error)
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
-
-// Get GitHub updates for a resource (POST with resource data)
-app.post('/api/github/updates', async (req, res) => {
-  try {
-    console.log('📥 Received POST /api/github/updates for resource:', req.body?.name || 'unknown')
-    
-    const resource = req.body
-    
-    if (!resource || !resource.name || !resource.social?.github) {
-      console.log('❌ Invalid resource data:', { 
-        hasResource: !!resource, 
-        hasName: !!resource?.name, 
-        hasGithub: !!resource?.social?.github 
-      })
-      return res.status(400).json({ 
-        error: 'Invalid resource data',
-        message: 'Resource must have name and social.github URL',
-        received: req.body
-      })
-    }
-    
-    const data = await fetchGitHubUpdates(resource)
-    res.json(data)
-  } catch (error) {
-    console.error('API error:', error)
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
-
-// API endpoint: Get global weekly activity (sum of all resources, last 52 weeks)
-app.get('/api/github/global-activity', async (req, res) => {
-  try {
-    const resources = loadResourcesData()
-    const resourcesWithGitHub = resources.filter(r => r.social?.github)
-    let combinedWeeks = Array(52).fill(0)
-    
-    // Track processed organizations to avoid double counting
-    const processedOrgs = new Set()
-    
-    for (const resource of resourcesWithGitHub) {
-      const repoPath = extractRepoPath(resource.social.github)
-      if (!repoPath) continue
+      // Fallback response
+      const fallbackResources = resources.slice(0, 5).map(resource => ({
+        id: resource.id,
+        name: resource.name,
+        description: resource.description,
+        category: resource.category,
+        website: resource.website,
+        docs: resource.docs,
+        priority: 'medium',
+        reason: 'Recommended based on general Cardano development needs'
+      }))
       
-      // Check if this is an organization
-      if (!repoPath.includes('/')) {
-        // Organization - only process if not already processed
-        if (processedOrgs.has(repoPath)) {
-          console.log(`⏭️ Skipping duplicate organization: ${repoPath}`)
-          continue
-        }
-        processedOrgs.add(repoPath)
-        
-        try {
-          // Get organization repos and sum their weekly stats
-          const repos = await fetchOrganizationRepos(repoPath, 10)
-          console.log(`📊 Processing organization ${repoPath} with ${repos.length} repos`)
-          
-          for (const repo of repos) {
-            try {
-              const response = await rateLimitedFetch(`${GITHUB_API_BASE}/repos/${repo.fullName}/stats/participation`)
-              if (response.status === 202 || response.status === 204) continue
-              
-              const stats = await response.json()
-              if (stats && Array.isArray(stats.all) && stats.all.length === 52) {
-                for (let i = 0; i < 52; i++) {
-                  combinedWeeks[i] += stats.all[i]
-                }
-              }
-            } catch (error) {
-              console.log(`⚠️ Failed to get stats for ${repo.fullName}: ${error.message}`)
+      analysisResult = {
+        analysis: 'Based on your requirements, here are some recommended Cardano development tools and approaches.',
+        recommendedResources: fallbackResources,
+        developmentPlan: {
+          overview: 'Here are some development approaches you can consider for your Cardano project.',
+          approaches: [
+            {
+              name: 'Basic Development',
+              description: 'Start with fundamental Cardano development tools and gradually build complexity.',
+              complexity: 'beginner',
+              estimatedTime: '2-4 weeks',
+              tools: ['Plutus', 'Cardano CLI', 'Testnet']
             }
-          }
-        } catch (error) {
-          console.log(`⚠️ Failed to process organization ${repoPath}: ${error.message}`)
-        }
-      } else {
-        // Individual repository
-        try {
-          const response = await rateLimitedFetch(`${GITHUB_API_BASE}/repos/${repoPath}/stats/participation`)
-          if (response.status === 202 || response.status === 204) continue
-          
-          const stats = await response.json()
-          if (stats && Array.isArray(stats.all) && stats.all.length === 52) {
-            for (let i = 0; i < 52; i++) {
-              combinedWeeks[i] += stats.all[i]
-            }
-          }
-        } catch (error) {
-          console.log(`⚠️ Failed to get stats for ${repoPath}: ${error.message}`)
+          ]
         }
       }
     }
     
-    console.log(`📊 Global activity calculated: ${combinedWeeks.filter(w => w > 0).length}/52 active weeks`)
-    res.json({ weeks: combinedWeeks })
+    res.json(analysisResult)
   } catch (error) {
-    console.error('Error in /api/github/global-activity:', error)
-    res.status(500).json({ error: 'Failed to fetch global activity' })
+    console.error('AI Analysis error:', error)
+    res.status(500).json({ error: 'AI analysis failed. Please try again.' })
   }
 })
 
-// Get global GitHub updates (aggregated from multiple resources)
-app.post('/api/github/global', async (req, res) => {
-  try {
-    const { resources } = req.body
-    
-    if (!Array.isArray(resources)) {
-      return res.status(400).json({ 
-        error: 'Invalid resources data',
-        message: 'Resources must be an array'
-      })
-    }
-    
-    const allData = []
-    const maxResources = Math.min(5, resources.length) // Limit to 5 resources
-    
-    for (let i = 0; i < maxResources; i++) {
-      const resource = resources[i]
-      if (resource.social?.github) {
-        try {
-          const data = await fetchGitHubUpdates(resource)
-          if (data.releases.length > 0 || data.commits.length > 0) {
-            allData.push({
-              resource,
-              ...data
-            })
-          }
-        } catch (error) {
-          console.warn(`Failed to fetch data for ${resource.name}:`, error.message)
-        }
-      }
-    }
-    
-    // Sort by latest activity
-    const sortedData = allData.sort((a, b) => {
-      const aReleases = (a.releases || []).map(r => new Date(r.publishedAt || 0).getTime())
-      const aCommits = (a.commits || []).map(c => new Date(c.date || 0).getTime())
-      const aLatest = aReleases.length > 0 || aCommits.length > 0 ? Math.max(...aReleases, ...aCommits) : 0
-      
-      const bReleases = (b.releases || []).map(r => new Date(r.publishedAt || 0).getTime())
-      const bCommits = (b.commits || []).map(c => new Date(c.date || 0).getTime())
-      const bLatest = bReleases.length > 0 || bCommits.length > 0 ? Math.max(...bReleases, ...bCommits) : 0
-      
-      return bLatest - aLatest
-    })
-    
-    res.json(sortedData)
-  } catch (error) {
-    console.error('API error:', error)
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
-
-// Get cache status
-app.get('/api/github/cache/status', (req, res) => {
-  const status = {
-    entries: GITHUB_CACHE.data.size,
-    lastCleanup: GITHUB_CACHE.lastCleanup,
-    cacheDuration: GITHUB_CACHE.CACHE_DURATION,
-    keys: Array.from(GITHUB_CACHE.data.keys())
-  }
-  res.json(status)
-})
-
-// Get rate limit status
-app.get('/api/github/rate-limit', async (req, res) => {
-  try {
-    const rateLimit = await checkRateLimitStatus()
-    res.json(rateLimit || { error: 'Failed to check rate limit' })
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to check rate limit status' })
-  }
-})
-
-// Clear cache
-app.post('/api/github/cache/clear', (req, res) => {
-  GITHUB_CACHE.data.clear()
-  GITHUB_CACHE.timestamps.clear()
-  GITHUB_CACHE.lastCleanup = Date.now()
-  console.log('🗑️ Server cache cleared')
-  res.json({ message: 'Cache cleared successfully' })
-})
-
-// Trigger initial data fetch manually
-app.post('/api/github/cache/preload', async (req, res) => {
-  try {
-    console.log('🔄 Manual cache preload triggered')
-    await performInitialDataFetch()
-    res.json({ 
-      message: 'Cache preload completed',
-      cacheEntries: GITHUB_CACHE.data.size
-    })
-  } catch (error) {
-    console.error('Error during manual preload:', error)
-    res.status(500).json({ error: 'Preload failed' })
-  }
-})
-
-// Trigger background fetch for remaining resources
-app.post('/api/github/cache/background-fetch', async (req, res) => {
-  try {
-    console.log('🔄 Manual background fetch triggered')
-    const resources = loadResourcesData()
-    const remainingResources = resources.slice(15) // Skip first 15 that were loaded initially
-    
-    // Start background fetch
-    performBackgroundDataFetch(remainingResources)
-    
-    res.json({ 
-      message: 'Background fetch started',
-      remainingResources: remainingResources.length,
-      currentCacheEntries: GITHUB_CACHE.data.size
-    })
-  } catch (error) {
-    console.error('Error during background fetch:', error)
-    res.status(500).json({ error: 'Background fetch failed' })
-  }
-})
-
-// Clean up wrong data from database
-app.post('/api/github/cleanup', async (req, res) => {
-  try {
-    const { repoPath, beforeYear } = req.body
-    
-    if (!supabase) {
-      return res.status(500).json({ error: 'Supabase not configured' })
-    }
-    
-    if (!repoPath) {
-      return res.status(400).json({ error: 'repoPath is required' })
-    }
-    
-    console.log(`🧹 Cleaning up wrong data for ${repoPath} before year ${beforeYear || 'all'}`)
-    
-    let query = supabase
-      .from('github_activity')
-      .delete()
-      .eq('repo_path', repoPath)
-    
-    if (beforeYear) {
-      query = query.lt('year', beforeYear)
-    }
-    
-    const { data, error } = await query
-    
-    if (error) {
-      console.error(`❌ Failed to cleanup data for ${repoPath}:`, error)
-      return res.status(500).json({ error: error.message })
-    }
-    
-    console.log(`✅ Cleaned up data for ${repoPath}`)
-    res.json({ 
-      success: true, 
-      message: `Cleaned up data for ${repoPath}`,
-      deletedCount: data?.length || 0
-    })
-  } catch (error) {
-    console.error('Cleanup error:', error)
-    res.status(500).json({ error: 'Cleanup failed' })
-  }
-})
-
-// Serve React app for all other routes
+// Catch-all route for SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'))
 })
 
-const server = app.listen(PORT, async () => {
-  console.log(`🚀 Server running on port ${PORT}`)
-  console.log(`📊 GitHub cache initialized with ${GITHUB_CACHE.CACHE_DURATION / (60 * 60 * 1000)} hour duration`)
-  
-  // Check rate limit status at startup
-  await checkRateLimitStatus()
-  
-  // Start initial data fetch after server is running
-  setTimeout(() => {
-    performInitialDataFetch()
-  }, 1000) // 1 second delay to ensure server is fully started
-})
+// Initialize and start server
+const startServer = async () => {
+  try {
+    await createTables()
+    
+    app.listen(PORT, () => {
+      console.log(`🚀 Server listening on port ${PORT}`)
+      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
+      console.log(`🔐 GitHub Token: ${GITHUB_TOKEN ? '✅ Available' : '❌ Not configured'}`)
+      console.log(`💾 Supabase: ${supabase ? '✅ Connected' : '❌ Not configured'}`)
+    })
+  } catch (error) {
+    console.error('Failed to start server:', error)
+    process.exit(1)
+  }
+}
 
-// Graceful shutdown - save cache before exiting
-process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down gracefully...')
-  saveCacheToDisk()
-  process.exit(0)
-})
-
-process.on('SIGTERM', () => {
-  console.log('\n🛑 Shutting down gracefully...')
-  saveCacheToDisk()
-  process.exit(0)
-}) 
+startServer()

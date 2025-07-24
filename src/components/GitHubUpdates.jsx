@@ -29,39 +29,25 @@ const GitHubUpdates = ({ resource }) => {
         setLoading(true)
         setError(null)
         
-        console.log(`🔍 [GitHubUpdates] Fetching data for ${resource.name}`)
-        
         // Fetch fresh data from server
         const data = await fetchGitHubUpdates(resource)
         
-        console.log(`🔍 [GitHubUpdates] Received data for ${resource.name}:`, {
-          releases: data?.releases?.length || 0,
-          commits: data?.commits?.length || 0,
-          commitsPerWeek: data?.commitsPerWeek || 0,
-          hasRepoInfo: !!data?.repoInfo
-        })
-        
         // Check if we got valid data
-        if (data && (data.releases?.length > 0 || data.commits?.length > 0)) {
+        if (data && (data.releases.length > 0 || data.commits.length > 0)) {
           setGithubData(data)
           
           // Default to commits tab if no releases
           if (data.releases.length === 0 && data.commits.length > 0) {
             setActiveTab('commits')
           }
-          
-          console.log(`✅ [GitHubUpdates] Successfully loaded data for ${resource.name}`)
         } else {
           // No data available
-          console.log(`⚠️ [GitHubUpdates] No data available for ${resource.name}`)
           setGithubData({ releases: [], commits: [], commitsPerWeek: 0, repoInfo: null })
           setError('No recent activity available')
         }
-      } catch (err) {
-        console.error(`❌ [GitHubUpdates] Error loading data for ${resource.name}:`, err)
+      } catch (error) {
+        logger.error(`Error fetching GitHub data for ${resource.name}:`, error)
         setError('Failed to load GitHub data')
-        // Set empty data structure so UI can still render
-        setGithubData({ releases: [], commits: [], commitsPerWeek: 0, repoInfo: null })
       } finally {
         setLoading(false)
       }
@@ -74,7 +60,7 @@ const GitHubUpdates = ({ resource }) => {
     return (
       <div className="flex items-center justify-center py-4">
         <Loader2 size={16} className="animate-spin text-gray-400" />
-        <span className="ml-2 text-gray-400">Loading updates...</span>
+        <span className="ml-2 text-gray-400/30">Loading updates...</span>
       </div>
     )
   }

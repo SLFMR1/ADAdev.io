@@ -11,10 +11,11 @@ import {
   ChevronRight,
   Clock
 } from 'lucide-react'
-import { fetchGitHubUpdates, formatRelativeTime, checkRateLimitStatus } from '../services/github'
+import { formatRelativeTime, checkRateLimitStatus } from '../services/github'
 import { cardanoResources } from '../data/resources'
-import logger from '../utils/logger'
+import logger from '../utils/logger-frontend'
 import Portal from './Portal'
+import githubDataStore from '../services/githubDataStore'
 
 const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => {
   const [githubData, setGithubData] = useState([])
@@ -27,18 +28,21 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
   // Handle click outside to collapse widget
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (isExpanded && !event.target.closest('.github-widget')) {
+      if (isExpanded && !event.target.closest('[data-widget="github-updates"]')) {
         if (collapseTimeout) {
           clearTimeout(collapseTimeout)
           setCollapseTimeout(null)
         }
-        // setIsExpanded(false) // This line is removed as per the edit hint
+        onCollapse()
       }
     }
 
-    document.addEventListener('click', handleClickOutside)
-    return () => document.removeEventListener('click', handleClickOutside)
-  }, [isExpanded, collapseTimeout])
+    // Only add the event listener when the widget is expanded
+    if (isExpanded) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isExpanded, collapseTimeout, onCollapse])
 
   const loadGitHubData = async () => {
     try {
@@ -63,55 +67,14 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
         }
       }
 
-      const resourcesWithGitHub = Object.entries(cardanoResources).flatMap(([category, resources]) =>
-        resources
-          .filter(resource => resource.social?.github)
-          .map(resource => ({ ...resource, category }))
-      )
-
-      const allData = []
-      const resourcesToProcess = resourcesWithGitHub.slice(0, 10) // Increased from 3 to 10
+      // Use shared data store
+      await githubDataStore.fetchAllData();
+      const allData = githubDataStore.getAllData();
       
-      logger.log(`🔄 Widget: Loading fresh data for ${resourcesToProcess.length} resources`)
-      
-      for (let i = 0; i < resourcesToProcess.length; i++) {
-        const resource = resourcesToProcess[i]
-        
-        try {
-          logger.log(`📡 Widget: Fetching data for ${resource.name}`)
-          const data = await fetchGitHubUpdates(resource)
-          
-          if (data.releases.length > 0 || data.commits.length > 0) {
-            allData.push({
-              resource,
-              ...data
-            })
-            logger.log(`✅ Widget: Successfully loaded data for ${resource.name} - ${data.releases.length} releases, ${data.commits.length} commits`)
-          } else {
-            logger.log(`⚠️ Widget: No recent activity for ${resource.name}`)
-          }
-          
-          if (allData.length >= 8) break // Increased from 2 to 8
-        } catch (error) {
-          logger.warn(`❌ Widget: Failed to fetch data for ${resource.name}:`, error.message)
-          
-          // If we hit rate limit during fetching, stop and show empty state
-          if (error.message.includes('rate limit')) {
-            logger.log(`⏳ Rate limit hit during fetching, showing empty state`)
-            setRateLimitExhausted(true)
-            setRateLimitResetTime(new Date(Date.now() + 3600000)) // 1 hour from now
-            setGithubData([])
-            setIsLoading(false)
-            return
-          }
-        }
-      }
-    
-      if (allData.length === 0) {
-        logger.log(`📋 Widget: No data available, showing empty state`)
-        setGithubData([])
-      } else {
-        const validData = allData.sort((a, b) => {
+      // Filter and sort data
+      const validData = allData
+        .filter(data => data.releases?.length > 0 || data.commits?.length > 0)
+        .sort((a, b) => {
           const aReleases = (a.releases || []).map(r => new Date(r.publishedAt || 0).getTime())
           const aCommits = (a.commits || []).map(c => new Date(c.date || 0).getTime())
           const aLatest = aReleases.length > 0 || aCommits.length > 0 ? Math.max(...aReleases, ...aCommits) : 0
@@ -122,10 +85,10 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
           
           return bLatest - aLatest
         })
+        .slice(0, 8); // Limit to top 8
 
-        logger.log(`📊 Widget: Final data loaded for ${validData.length} resources`)
-        setGithubData(validData)
-      }
+      logger.log(`📊 Widget: Final data loaded for ${validData.length} resources`)
+      setGithubData(validData)
     } catch (err) {
       logger.error('Widget: GitHub data loading error:', err)
       setGithubData([])
@@ -137,12 +100,14 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
   useEffect(() => {
     // Add a small delay to ensure resource cards have loaded first
     const timer = setTimeout(() => {
-      logger.log(`🔄 Widget: Starting data load`)
-      loadGitHubData()
+      if (isExpanded) {
+        logger.log(`🔄 Widget: Starting data load`)
+        loadGitHubData()
+      }
     }, 1000)
     
     return () => clearTimeout(timer)
-  }, [])
+  }, [isExpanded])
 
   // Get total update count
   const totalUpdates = githubData.reduce((total, data) => {
@@ -186,14 +151,14 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
         onClick={onExpand}
       >
         <div className="flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl">
-          <Github size={24} className="text-cyan-400" />
+          <Github size={24} className="text-purple-400" />
         </div>
       </div>
       ) : (
     <Portal>
-          <div className="fixed z-[9999] p-4 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] max-w-[95vw] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg transition-all duration-500 ease-in-out opacity-100 scale-100">
+          <div className="fixed z-[9999] p-4 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] max-w-[95vw] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg transition-all duration-500 ease-in-out opacity-100 scale-100" data-widget="github-updates">
         <button
-          className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white bg-gray-800/70 rounded-full p-2 transition-colors"
+          className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white transition-all duration-200"
           onClick={onCollapse}
           aria-label="Close"
         >
@@ -202,11 +167,8 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <Github size={20} className="text-cyan-400" />
+              <Github size={20} className="text-purple-400" />
               <h3 className="text-white font-semibold text-sm">Latest Updates</h3>
-            </div>
-            <div className="flex items-center space-x-2">
-              <ChevronRight size={16} className="text-gray-400" />
             </div>
           </div>
               
@@ -231,10 +193,10 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
               <div className="flex bg-gray-800/30 rounded-md p-0.5 border border-gray-700/50 mb-3">
                 <button
                   onClick={() => setActiveTab('releases')}
-                  className={`flex items-center space-x-1 px-2 py-1 text-xs rounded transition-all duration-200 ${
+                  className={`flex items-center space-x-1 px-2 py-1 text-xs rounded transition-all duration-200 border ${
                     activeTab === 'releases' 
-                      ? 'btn-primary' 
-                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/30'
+                      ? 'border-cyan-400/50 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]' 
+                      : 'border-gray-600/50 text-gray-400 hover:border-cyan-400 hover:text-gray-300 hover:bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]'
                   }`}
                 >
                   <Tag size={12} />
@@ -242,10 +204,10 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
                 </button>
                 <button
                   onClick={() => setActiveTab('commits')}
-                  className={`flex items-center space-x-1 px-2 py-1 text-xs rounded transition-all duration-200 ${
+                  className={`flex items-center space-x-1 px-2 py-1 text-xs rounded transition-all duration-200 border ${
                     activeTab === 'commits' 
-                      ? 'btn-primary' 
-                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/30'
+                      ? 'border-cyan-400/50 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]' 
+                      : 'border-gray-600/50 text-gray-400 hover:border-cyan-400 hover:text-gray-300 hover:bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]'
                   }`}
                 >
                   <GitCommit size={12} />
@@ -257,7 +219,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
                 {isLoading ? (
                   <div className="text-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-400 mx-auto mb-2"></div>
-                    <p className="text-gray-400 text-xs">Loading updates...</p>
+                    <p className="text-gray-400/30 text-xs">Loading updates...</p>
                   </div>
                 ) : (
                   <>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Sparkles, X, FileText, ExternalLink, Copy, Check } from 'lucide-react'
+import { Bot, X, FileText, ExternalLink, Copy, Check, Sparkles } from 'lucide-react'
 import { analyzeUserRequirements } from '../services/ai'
 import { generateMarkdownPlan } from '../services/ai'
-import logger from '../utils/logger'
+import logger from '../utils/logger-frontend'
 import Portal from './Portal'
 
 const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => {
@@ -19,6 +19,21 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
   const [activeTab, setActiveTab] = useState('search')
   const [copied, setCopied] = useState(false)
   const progressInterval = useRef(null)
+
+  // Handle click outside to collapse widget
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isExpanded && !event.target.closest('[data-widget="ai-search"]')) {
+        onCollapse();
+      }
+    };
+    
+    // Only add the event listener when the widget is expanded
+    if (isExpanded) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isExpanded, onCollapse]);
 
   // Rate limiting: max 5 submissions per minute
   const RATE_LIMIT_SUBMISSIONS = 5
@@ -227,16 +242,17 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
           data-widget="ai"
         >
                       <div className="flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl">
-              <Sparkles size={24} className="text-purple-400" />
+              <Sparkles size={24} className="text-teal-400" />
             </div>
         </div>
       ) : (
         /* Expanded Centered Widget */
         <Portal>
           <div className="fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[1600px] max-h-[90vh] min-w-[900px] min-h-[600px] border-radius-[32px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden p-0 transition-all duration-500 ease-in-out opacity-100 scale-100"
-            style={{ borderRadius: '32px' }}>
+            style={{ borderRadius: '32px' }}
+            data-widget="ai-search">
             <button
-              className="absolute top-6 right-6 z-50 text-gray-400 hover:text-white bg-gray-800/70 rounded-full p-2 transition-colors"
+              className="absolute top-6 right-6 z-50 text-gray-400 hover:text-white transition-all duration-200"
               onClick={onCollapse}
               aria-label="Close"
             >
@@ -246,8 +262,8 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
               {/* Main Heading */}
               <div className="mb-6 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <Sparkles className="h-8 w-8 text-cyan-400" />
-                  <h1 className="text-white text-2xl font-bold">AI Development Assistant</h1>
+                  <Bot className="h-8 w-8 text-teal-400" />
+                  <h1 className="text-white text-2xl font-medium">AI Development Assistant</h1>
                 </div>
               </div>
 
@@ -255,10 +271,10 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
               <div className="flex space-x-3 mb-6">
                 <button
                   onClick={() => setActiveTab('search')}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
                     activeTab === 'search' 
-                      ? 'btn-primary' 
-                      : 'bg-gray-700 text-cyan-300 hover:bg-cyan-800 hover:text-white'
+                      ? 'border-cyan-400/50 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]' 
+                      : 'border-gray-600/50 text-cyan-300 hover:border-cyan-400 hover:text-white shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]'
                   }`}
                 >
                   Search
@@ -267,20 +283,20 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                   <>
                     <button
                       onClick={() => setActiveTab('results')}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
                         activeTab === 'results' 
-                          ? 'btn-primary' 
-                          : 'bg-gray-700 text-cyan-300 hover:bg-cyan-800 hover:text-white'
+                          ? 'border-cyan-400/50 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]' 
+                          : 'border-gray-600/50 text-cyan-300 hover:border-cyan-400 hover:text-white shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]'
                       }`}
                     >
                       Results
                     </button>
                     <button
                       onClick={() => setActiveTab('plan')}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
                         activeTab === 'plan' 
-                          ? 'btn-primary' 
-                          : 'bg-gray-700 text-cyan-300 hover:bg-cyan-800 hover:text-white'
+                          ? 'border-cyan-400/50 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]' 
+                          : 'border-gray-600/50 text-cyan-300 hover:border-cyan-400 hover:text-white shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]'
                       }`}
                     >
                       Development Plan
@@ -304,14 +320,14 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                         {isAnalyzing && (
                           <div className="absolute inset-0 z-0 rounded-full overflow-hidden">
                             <div
-                              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 transition-all duration-500 shadow-lg shadow-cyan-400/25"
+                              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 transition-all duration-500 shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)]"
                               style={{ width: `${progress}%`, minWidth: progress > 0 ? '8px' : 0 }}
                             />
                           </div>
                         )}
                         {/* Search Icon */}
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
-                          <Sparkles className="h-5 w-5 text-gray-400" />
+                          <Bot className="h-5 w-5 text-gray-400" />
                         </div>
                         {/* Input Field */}
                         <input
@@ -319,12 +335,15 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                           value={inputValue}
                           onChange={(e) => setInputValue(e.target.value)}
                           placeholder="What are you building?"
-                          className="w-full bg-transparent border-none text-white placeholder-gray-400 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none transition-all duration-200 text-lg relative z-10 pr-10"
+                          className="w-full bg-transparent border-none text-white focus:outline-none focus:ring-0 focus:border-none focus:shadow-none transition-all duration-200 text-lg relative z-10 pr-10"
                           disabled={isAnalyzing}
                           style={{ 
                             position: 'relative',
                             outline: 'none',
-                            boxShadow: 'none'
+                            boxShadow: 'none',
+                            '::placeholder': {
+                              color: 'rgba(156, 163, 175, 0.3)'
+                            }
                           }}
                         />
                         {/* Submit Button */}
@@ -332,7 +351,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                           <button
                             type="submit"
                             disabled={!inputValue.trim()}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 text-black px-5 py-5 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-custom-bg disabled:opacity-50 disabled:cursor-not-allowed hover:from-emerald-500 hover:via-cyan-500 hover:to-sky-500 hover:scale-105 active:scale-95 z-40"
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 text-black px-5 py-5 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-custom-bg disabled:opacity-50 disabled:cursor-not-allowed hover:from-emerald-500 hover:via-cyan-500 hover:to-sky-500 hover:scale-105 active:scale-95 z-40 shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)]"
                           >
                           </button>
                         )}
@@ -417,10 +436,10 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                       <div className="p-4">
                         <button
                           onClick={() => setActiveTab('plan')}
-                          className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                          className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 border ${
                             activeTab === 'plan'
-                              ? 'btn-primary'
-                              : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                              ? 'border-cyan-400/50 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]'
+                              : 'border-gray-600/50 text-gray-400 hover:border-cyan-400 hover:text-white hover:bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]'
                           }`}
                         >
                           <FileText size={16} className="inline mr-2" />
@@ -428,13 +447,13 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                         </button>
                         <button
                           onClick={() => setActiveTab('tools')}
-                          className={`w-full text-left px-4 py-3 rounded-lg transition-colors mt-2 ${
+                          className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 border mt-2 ${
                             activeTab === 'tools'
-                              ? 'btn-primary'
-                              : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                              ? 'border-cyan-400/50 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]'
+                              : 'border-gray-600/50 text-gray-400 hover:border-cyan-400 hover:text-white hover:bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]'
                           }`}
                         >
-                          <Sparkles size={16} className="inline mr-2" />
+                          <Bot size={16} className="inline mr-2" />
                           Recommended Tools
                         </button>
                       </div>
@@ -448,7 +467,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                             <h3 className="text-lg font-semibold text-white">Development Plan</h3>
                             <button
                               onClick={handleCopyPlan}
-                              className="flex items-center space-x-2 px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+                              className="flex items-center space-x-2 px-4 py-2 bg-gray-800/30 text-gray-300 rounded-lg border border-cyan-400/50 hover:border-cyan-400 hover:bg-cyan-400/10 transition-all duration-200 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]"
                             >
                               {copied ? (
                                 <>
@@ -575,7 +594,12 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                       value={challengeAnswer}
                       onChange={(e) => setChallengeAnswer(e.target.value)}
                       placeholder="Your answer..."
-                      className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-cyan-400"
+                      style={{
+                        '::placeholder': {
+                          color: 'rgba(156, 163, 175, 0.3)'
+                        }
+                      }}
                     />
                     <div className="flex gap-3 mt-4">
                       <button
@@ -592,7 +616,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                             setError('Incorrect answer. Please try again.')
                           }
                         }}
-                        className="flex-1 bg-gradient-to-r from-emerald-400 to-cyan-400 text-black px-4 py-2 rounded font-semibold hover:from-emerald-500 hover:to-cyan-500 transition-all"
+                        className="flex-1 bg-gradient-to-r from-emerald-400 to-cyan-400 text-black px-4 py-2 rounded font-semibold hover:from-emerald-500 hover:to-cyan-500 transition-all duration-200 border border-cyan-400/50 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]"
                       >
                         Submit
                       </button>
@@ -602,7 +626,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                           setChallengeAnswer('')
                           setError('')
                         }}
-                        className="flex-1 bg-gray-600 text-white px-4 py-2 rounded font-semibold hover:bg-gray-500 transition-all"
+                        className="flex-1 bg-gray-600/30 text-white px-4 py-2 rounded font-semibold hover:bg-gray-500/50 transition-all duration-200 border border-gray-600/50 hover:border-gray-500"
                       >
                         Cancel
                       </button>

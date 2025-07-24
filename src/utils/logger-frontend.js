@@ -1,4 +1,4 @@
-// Production-ready logger utility (CommonJS for server compatibility)
+// Frontend-compatible logger utility (ES6 modules)
 class Logger {
   constructor() {
     this.isDevelopment = process.env.NODE_ENV !== 'production'
@@ -139,8 +139,6 @@ const createGlobalGradientBackground = (width, height) => {
   return canvas;
 };
 
-// CommonJS export for server compatibility
-module.exports = logger;
-module.exports.Logger = Logger;
-module.exports.createGlobalGradientBackground = createGlobalGradientBackground;
-module.exports.default = logger; 
+// ES6 export for frontend
+export default logger;
+export { Logger, createGlobalGradientBackground }; 

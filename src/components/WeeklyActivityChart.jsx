@@ -1,23 +1,28 @@
 import React, { useState, useEffect } from 'react'
 import { fetchGitHubUpdates } from '../services/github'
-import { getWeeklyActivity, hasRecentData } from '../services/supabase'
 import { TrendingUp, Calendar, GitCommit } from 'lucide-react'
-import logger from '../utils/logger'
+import logger from '../utils/logger-frontend'
+import Portal from './Portal'
 
 // Helper to generate line chart points from weekly data
 const getLineChartPoints = (data, width, height, padding) => {
   if (!data || data.length === 0) {
-    console.log('⚠️ getLineChartPoints: No data provided')
     return ''
   }
-  const max = Math.max(...data, 1)
-  const stepX = (width - 2 * padding) / (data.length - 1)
-  const points = data.map((count, i) => {
+  
+  // Ensure we have valid numeric values
+  const validData = data.map(item => {
+    const count = typeof item === 'object' ? (item.count || 0) : (item || 0)
+    return Math.max(0, isNaN(count) ? 0 : count)
+  })
+  
+  const max = Math.max(...validData, 1)
+  const stepX = (width - 2 * padding) / (validData.length - 1 || 1)
+  const points = validData.map((count, i) => {
     const x = padding + i * stepX
     const y = height - padding - (count / max) * (height - 2 * padding)
     return `${x},${y}`
   }).join(' ')
-  console.log('📊 getLineChartPoints result:', points)
   return points
 }
 
@@ -25,29 +30,38 @@ const getLineChartPoints = (data, width, height, padding) => {
 const generateWeeklyData = (commitsPerMonth, currentWeekCommits) => {
   if (!commitsPerMonth || commitsPerMonth.length === 0) {
     // If no monthly data, create a simple array with current week
-    return [currentWeekCommits]
+    return [{ count: currentWeekCommits || 0, weekStart: new Date().toISOString().slice(0, 10) }]
   }
   
   // Convert monthly data to weekly data (approximate)
   const weeklyData = []
   commitsPerMonth.forEach(month => {
     // Distribute monthly commits across 4 weeks (approximate)
-    const weeklyAverage = Math.floor(month.count / 4)
+    const weeklyAverage = Math.floor((month.count || 0) / 4)
     for (let i = 0; i < 4; i++) {
-      weeklyData.push(weeklyAverage)
+      weeklyData.push({ 
+        count: weeklyAverage, 
+        weekStart: new Date().toISOString().slice(0, 10) 
+      })
     }
   })
   
   // Replace the last week with current week data
   if (weeklyData.length > 0) {
-    weeklyData[weeklyData.length - 1] = currentWeekCommits
+    weeklyData[weeklyData.length - 1] = { 
+      count: currentWeekCommits || 0, 
+      weekStart: new Date().toISOString().slice(0, 10) 
+    }
   } else {
-    weeklyData.push(currentWeekCommits)
+    weeklyData.push({ 
+      count: currentWeekCommits || 0, 
+      weekStart: new Date().toISOString().slice(0, 10) 
+    })
   }
   
   // Ensure we have at least 12 weeks of data
   while (weeklyData.length < 12) {
-    weeklyData.unshift(0)
+    weeklyData.unshift({ count: 0, weekStart: new Date().toISOString().slice(0, 10) })
   }
   
   // Take the last 12 weeks
@@ -70,13 +84,13 @@ const getMonthLabels = (commitsPerMonth, weeks) => {
   return labels.slice(-weeks)
 }
 
-const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false }) => {
+const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false, selectedPeriod = '4weeks', onPeriodChange }) => {
   const [activityData, setActivityData] = useState(null)
   const [weeklyData, setWeeklyData] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
-  const [timePeriod, setTimePeriod] = useState('4weeks') // '4weeks', '3months', '52weeks', or '3years'
+  const [timePeriod, setTimePeriod] = useState(selectedPeriod) // '4weeks', '3months', '52weeks', or '3years'
 
   // Map timePeriod to weeks
   const periodToWeeks = {
@@ -85,6 +99,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     '52weeks': 52,
     '3years': 156
   }
+
+  // Sync internal timePeriod with selectedPeriod prop
+  useEffect(() => {
+    setTimePeriod(selectedPeriod)
+  }, [selectedPeriod])
 
   useEffect(() => {
     const loadActivityData = async () => {
@@ -95,67 +114,86 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         // Determine number of weeks based on time period
         const weeks = periodToWeeks[timePeriod] || 4
         
-        console.log(`🔍 [WeeklyActivityChart] Loading data for ${resource.name} (${weeks} weeks)`)
-        console.log(`🔍 [WeeklyActivityChart] Resource GitHub URL: ${resource.social?.github}`)
-        
-        // First, try to get data from Supabase
-        const hasRecent = await hasRecentData(resource, 24) // 24 hours
-        console.log(`🔍 [WeeklyActivityChart] Has recent data: ${hasRecent}`)
-        
-        if (hasRecent) {
-          logger.log(`📊 Loading cached Supabase data for ${resource.name} (${weeks} weeks)`)
-          const weeklyData = await getWeeklyActivity(resource, weeks)
-          console.log(`🔍 [WeeklyActivityChart] Supabase weekly data:`, weeklyData)
-          console.log(`🔍 [WeeklyActivityChart] Supabase data length: ${weeklyData?.length || 0}`)
-          
-          if (weeklyData && weeklyData.length > 0) {
-            // Transform Supabase data to match expected format
-            const transformedData = weeklyData.map(record => ({
-              weekStart: record.week_start,
-              count: record.commit_count
-            }))
-            
-            console.log(`🔍 [WeeklyActivityChart] Transformed data sample:`, transformedData.slice(0, 3))
-            console.log(`🔍 [WeeklyActivityChart] Transformed data length: ${transformedData.length}`)
-            
-            const currentWeek = transformedData[transformedData.length - 1]?.count || 0
-            console.log(`🔍 [WeeklyActivityChart] Current week commits: ${currentWeek}`)
-            
-            setActivityData({
-              currentWeek: currentWeek,
-              repoInfo: null, // We'll get this from server if needed
-            })
-            // Only use as many weeks as available, up to the requested period
-            const trimmedData = transformedData.slice(-weeks)
-            setWeeklyData(trimmedData)
-            setIsLoading(false)
-            console.log(`✅ [WeeklyActivityChart] Successfully loaded Supabase data for ${resource.name}`)
-            return
-          } else {
-            console.log(`⚠️ [WeeklyActivityChart] No Supabase data found for ${resource.name}`)
-          }
-        } else {
-          console.log(`⚠️ [WeeklyActivityChart] No recent Supabase data for ${resource.name}`)
-        }
-        
-        // Fallback to server data
-        logger.log(`🔄 Fetching fresh data from server for ${resource.name}`)
+        // Get data from server API
+        logger.log(`🔄 Fetching data from server for ${resource.name}`)
         const resourceData = await fetchGitHubUpdates(resource)
-        console.log(`🔍 [WeeklyActivityChart] Server data:`, resourceData)
-        console.log(`🔍 [WeeklyActivityChart] Server commitsPerWeekDetailed:`, resourceData?.commitsPerWeekDetailed)
         
-        if (resourceData && resourceData.commitsPerWeekDetailed && resourceData.commitsPerWeekDetailed.length > 0) {
-          // Use only as many weeks as available, up to the selected period
-          const allWeeks = resourceData.commitsPerWeekDetailed.slice(-weeks)
-          setWeeklyData(allWeeks)
+        // Validate and process the response data
+        if (resourceData && resourceData.commitsPerWeekDetailed && Array.isArray(resourceData.commitsPerWeekDetailed) && resourceData.commitsPerWeekDetailed.length > 0) {
+          // Use the detailed weekly data from server with enhanced validation
+          const validWeeklyData = resourceData.commitsPerWeekDetailed
+            .filter(week => {
+              // Enhanced validation
+              if (!week || typeof week !== 'object') return false;
+              if (typeof week.count !== 'number' || isNaN(week.count)) return false;
+              if (!week.weekStart) return false;
+              
+              // Validate date format
+              const weekStartDate = new Date(week.weekStart);
+              if (isNaN(weekStartDate.getTime())) {
+                console.warn(`Invalid weekStart date: ${week.weekStart}`);
+                return false;
+              }
+              
+              return true;
+            })
+            .map(week => {
+              // Sanitize and format data
+              const weekStartDate = new Date(week.weekStart);
+              return {
+                count: Math.max(0, week.count),
+                weekStart: weekStartDate.toISOString().slice(0, 10)
+              };
+            })
+          
+          if (validWeeklyData.length === 0) {
+            console.warn(`No valid weekly data found for ${resource.name}`);
+            throw new Error('No valid weekly data available');
+          }
+          
+          const currentWeek = validWeeklyData[validWeeklyData.length - 1]?.count || 0
+          
+          setActivityData({
+            currentWeek: currentWeek,
+            repoInfo: resourceData.repoInfo
+          })
+          
+          // Only use as many weeks as available, up to the requested period
+          const trimmedData = validWeeklyData.slice(-weeks)
+          setWeeklyData(trimmedData)
+        } else if (resourceData && (resourceData.commitsPerWeek || resourceData.commitsPerMonth)) {
+          // Fallback to basic data
+          const currentWeek = resourceData.commitsPerWeek || 0
+          
+          setActivityData({
+            currentWeek: currentWeek,
+            repoInfo: resourceData.repoInfo
+          })
+          
+          // Generate weekly data from monthly data
+          const weeklyData = generateWeeklyData(resourceData.commitsPerMonth, currentWeek)
+          setWeeklyData(weeklyData)
         } else {
-          console.log(`⚠️ [WeeklyActivityChart] No server data available for ${resource.name}`)
-          setError('No activity data available')
+          // No valid data available
+          setActivityData({
+            currentWeek: 0,
+            repoInfo: null
+          })
+          
+          // Generate empty weekly data
+          const emptyWeeklyData = generateWeeklyData([], 0)
+          setWeeklyData(emptyWeeklyData)
         }
-      } catch (err) {
-        logger.error(`Failed to load activity data for ${resource.name}:`, err)
-        console.error(`❌ [WeeklyActivityChart] Error loading data for ${resource.name}:`, err)
-        setError('Failed to load activity data')
+      } catch (error) {
+        logger.error(`Error loading activity data for ${resource.name}:`, error)
+        setError(error.message)
+        
+        // Set fallback data on error
+        setActivityData({
+          currentWeek: 0,
+          repoInfo: null
+        })
+        setWeeklyData(generateWeeklyData([], 0))
       } finally {
         setIsLoading(false)
       }
@@ -167,7 +205,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-400"></div>
-        <span className="ml-2 text-gray-400 text-sm">Loading activity...</span>
+        <span className="ml-2 text-gray-400/30 text-sm">Loading activity...</span>
       </div>
     )
   }
@@ -195,86 +233,125 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const chartHeight = window.innerWidth < 1024 ? 150 : 200 // Responsive height
   const chartPadding = window.innerWidth < 1024 ? 20 : 30 // Responsive padding
   const bottomPadding = window.innerWidth < 1024 ? 30 : 40 // Responsive bottom padding
-  const maxCommits = Math.max(...weeklyData.map(w => w.count), 1)
-  const minCommits = Math.min(...weeklyData.map(w => w.count), 0)
-  const currentWeekCommits = weeklyData[weeklyData.length - 1]?.count || 0
+  
+  // Validate and sanitize weekly data with enhanced error handling
+  const validWeeklyData = weeklyData
+    .filter(week => {
+      if (!week) return false;
+      if (typeof week !== 'object') return false;
+      return true;
+    })
+    .map(week => {
+      const count = typeof week.count === 'number' ? week.count : 0;
+      let weekStart = week.weekStart;
+      
+      // Validate and fix weekStart date
+      if (!weekStart) {
+        weekStart = new Date().toISOString().slice(0, 10);
+      } else {
+        const weekStartDate = new Date(weekStart);
+        if (isNaN(weekStartDate.getTime())) {
+          console.warn(`Invalid weekStart date: ${weekStart}, using current date`);
+          weekStart = new Date().toISOString().slice(0, 10);
+        } else {
+          weekStart = weekStartDate.toISOString().slice(0, 10);
+        }
+      }
+      
+      return {
+        count: Math.max(0, isNaN(count) ? 0 : count),
+        weekStart: weekStart
+      };
+    })
+  
+  const maxCommits = Math.max(...validWeeklyData.map(w => w.count), 1)
+  const minCommits = Math.min(...validWeeklyData.map(w => w.count), 0)
+  const currentWeekCommits = validWeeklyData[validWeeklyData.length - 1]?.count || 0
 
-  // Generate chart points
-  const chartPoints = weeklyData.map((w, i) => {
-    const x = chartPadding + (i / (weeklyData.length - 1 || 1)) * (chartWidth - 2 * chartPadding)
+  // Generate chart points with validation
+  const chartPoints = validWeeklyData.map((w, i) => {
+    const x = chartPadding + (i / (validWeeklyData.length - 1 || 1)) * (chartWidth - 2 * chartPadding)
     const y = chartHeight - chartPadding - (w.count / maxCommits) * (chartHeight - 2 * chartPadding)
-    return `${x},${y}`
+    
+    // Ensure coordinates are valid numbers
+    const validX = isNaN(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding))
+    const validY = isNaN(y) ? chartHeight - chartPadding : Math.max(chartPadding, Math.min(y, chartHeight - chartPadding))
+    
+    return `${validX},${validY}`
   }).join(' ')
 
-  // Month label logic
+  // Month label logic with enhanced validation
   let lastMonth = ''
-  const monthLabels = weeklyData.map((w, i) => {
-    const month = new Date(w.weekStart).toLocaleString('default', { month: 'short' })
-    if (month !== lastMonth) {
-      lastMonth = month
-      return month
+  const monthLabels = validWeeklyData.map((w, i) => {
+    try {
+      const weekStart = w.weekStart;
+      if (!weekStart) {
+        console.warn(`Missing weekStart for week ${i}`);
+        return '';
+      }
+      
+      const weekStartDate = new Date(weekStart);
+      if (isNaN(weekStartDate.getTime())) {
+        console.warn(`Invalid weekStart date: ${weekStart} for week ${i}`);
+        return '';
+      }
+      
+      const month = weekStartDate.toLocaleString('default', { month: 'short' });
+      if (month !== lastMonth && month !== 'Invalid Date') {
+        lastMonth = month;
+        return month;
+      }
+      return '';
+    } catch (error) {
+      console.warn(`Error processing month label for week ${i}:`, error);
+      return '';
     }
-    return ''
   })
 
-  // Tooltip handlers
+  // Tooltip handlers with error handling
   const handleNodeMouseOver = (e, value, weekIdx) => {
-    const week = weeklyData[weekIdx]
-    const weekNumber = weekIdx + 1
-    const month = new Date(week.weekStart).toLocaleString('default', { month: 'short' })
-    const endOfWeek = new Date(week.weekStart)
-    endOfWeek.setDate(endOfWeek.getDate() + 6)
-    const label = `Week ${weekNumber} (${week.weekStart}–${endOfWeek.toISOString().slice(0, 10)}, ${month})`
-    setTooltip({
-      show: true,
-      x: e.nativeEvent.offsetX,
-      y: e.nativeEvent.offsetY,
-      value,
-      label
-    })
+    try {
+      const week = validWeeklyData[weekIdx];
+      if (!week || !week.weekStart) {
+        console.warn(`Invalid week data for tooltip at index ${weekIdx}`);
+        return;
+      }
+      
+      const weekStartDate = new Date(week.weekStart);
+      if (isNaN(weekStartDate.getTime())) {
+        console.warn(`Invalid weekStart date for tooltip: ${week.weekStart}`);
+        return;
+      }
+      
+      const weekNumber = weekIdx + 1;
+      const month = weekStartDate.toLocaleString('default', { month: 'short' });
+      const endOfWeek = new Date(weekStartDate);
+      endOfWeek.setDate(weekStartDate.getDate() + 6);
+      
+      const label = `Week ${weekNumber} (${week.weekStart}–${endOfWeek.toISOString().slice(0, 10)}, ${month})`;
+      
+      // Get viewport-relative position
+      const rect = e.target.getBoundingClientRect();
+      const viewportX = rect.left + window.scrollX;
+      const viewportY = rect.top + window.scrollY;
+      
+      setTooltip({
+        show: true,
+        x: viewportX,
+        y: viewportY,
+        value,
+        label
+      });
+    } catch (error) {
+      console.warn(`Error in tooltip handler for week ${weekIdx}:`, error);
+    }
   }
   const handleNodeMouseOut = () => setTooltip({ show: false, x: 0, y: 0, value: 0, label: '' })
 
-  // Period selection buttons - match DevelopmentActivityWidget labels
-  const periodOptions = [
-    { key: '4weeks', label: 'Last 4 Weeks' },
-    { key: '3months', label: 'Last 3 Months' },
-    { key: '52weeks', label: 'Last 1 Year' },
-    ...(showThreeYearOption ? [{ key: '3years', label: 'Last 3 Years' }] : [])
-  ]
+
 
   return (
     <div className="w-full">
-      {!hidePeriodSwitches && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {periodOptions.map(opt => (
-            <button
-              key={opt.key}
-              className={`px-2 sm:px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                timePeriod === opt.key ? 'btn-primary' : 'bg-gray-700 text-cyan-300 hover:bg-cyan-800 hover:text-white'
-              }`}
-              onClick={() => setTimePeriod(opt.key)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <TrendingUp size={16} className="text-cyan-400" />
-          <h4 className="text-white font-medium text-sm">
-            Weekly Activity
-            {activityData.repoInfo?.isOrganization && (
-              <span className="text-gray-400 text-xs ml-1">(Organization)</span>
-            )}
-          </h4>
-        </div>
-        
-
-      </div>
-
       {/* Line Chart */}
       <div className="bg-gray-800/50 rounded-lg p-4 sm:p-6" style={{ minHeight: window.innerWidth < 1024 ? 180 : 220 }}>
         <div className="flex items-center justify-between mb-3">
@@ -310,16 +387,16 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               </filter>
             </defs>
             
-            {/* Background grid */}
-            <rect width="100%" height="100%" fill="url(#grid)" />
+            {/* Background grid - transparent to show global gradient */}
+            <rect width="100%" height="100%" fill="url(#grid)" opacity="0.3" />
 
             {/* Month boundary grid lines */}
             {monthLabels.map((label, i) => label && i !== 0 && (
               <line
                 key={`month-grid-${i}`}
-                x1={chartPadding + (i / (weeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
+                x1={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
                 y1={chartPadding}
-                x2={chartPadding + (i / (weeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
+                x2={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
                 y2={chartHeight - bottomPadding}
                 stroke="#22d3ee"
                 strokeDasharray="4 2"
@@ -329,12 +406,12 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             ))}
 
             {/* Week ticks */}
-            {weeklyData.map((_, i) => (
+            {validWeeklyData.map((_, i) => (
               <line
                 key={`tick-${i}`}
-                x1={chartPadding + (i / (weeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
+                x1={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
                 y1={chartHeight - bottomPadding}
-                x2={chartPadding + (i / (weeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
+                x2={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
                 y2={chartHeight - bottomPadding + 8}
                 stroke="#67e8f9"
                 strokeWidth="1"
@@ -347,8 +424,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               points={chartPoints}
               fill="none"
               stroke="#22d3ee"
-              strokeWidth="8"
-              opacity="0.2"
+              strokeWidth="4"
+              opacity="0.35"
               filter="url(#glow)"
             />
             
@@ -357,25 +434,35 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               points={chartPoints}
               fill="none"
               stroke="url(#teal-gradient)"
-              strokeWidth="2"
-              style={{ filter: 'drop-shadow(0 0 2.5px #22d3ee)' }}
+              strokeWidth="1"
+              style={{ filter: 'drop-shadow(0 0 3px rgba(34,211,238,0.5))' }}
             />
             
             {/* Data points (nodes) with tooltips */}
-            {weeklyData.map((w, i) => {
-              const x = chartPadding + (i / (weeklyData.length - 1)) * (chartWidth - 2 * chartPadding)
+            {validWeeklyData.map((w, i) => {
+              const x = chartPadding + (i / (validWeeklyData.length - 1 || 1)) * (chartWidth - 2 * chartPadding)
               const y = chartHeight - chartPadding - (w.count / maxCommits) * (chartHeight - 2 * chartPadding)
               return (
                 <g key={i}>
+                  {/* Visible dot */}
                   <circle
                     cx={x}
                     cy={y}
-                    r={w.count > 0 ? "5" : "2.5"}
-                    fill={w.count > 0 ? "#22d3ee" : "#334155"}
-                    stroke="#0f172a"
-                    strokeWidth="1"
+                    r={w.count > 0 ? "4" : "2.5"}
+                    fill="none"
+                    stroke={w.count > 0 ? "#22d3ee" : "#334155"}
+                    strokeWidth="1.5"
                     opacity={w.count > 0 ? 1 : 0.5}
-                    style={{ filter: w.count > 0 ? 'drop-shadow(0 0 4px #22d3ee)' : 'none', cursor: 'pointer' }}
+                    style={{ filter: w.count > 0 ? 'drop-shadow(0 0 6px rgba(34,211,238,0.6))' : 'none' }}
+                    pointerEvents="none"
+                  />
+                  {/* Larger invisible hover area */}
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="12"
+                    fill="transparent"
+                    style={{ cursor: 'pointer' }}
                     onMouseOver={e => handleNodeMouseOver(e, w.count, i)}
                     onMouseOut={handleNodeMouseOut}
                   />
@@ -384,7 +471,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             })}
             
             {/* Month labels */}
-            {weeklyData.map((w, i) => {
+            {validWeeklyData.map((w, i) => {
               const date = new Date(w.weekStart)
               const isMonthStart = date.getDate() <= 7 // first week of month
               const isYearStart = date.getMonth() === 0 && isMonthStart
@@ -392,7 +479,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 return (
                   <text
                     key={`year-label-${i}`}
-                    x={chartPadding + (i / (weeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
+                    x={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
                     y={chartHeight - bottomPadding / 2 + 32}
                     fontSize={window.innerWidth < 1024 ? "14" : "16"}
                     fill="#67e8f9"
@@ -404,7 +491,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 return (
                   <text
                     key={`month-label-${i}`}
-                    x={chartPadding + (i / (weeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
+                    x={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
                     y={chartHeight - bottomPadding / 2 + 18}
                     fontSize={window.innerWidth < 1024 ? "11" : "13"}
                     fill="#67e8f9"
@@ -419,27 +506,32 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             <text x={chartPadding - 8} y={chartPadding + 8} fontSize="10" fill="#64748b" textAnchor="end">{maxCommits}</text>
             <text x={chartPadding - 8} y={chartHeight - chartPadding + 8} fontSize="10" fill="#64748b" textAnchor="end">{minCommits}</text>
           </svg>
-          {/* Tooltip */}
+          {/* Tooltip using Portal for proper overflow */}
           {tooltip.show && (
-            <div
-              className="absolute z-50 px-2 py-1 rounded bg-gray-900 text-cyan-200 text-xs border border-cyan-400 shadow-lg pointer-events-none"
-              style={{ left: tooltip.x + 10, top: tooltip.y - 30 }}
-            >
-              <div className="font-bold">{tooltip.label}</div>
-              <div>{tooltip.value} commits</div>
-            </div>
+            <Portal>
+              <div
+                className="fixed z-[9999] px-2 py-1 rounded bg-gray-900 text-cyan-200 text-xs border border-cyan-400 shadow-lg pointer-events-none max-w-xs"
+                style={{ 
+                  left: Math.min(tooltip.x + 10, window.innerWidth - 250), 
+                  top: Math.max(tooltip.y - 50, 10)
+                }}
+              >
+                <div className="font-bold">{tooltip.label}</div>
+                <div>{tooltip.value} commits</div>
+              </div>
+            </Portal>
           )}
         </div>
         
         {/* Chart info */}
         <div className="flex justify-between text-xs text-gray-500 mt-2">
           <span>Commits per week for this resource</span>
-          <span>{weeklyData.filter(w => w.count > 0).length}/{weeklyData.length} active weeks</span>
+          <span>{validWeeklyData.filter(w => w.count > 0).length}/{validWeeklyData.length} active weeks</span>
         </div>
       </div>
 
       {/* Current Week Stats */}
-      <div className="bg-gray-800/50 rounded-lg p-3">
+      <div className="bg-gray-800/50 rounded-lg p-3 mt-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-gray-400 text-xs">This Week</span>
           <div className="flex items-center space-x-1">
@@ -453,10 +545,10 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         <div className="relative">
           <div className="w-full bg-gray-700 rounded-full h-2">
             <div 
-              className="bg-gradient-to-r from-cyan-400 to-cyan-500 h-2 rounded-full transition-all duration-500 ease-out shadow-lg"
+              className="bg-gradient-to-r from-cyan-400 to-cyan-500 h-2 rounded-full transition-all duration-500 ease-out"
               style={{ 
                 width: `${((activityData.currentWeek - minCommits) / (maxCommits - minCommits || 1)) * 100}%`,
-                boxShadow: '0 0 10px rgba(34, 211, 238, 0.5)'
+                boxShadow: '0 0 8px rgba(34, 211, 238, 0.3)'
               }}
             ></div>
           </div>

@@ -35,7 +35,7 @@ const CustomDropdown = ({
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between px-4 py-3 sm:py-2 bg-card-bg/50 backdrop-blur-md border border-gray-700 rounded-full text-white focus:outline-none focus:border-gray-600 transition-colors duration-200 text-sm touch-target"
       >
-        <span className="truncate">{value || placeholder}</span>
+        <span className={`truncate ${!value ? 'text-gray-400/30' : ''}`}>{value || placeholder}</span>
         <ChevronDown 
           size={16} 
           className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}

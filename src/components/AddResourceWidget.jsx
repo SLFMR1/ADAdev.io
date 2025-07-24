@@ -139,9 +139,9 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) 
       ) : (
         /* Expanded Centered Widget */
         <Portal>
-          <div ref={modalRef} className="fixed z-[9999] p-4 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-96 bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg max-h-[85vh] overflow-y-auto pb-6 transition-all duration-500 ease-in-out opacity-100 scale-100">
+          <div ref={modalRef} className="fixed z-[9999] p-4 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[441px] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg max-h-[93.5vh] overflow-y-auto pb-6 transition-all duration-500 ease-in-out opacity-100 scale-100" data-widget="add-resource">
               <button
-                className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white bg-gray-800/70 rounded-full p-2 transition-colors"
+                className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white transition-all duration-200"
                 onClick={onCollapse}
                 aria-label="Close"
               >
@@ -186,15 +186,15 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) 
                   )}
                   <input name="customTabTitle" value={form.customTabTitle} onChange={handleChange} placeholder="Custom Tab Title (optional)" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
                   <textarea name="customTabContent" value={form.customTabContent} onChange={handleChange} placeholder="Custom Tab Content (optional)" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
-                  <button type="submit" className="btn-primary w-full flex items-center justify-center space-x-2 group mt-4 mb-2"> <Github size={16} />
-                    <span>Create Pull Request</span>
+                  <button type="submit" className="w-full flex items-center justify-center space-x-2 group mt-4 mb-2 bg-transparent border border-cyan-400/50 text-cyan-400 px-6 py-3 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-custom-bg hover:border-cyan-400 hover:bg-cyan-400/10 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]"> <Github size={16} />
+                    <span className="text-sm">Create Pull Request</span>
                   </button>
                 </form>
                 {codeSnippet && (
                   <div className="mt-4">
                     <div className="text-xs text-gray-400 mb-1 flex items-center justify-between">
                       <span>Prefilled PR Template:</span>
-                      <button onClick={handleCopy} title="Copy PR template" className="ml-2 p-1 rounded hover:bg-gray-700">
+                      <button onClick={handleCopy} title="Copy PR template" className="ml-2 p-1 rounded hover:bg-gray-700 transition-all duration-200 border border-gray-600/50 hover:border-gray-500">
                         {copySuccess ? <CheckCircle size={16} className="text-emerald-400" /> : <Copy size={16} />}
                       </button>
                     </div>

@@ -1,4 +1,6 @@
-import logger from '../utils/logger'
+import logger from '../utils/logger-frontend'
+import cacheManager from './cacheManager'
+import { rateLimiter } from './rateLimiter';
 
 // Server API configuration
 const SERVER_API_BASE = '/api/github'
@@ -6,7 +8,107 @@ const SERVER_API_BASE = '/api/github'
 // NEW: Client-side service that uses server cache and Supabase
 class GitHubService {
   constructor() {
-    this.serverBase = SERVER_API_BASE
+    this.token = process.env.GITHUB_TOKEN;
+    this.baseUrl = 'https://api.github.com';
+    // Use relative path for proxy in development, or full URL in production
+    this.serverBase = import.meta.env.DEV ? '/api/github' : 'http://localhost:3000/api/github';
+    this.rateLimiter = rateLimiter;
+  }
+
+  async fetchWithPagination(url, maxPages = 10) {
+    const allData = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore && page <= maxPages) {
+      const pageUrl = `${url}${url.includes('?') ? '&' : '?'}page=${page}&per_page=100`;
+      
+      try {
+        const response = await this.rateLimiter.makeRequest(pageUrl, {
+          headers: {
+            'Authorization': `token ${this.token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (Array.isArray(data)) {
+          allData.push(...data);
+          hasMore = data.length === 100; // If we got 100 items, there might be more
+        } else {
+          allData.push(data);
+          hasMore = false;
+        }
+
+        page++;
+      } catch (error) {
+        console.error(`Error fetching page ${page}:`, error);
+        break;
+      }
+    }
+
+    return allData;
+  }
+
+  async getRepoData(resource) {
+    if (!resource.repo_path) {
+      throw new Error(`Resource ${resource.name} missing repo_path`);
+    }
+
+    const [owner, repo] = resource.repo_path.split('/');
+    if (!owner || !repo) {
+      throw new Error(`Invalid repo_path format: ${resource.repo_path}`);
+    }
+
+    try {
+      // Get repository info
+      const repoInfo = await this.fetchWithPagination(`${this.baseUrl}/repos/${owner}/${repo}`, 1);
+      
+      // Get commits (last year)
+      const since = new Date();
+      since.setFullYear(since.getFullYear() - 1);
+      const commits = await this.fetchWithPagination(
+        `${this.baseUrl}/repos/${owner}/${repo}/commits?since=${since.toISOString()}`
+      );
+
+      // Get releases
+      const releases = await this.fetchWithPagination(`${this.baseUrl}/repos/${owner}/${repo}/releases`);
+
+      return {
+        repoInfo: repoInfo[0],
+        commits: commits,
+        releases: releases,
+        lastUpdated: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error(`Error fetching data for ${resource.repo_path}:`, error);
+      throw error;
+    }
+  }
+
+  async validateRepoPath(repoPath) {
+    const [owner, repo] = repoPath.split('/');
+    if (!owner || !repo) {
+      return false;
+    }
+
+    try {
+      const response = await this.rateLimiter.makeRequest(`${this.baseUrl}/repos/${owner}/${repo}`, {
+        headers: {
+          'Authorization': `token ${this.token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
   }
 
   /**
@@ -39,6 +141,13 @@ class GitHubService {
       
       const data = await response.json()
       
+      // Record cache performance
+      if (response.headers.get('x-cache-hit')) {
+        cacheManager.recordHit()
+      } else {
+        cacheManager.recordMiss()
+      }
+      
       logger.log(`📊 Client received data for ${resource.name}:`, {
         releases: data.releases?.length || 0,
         commits: data.commits?.length || 0,
@@ -49,6 +158,7 @@ class GitHubService {
       return data
     } catch (error) {
       logger.error(`Client error fetching GitHub updates for ${resource.name}:`, error)
+      cacheManager.recordMiss()
       return { releases: [], commits: [], repoInfo: null }
     }
   }

@@ -3,12 +3,15 @@ import {
   ExternalLink, Github, MessageCircle,
   TerminalSquare, Database, Wallet, Image as ImageIcon, Users,
   ShieldCheck, Zap, BarChart2, Bot, Moon, HardDrive, Building2,
-  BookOpen, UserCheck, Eye, Cpu, Heart, Server, GitBranch, Share2, Loader2
+  BookOpen, UserCheck, Eye, Cpu, Heart, Server, GitBranch, Share2, Loader2, TrendingUp
 } from 'lucide-react'
 import GitHubUpdates from './GitHubUpdates'
 import WeeklyCommitCount from './WeeklyCommitCount'
 import WeeklyActivityChart from './WeeklyActivityChart'
+import PeriodDropdown from './PeriodDropdown'
 import html2canvas from 'html2canvas'
+import { createGlobalGradientBackground } from '../utils/logger-frontend.js'
+import { createIsolatedScreenshot, shareToX, generateTweetText } from '../utils/screenshotUtils'
 
 const XIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -50,7 +53,7 @@ const getSocialIcon = (platform) => {
   }
 }
 
-const ResourceCard = ({ resource }) => {
+const ResourceCard = ({ resource, onViewResource }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState('about')
   const [isScrolling, setIsScrolling] = useState(false)
@@ -60,6 +63,16 @@ const ResourceCard = ({ resource }) => {
   const chartContainerRef = useRef(null)
   const [isSharing, setIsSharing] = useState(false)
   const [screenshotMode, setScreenshotMode] = useState(false)
+  const [selectedPeriod, setSelectedPeriod] = useState('4weeks')
+  const [shareMessage, setShareMessage] = useState('')
+  const [shareMessageType, setShareMessageType] = useState('success')
+
+  // Period options for activity chart
+  const periodOptions = [
+    { key: '4weeks', label: 'Last 4 Weeks' },
+    { key: '3months', label: 'Last 3 Months' },
+    { key: '52weeks', label: 'Last 1 Year' }
+  ]
 
   const IconComponent = categoryIconComponents[resource.category] || categoryIconComponents.default;
 
@@ -70,18 +83,25 @@ const ResourceCard = ({ resource }) => {
     </div>
   );
 
-  const TabButton = ({ tabName, children }) => (
+  const TabButton = ({ tabName, children, ...props }) => (
     <button
       onClick={(e) => {
         e.stopPropagation()
         setActiveTab(tabName)
+        
+        // Scroll to card when activity tab is manually clicked
+        if (tabName === 'activity' && isExpanded) {
+          // Single scroll after complete expansion
+          setTimeout(() => scrollToCard(), 600);
+        }
+        // No auto-scroll for other tabs - only activity tab needs centering
       }}
-      onMouseEnter={() => setActiveTab(tabName)}
       className={`px-3 py-1 text-sm rounded-md transition-all duration-200  ${
         activeTab === tabName 
           ? 'bg-gray-700/50 border-gray-600 text-white shadow-inner' 
           : 'bg-transparent border-transparent text-gray-400 hover:bg-gray-800/50 '
       }`}
+      {...props}
     >
       {children}
     </button>
@@ -117,7 +137,17 @@ const ResourceCard = ({ resource }) => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (isExpanded && cardRef.current && !cardRef.current.contains(event.target)) {
-        setIsExpanded(false)
+        // Check if the click target is another resource card
+        const clickedCard = event.target.closest('[data-resource-id]')
+        if (clickedCard && clickedCard !== cardRef.current) {
+          // Don't collapse if clicking on another card - let the new card handle its own expansion
+          return
+        }
+        
+        // Add small delay to prevent immediate collapse when opening new cards
+        setTimeout(() => {
+          setIsExpanded(false)
+        }, 100)
       }
     }
 
@@ -130,96 +160,152 @@ const ResourceCard = ({ resource }) => {
     }
   }, [isExpanded])
 
+  // Handle external tab selection requests
+  useEffect(() => {
+    const handleTabRequest = (event) => {
+      const { resourceId, resourceName, tabName } = event.detail;
+      
+      // Check if this event is for this specific resource card
+      if ((resourceId && resource.id === resourceId) || 
+          (resourceName && resource.name === resourceName)) {
+        
+        console.log(`🎯 External tab request for ${resource.name}: ${tabName}`);
+        
+        // Expand the card if not already expanded
+        if (!isExpanded) {
+          setIsExpanded(true);
+        }
+        
+        // Set the active tab after a brief delay to ensure expansion is complete
+        setTimeout(() => {
+          setActiveTab(tabName);
+          console.log(`✅ Tab set to ${tabName} for ${resource.name}`);
+          
+          // Smooth scroll to the card when activity tab is selected
+          if (tabName === 'activity') {
+            // Single scroll after complete expansion
+            setTimeout(() => scrollToCard(), 800);
+          }
+        }, 200);
+      }
+    };
+
+    document.addEventListener('resourceCardTabRequest', handleTabRequest);
+    
+    return () => {
+      document.removeEventListener('resourceCardTabRequest', handleTabRequest);
+    };
+  }, [isExpanded, resource.id, resource.name]);
+
   const handleCardClick = () => {
     // Don't trigger expand if currently scrolling
     if (isScrolling) return
     // Only expand if not already expanded
     if (!isExpanded) {
       setIsExpanded(true)
+      // No auto-scroll for regular expansion - only for activity tab
     }
     // Do nothing if already expanded (let outside click handler handle collapse)
   }
 
+  // Enhanced scroll function with better timing
+  const scrollToCard = () => {
+    if (cardRef.current) {
+      // Use requestAnimationFrame to ensure DOM updates are complete
+      requestAnimationFrame(() => {
+        // Get the card's position and size
+        const rect = cardRef.current.getBoundingClientRect()
+        const cardHeight = rect.height
+        const cardTop = rect.top
+        const viewportHeight = window.innerHeight
+        
+        // Calculate the scroll position to center the card
+        // Add offset for fixed headers/navigation (adjust as needed)
+        const headerOffset = 40 // Reduced offset to position card higher
+        
+        // Center the card at 50% of the viewport
+        const targetScrollTop = window.pageYOffset + cardTop - (viewportHeight / 2) + (cardHeight / 2) - headerOffset
+        
+        // Smooth scroll to the calculated position
+        window.scrollTo({
+          top: targetScrollTop,
+          behavior: 'smooth'
+        })
+      })
+    }
+  }
+
+  const showShareSuccess = (message) => {
+    setShareMessage(message);
+    setShareMessageType('success');
+    setTimeout(() => {
+      setShareMessage('');
+      setScreenshotMode(false);
+      setIsSharing(false);
+    }, 4000);
+  };
+
+  const showShareError = (message) => {
+    setShareMessage(message);
+    setShareMessageType('error');
+    setTimeout(() => {
+      setShareMessage('');
+      setScreenshotMode(false);
+      setIsSharing(false);
+    }, 4000);
+  };
+
   // Share logic for activity chart
   const handleShareActivityChart = async () => {
-    if (!chartContainerRef.current) return;
-    setScreenshotMode(true);
+    if (!cardRef.current) return;
     setIsSharing(true);
-    await new Promise(resolve => setTimeout(resolve, 100)); // allow re-render
-    // Hide tooltips if any (no hover/focus)
-    const tooltips = chartContainerRef.current.querySelectorAll('[class*=tooltip]');
-    tooltips.forEach(el => el.style.display = 'none');
-    // Screenshot chart container
-    const canvas = await html2canvas(chartContainerRef.current, {
-      backgroundColor: '#1a1a1a',
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      logging: false
-    });
-    const blob = await new Promise(resolve => {
-      canvas.toBlob(resolve, 'image/png', 0.95);
-    });
-    // Compose tweet text
-    const tweetText = `Cardano Project Activity\n\n${resource.name} - ${resource.category}\n#Cardano #Development #OpenSource\n\nSee more at: https://adadev.io`;
+    
     try {
-      if (navigator.clipboard && navigator.clipboard.write) {
-        const clipboardItems = [
-          new ClipboardItem({
-            'image/png': blob,
-            'text/plain': new Blob([tweetText], { type: 'text/plain' })
-          })
-        ];
-        await navigator.clipboard.write(clipboardItems);
+      // Use the isolated screenshot capture function
+      const blob = await createIsolatedScreenshot(cardRef.current, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        logging: false
+      });
+      
+      // Generate tweet text
+      const tweetText = `Cardano Project Activity\n\n${resource.name} - ${resource.category}\n#Cardano #Development #OpenSource\n\nSee more at: https://adadev.io`;
+      
+      // Use the enhanced share function
+      const result = await shareToX(blob, tweetText);
+      
+      if (result.success) {
+        showShareSuccess(result.message);
         setTimeout(() => {
           window.open('https://x.com/intent/tweet', '_blank');
-        }, 2000);
+        }, result.message.includes('Opening X') ? 3000 : 2000);
       } else {
-        await navigator.clipboard.writeText(tweetText);
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `cardano-activity-${resource.name.replace(/\s+/g, '')}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        setTimeout(() => {
-          window.open('https://x.com/intent/tweet', '_blank');
-        }, 2000);
+        showShareError(result.message);
       }
-    } catch (clipboardError) {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `cardano-activity-${resource.name.replace(/\s+/g, '')}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      try {
-        await navigator.clipboard.writeText(tweetText);
-      } catch {}
-      setTimeout(() => {
-        window.open('https://x.com/intent/tweet', '_blank');
-      }, 2000);
+    } catch (error) {
+      console.error('Share error:', error);
+      showShareError('Failed to generate image. Please try again.');
+    } finally {
+      setIsSharing(false);
     }
-    setIsSharing(false);
-    setScreenshotMode(false);
   }
 
   return (
     <div 
       ref={cardRef}
       onClick={handleCardClick}
-      className="relative bg-card-bg/50 backdrop-blur-md border border-gray-800 rounded-xl p-4 transition-all duration-300 ease-in-out transform-gpu shadow-lg hover:shadow-2xl cursor-pointer"
+      data-resource-id={resource.id}
+      data-resource-name={resource.name}
+      className={`relative bg-card-bg/50 backdrop-blur-md border border-gray-800 rounded-xl p-4 transition-all duration-300 ease-in-out transform-gpu shadow-lg hover:shadow-2xl cursor-pointer ${
+        isExpanded && activeTab === 'activity' ? 'col-span-2' : ''
+      }`}
       style={{
         height: isExpanded ? 'auto' : '6rem',
-        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? '25rem' : '38rem') : isExpanded ? (window.innerWidth < 1024 ? '18rem' : '22rem') : undefined,
-        width: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? '100%' : '60rem') : undefined,
-        maxWidth: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? '100%' : '60rem') : undefined,
+        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '22.5rem' : '25rem') : (screenshotMode ? '35.5rem' : '38rem')) : isExpanded ? (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) : undefined,
         transform: isExpanded ? (window.innerWidth < 1024 ? 'scale(1)' : 'scale(1.03)') : 'scale(1)',
-        zIndex: isExpanded && activeTab === 'activity' ? 50 : isExpanded ? 10 : 1,
+        marginBottom: isExpanded && activeTab === 'activity' ? '2rem' : undefined,
+        marginTop: isExpanded && activeTab === 'activity' ? '2rem' : undefined,
       }}
     >
       {/* Collapsed View */}
@@ -240,15 +326,13 @@ const ResourceCard = ({ resource }) => {
 
       {/* Expanded View */}
       <div className={`absolute top-0 left-0 w-full p-4 transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ 
-        minHeight: activeTab === 'activity' ? (window.innerWidth < 1024 ? '25rem' : '38rem') : (window.innerWidth < 1024 ? '18rem' : '22rem'), 
-        zIndex: activeTab === 'activity' ? 50 : 10, 
-        width: activeTab === 'activity' ? (window.innerWidth < 1024 ? '100%' : '60rem') : '100%' 
+        minHeight: activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '22rem' : '23rem') : (screenshotMode ? '35.5rem' : '38rem')) : (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem'))
       }}>
         <div className="flex flex-col min-h-full">
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <IconComponent size={28} className="text-cyan-400" />
+              <IconComponent size={28} className={`text-cyan-400 ${screenshotMode ? 'hidden' : ''}`} />
               <h3 className="text-white font-medium text-base">{resource.name}</h3>
             </div>
             {/* Logo in expanded view */}
@@ -262,22 +346,30 @@ const ResourceCard = ({ resource }) => {
                 onClick={(e) => e.stopPropagation()}
               >
                 {resource.logo ? (
-                  <img src={resource.logo} alt={`${resource.name} logo`} className="h-6 w-auto max-w-[80px] object-contain" />
+                  <img 
+                    src={resource.logo} 
+                    alt={`${resource.name} logo`} 
+                    className={`h-10 object-contain ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} 
+                  />
                 ) : (
-                  <PlaceholderLogo name={resource.name} className="h-6 w-16" />
+                  <PlaceholderLogo name={resource.name} className={`h-10 ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} />
                 )}
               </a>
             ) : (
               resource.logo ? (
-                <img src={resource.logo} alt={`${resource.name} logo`} className="h-6 w-auto max-w-[80px] object-contain" />
+                <img 
+                  src={resource.logo} 
+                  alt={`${resource.name} logo`} 
+                  className={`h-10 object-contain ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} 
+                />
               ) : (
-                <PlaceholderLogo name={resource.name} className="h-6 w-16" />
+                <PlaceholderLogo name={resource.name} className={`h-10 ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} />
               )
             )}
           </div>
 
           {/* Tabs */}
-          <div className="flex space-x-1 mb-3 border-b border-gray-700/50 overflow-x-auto">
+          <div className={`flex space-x-1 mb-3 border-b border-gray-700/50 overflow-x-auto ${screenshotMode ? 'hidden' : ''}`}>
             <TabButton tabName="about">About</TabButton>
             <TabButton tabName="solutions">Solutions</TabButton>
             <TabButton tabName="links">Links</TabButton>
@@ -285,7 +377,7 @@ const ResourceCard = ({ resource }) => {
               <TabButton tabName="updates">Updates</TabButton>
             )}
             {resource.social?.github && (
-              <TabButton tabName="activity">Activity</TabButton>
+              <TabButton tabName="activity" data-tab="activity">Activity</TabButton>
             )}
           </div>
 
@@ -319,24 +411,72 @@ const ResourceCard = ({ resource }) => {
               <GitHubUpdates resource={resource} />
             )}
             {activeTab === 'activity' && resource.social?.github && (
-              <div className="mb-2 flex justify-end">
-                <button
-                  onClick={handleShareActivityChart}
-                  className={`share-button text-cyan-400 hover:text-white bg-gray-800/70 rounded-full p-2 transition-colors ${isSharing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  title="Share Activity Chart"
-                  disabled={isSharing}
-                >
-                  {isSharing ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Share2 className="w-5 h-5" />
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <TrendingUp size={16} className="text-cyan-400" />
+                  <h4 className="text-white font-medium text-sm">
+                    Weekly Activity
+                  </h4>
+                  {screenshotMode && (
+                    <div className="ml-1">
+                      <PeriodDropdown
+                        value={selectedPeriod}
+                        onChange={setSelectedPeriod}
+                        options={periodOptions}
+                        placeholder="Select period..."
+                        className=""
+                        screenshotMode={screenshotMode}
+                      />
+                    </div>
                   )}
-                </button>
+                </div>
+                <div className="flex items-center space-x-3">
+                  {!screenshotMode && (
+                    <PeriodDropdown
+                      value={selectedPeriod}
+                      onChange={setSelectedPeriod}
+                      options={periodOptions}
+                      placeholder="Select period..."
+                      className="w-44"
+                      screenshotMode={screenshotMode}
+                    />
+                  )}
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={handleShareActivityChart}
+                      className={`share-button text-cyan-400 hover:text-white bg-gray-800/30 backdrop-blur-sm border border-cyan-400/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)] hover:border-cyan-400 hover:bg-cyan-400/10 ${isSharing ? 'opacity-50 cursor-not-allowed' : ''} ${screenshotMode ? 'hidden' : ''}`}
+                      title="Share Activity Chart"
+                      disabled={isSharing}
+                    >
+                      {isSharing ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Share2 className="w-4 h-4" />
+                      )}
+                    </button>
+                    {shareMessage && (
+                      <div className={`text-sm font-medium transition-all duration-300 ${
+                        shareMessageType === 'success' 
+                          ? 'bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent' 
+                          : 'bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent'
+                      }`}>
+                        {shareMessage}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
             {activeTab === 'activity' && resource.social?.github && (
               <div ref={chartContainerRef}>
-                <WeeklyActivityChart resource={resource} showThreeYearOption={false} hidePeriodSwitches={screenshotMode} hideActivityLevelInfo={true} />
+                <WeeklyActivityChart 
+                  resource={resource} 
+                  showThreeYearOption={false} 
+                  hidePeriodSwitches={true} 
+                  hideActivityLevelInfo={true}
+                  selectedPeriod={selectedPeriod}
+                  onPeriodChange={setSelectedPeriod}
+                />
               </div>
             )}
           </div>

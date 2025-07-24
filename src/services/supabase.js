@@ -1,15 +1,17 @@
-import { createClient } from '@supabase/supabase-js'
-import logger from '../utils/logger'
+const { createClient } = require('@supabase/supabase-js')
+const logger = require('../utils/logger')
 
 // Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+let supabase = null
 
 if (!supabaseUrl || !supabaseKey) {
   logger.error('❌ Supabase environment variables not configured')
+} else {
+  supabase = createClient(supabaseUrl, supabaseKey)
 }
-
-const supabase = createClient(supabaseUrl, supabaseKey)
 
 /**
  * GitHub Activity Service for Supabase
@@ -23,95 +25,107 @@ class GitHubActivityService {
    */
   async storeWeeklyActivity(resource, weeklyData) {
     if (!supabaseUrl || !supabaseKey) {
-      logger.error('❌ Supabase not configured, skipping storage')
+      logger.error('❌ Supabase not configured, returning error')
       return { error: 'Supabase not configured' }
     }
 
     try {
-      const resourceId = String(resource.id || resource.name)
       const repoPath = this.extractRepoPath(resource.social?.github)
-      
-      console.log(`🔍 [Supabase] storeWeeklyActivity for ${resource.name}:`)
-      console.log(`🔍 [Supabase] Resource ID: ${resourceId}`)
-      console.log(`🔍 [Supabase] Repo path: ${repoPath}`)
       
       if (!repoPath) {
         logger.error(`❌ Invalid GitHub URL for ${resource.name}`)
         return { error: 'Invalid GitHub URL' }
       }
+      
+      // Use repoPath as the unique identifier to avoid conflicts with duplicate resource IDs
+      const resourceId = repoPath
 
       // STRICT VALIDATION: Ensure all data is real before storage
       const validateRecord = (week) => {
         if (!week || !week.weekStart || typeof week.count !== 'number') {
-          console.warn(`⚠️ Invalid week data:`, week)
-          return false
-        }
-        
-        // Ensure commit count is a real integer
-        if (!Number.isInteger(week.count) || week.count < 0) {
-          console.warn(`⚠️ Invalid commit count: ${week.count}`, week)
           return false
         }
         
         // Validate date format
-        const date = new Date(week.weekStart)
-        if (isNaN(date.getTime())) {
-          console.warn(`⚠️ Invalid date: ${week.weekStart}`, week)
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+        if (!dateRegex.test(week.weekStart)) {
+          return false
+        }
+        
+        // Validate count is non-negative
+        if (week.count < 0) {
           return false
         }
         
         return true
       }
-      
+
       // Prepare data for insertion with strict validation
       const activityRecords = weeklyData
         .filter(validateRecord)
-        .map(week => ({
-          resource_id: resourceId,
-          repo_path: repoPath,
-          week_start: week.weekStart,
-          year: new Date(week.weekStart).getFullYear(),
-          week_number: this.getISOWeekNumber(new Date(week.weekStart)),
-          commit_count: week.count,
-          fetched_at: new Date().toISOString()
-        }))
+        .map(week => {
+          const date = new Date(week.weekStart)
+          const year = date.getFullYear()
+          const weekNumber = this.getWeekNumber(date)
+          
+          return {
+            resource_id: resourceId,
+            repo_path: repoPath,
+            week_start: week.weekStart,
+            year: year,
+            week_number: weekNumber,
+            commit_count: week.count,
+            fetched_at: new Date().toISOString()
+          }
+        })
 
-      logger.log(`💾 Storing ${activityRecords.length} weekly records for ${resource.name}`)
-      console.log(`🔍 [Supabase] Storing ${activityRecords.length} records`)
-      console.log(`📅 Date range: ${activityRecords[0]?.week_start} to ${activityRecords[activityRecords.length - 1]?.week_start}`)
+      if (activityRecords.length === 0) {
+        logger.warn(`⚠️ No valid weekly records for ${resource.name}`)
+        return { success: true, message: 'No valid records to store' }
+      }
 
-      // First, check if records already exist
-      const existingRecords = await supabase
-        .from('github_activity')
-        .select('week_start')
-        .eq('resource_id', resourceId)
-        .eq('repo_path', repoPath)
-        .in('week_start', activityRecords.map(r => r.week_start))
+      // CRITICAL FIX: Deduplicate records by week_start to prevent duplicate key errors
+      const uniqueRecords = []
+      const seenWeeks = new Set()
+      
+      for (const record of activityRecords) {
+        const weekKey = `${record.resource_id}-${record.repo_path}-${record.week_start}`
+        if (!seenWeeks.has(weekKey)) {
+          seenWeeks.add(weekKey)
+          uniqueRecords.push(record)
+        }
+      }
 
-      console.log(`🔍 [Supabase] Found ${existingRecords.data?.length || 0} existing records`)
+      logger.info(`📊 Data summary: ${uniqueRecords.filter(r => r.commit_count > 0).length} weeks with commits`)
+      logger.info(`📅 Date range: ${uniqueRecords[0]?.week_start} to ${uniqueRecords[uniqueRecords.length - 1]?.week_start}`)
+      
+      // Log sample records for debugging
+      logger.info(`🟢 About to upsert to Supabase (first 5):`, uniqueRecords.slice(0, 5))
+      logger.info(`🟢 About to upsert to Supabase (last 5):`, uniqueRecords.slice(-5))
 
-      // Use upsert to handle duplicates
+      // Use upsert with ON CONFLICT DO UPDATE
       const { data, error } = await supabase
         .from('github_activity')
-        .upsert(activityRecords, {
+        .upsert(uniqueRecords, {
           onConflict: 'resource_id,repo_path,week_start',
           ignoreDuplicates: false
         })
 
       if (error) {
         logger.error(`❌ Failed to store activity data for ${resource.name}:`, error)
-        console.error(`❌ [Supabase] Storage error:`, error)
+        logger.error(`🔍 Error details:`, {
+          code: error.code,
+          message: error.message,
+          details: error.details
+        })
         return { error: error.message }
       }
 
-      // If upsert doesn't return data, count the records we tried to insert
-      const storedCount = data?.length || activityRecords.length
-      logger.log(`✅ Stored ${storedCount} activity records for ${resource.name}`)
-      console.log(`✅ [Supabase] Successfully stored ${storedCount} records`)
-      return { success: true, count: storedCount }
+      logger.info(`✅ Successfully stored ${uniqueRecords.length} weekly records for ${resource.name}`)
+      return { success: true, count: uniqueRecords.length }
+
     } catch (error) {
-      logger.error(`❌ Error storing activity data for ${resource.name}:`, error)
-      console.error(`❌ [Supabase] Exception in storeWeeklyActivity:`, error)
+      logger.error(`❌ Exception in storeWeeklyActivity for ${resource.name}:`, error)
       return { error: error.message }
     }
   }
@@ -125,33 +139,27 @@ class GitHubActivityService {
   async getWeeklyActivity(resource, weeks = 156) {
     if (!supabaseUrl || !supabaseKey) {
       logger.error('❌ Supabase not configured, returning empty data')
-      console.log('❌ [Supabase] Environment variables not configured for getWeeklyActivity')
       return []
     }
 
     try {
-      const resourceId = String(resource.id || resource.name)
       const repoPath = this.extractRepoPath(resource.social?.github)
-      
-      console.log(`🔍 [Supabase] getWeeklyActivity for ${resource.name}:`)
-      console.log(`🔍 [Supabase] Resource ID: ${resourceId}`)
-      console.log(`🔍 [Supabase] Repo path: ${repoPath}`)
-      console.log(`🔍 [Supabase] Requesting ${weeks} weeks of data`)
       
       if (!repoPath) {
         logger.error(`❌ Invalid GitHub URL for ${resource.name}`)
-        console.log(`❌ [Supabase] Invalid GitHub URL for ${resource.name}`)
         return []
       }
+      
+      // Use repoPath as the unique identifier to avoid conflicts with duplicate resource IDs
+      const resourceId = repoPath
 
       // Calculate the date for N weeks ago
       const weeksAgo = new Date()
       weeksAgo.setDate(weeksAgo.getDate() - (weeks * 7))
-      console.log(`🔍 [Supabase] Querying data from: ${weeksAgo.toISOString().split('T')[0]}`)
 
       const { data, error } = await supabase
         .from('github_activity')
-        .select('*')
+        .select('*') // FIXED: Remove limit to support longer periods
         .eq('resource_id', resourceId)
         .eq('repo_path', repoPath)
         .gte('week_start', weeksAgo.toISOString().split('T')[0])
@@ -159,22 +167,13 @@ class GitHubActivityService {
 
       if (error) {
         logger.error(`❌ Failed to retrieve activity data for ${resource.name}:`, error)
-        console.error(`❌ [Supabase] Database error in getWeeklyActivity:`, error)
         return []
-      }
-
-      console.log(`🔍 [Supabase] Retrieved ${data?.length || 0} records for ${resource.name}`)
-      if (data && data.length > 0) {
-        console.log(`🔍 [Supabase] Sample records:`, data.slice(0, 3))
-        console.log(`🔍 [Supabase] Date range: ${data[0]?.week_start} to ${data[data.length - 1]?.week_start}`)
-        console.log(`🔍 [Supabase] Historical data available: ${data.length} weeks (${Math.round(data.length / 52 * 100)}% of 3 years)`)
       }
       
       logger.log(`📊 Retrieved ${data?.length || 0} activity records for ${resource.name} (${weeks} weeks requested)`)
       return data || []
     } catch (error) {
       logger.error(`❌ Error retrieving activity data for ${resource.name}:`, error)
-      console.error(`❌ [Supabase] Exception in getWeeklyActivity:`, error)
       return []
     }
   }
@@ -190,21 +189,18 @@ class GitHubActivityService {
     }
 
     try {
-      const resourceId = String(resource.id || resource.name)
       const repoPath = this.extractRepoPath(resource.social?.github)
       
-      console.log(`🔍 [Supabase] getLatestActivity for ${resource.name}:`)
-      console.log(`🔍 [Supabase] Resource ID: ${resourceId}`)
-      console.log(`🔍 [Supabase] Repo path: ${repoPath}`)
-      
       if (!repoPath) {
-        console.log(`❌ [Supabase] Invalid GitHub URL for ${resource.name}`)
         return null
       }
+      
+      // Use repoPath as the unique identifier to avoid conflicts with duplicate resource IDs
+      const resourceId = repoPath
 
       const { data, error } = await supabase
         .from('github_activity')
-        .select('*')
+        .select('*').limit(52)
         .eq('resource_id', resourceId)
         .eq('repo_path', repoPath)
         .order('week_start', { ascending: false })
@@ -213,15 +209,12 @@ class GitHubActivityService {
 
       if (error) {
         logger.error(`❌ Failed to retrieve latest activity for ${resource.name}:`, error)
-        console.error(`❌ [Supabase] Database error in getLatestActivity:`, error)
         return null
       }
 
-      console.log(`🔍 [Supabase] Latest activity for ${resource.name}:`, data)
       return data
     } catch (error) {
       logger.error(`❌ Error retrieving latest activity for ${resource.name}:`, error)
-      console.error(`❌ [Supabase] Exception in getLatestActivity:`, error)
       return null
     }
   }
@@ -234,7 +227,6 @@ class GitHubActivityService {
    */
   async hasRecentData(resource, hours = 24) {
     if (!supabaseUrl || !supabaseKey) {
-      console.log('❌ [Supabase] Environment variables not configured')
       return false
     }
 
@@ -242,18 +234,12 @@ class GitHubActivityService {
       const resourceId = String(resource.id || resource.name)
       const repoPath = this.extractRepoPath(resource.social?.github)
       
-      console.log(`🔍 [Supabase] hasRecentData for ${resource.name}:`)
-      console.log(`🔍 [Supabase] Resource ID: ${resourceId}`)
-      console.log(`🔍 [Supabase] Repo path: ${repoPath}`)
-      
       if (!repoPath) {
-        console.log(`❌ [Supabase] Invalid GitHub URL for ${resource.name}`)
         return false
       }
 
       const threshold = new Date()
       threshold.setHours(threshold.getHours() - hours)
-      console.log(`🔍 [Supabase] Checking for data after: ${threshold.toISOString()}`)
 
       const { data, error } = await supabase
         .from('github_activity')
@@ -265,16 +251,13 @@ class GitHubActivityService {
 
       if (error) {
         logger.error(`❌ Failed to check recent data for ${resource.name}:`, error)
-        console.error(`❌ [Supabase] Database error:`, error)
         return false
       }
 
       const hasData = data && data.length > 0
-      console.log(`🔍 [Supabase] Has recent data: ${hasData} (${data?.length || 0} records)`)
       return hasData
     } catch (error) {
       logger.error(`❌ Error checking recent data for ${resource.name}:`, error)
-      console.error(`❌ [Supabase] Exception:`, error)
       return false
     }
   }
@@ -293,10 +276,12 @@ class GitHubActivityService {
       const summaries = []
       
       for (const resource of resources) {
-        const resourceId = resource.id || resource.name
         const repoPath = this.extractRepoPath(resource.social?.github)
         
         if (!repoPath) continue
+        
+        // Use repoPath as the unique identifier to avoid conflicts with duplicate resource IDs
+        const resourceId = repoPath
 
         // Get current week's data
         const currentWeek = new Date()
@@ -334,6 +319,168 @@ class GitHubActivityService {
     }
   }
 
+  // Create daily activity table if it doesn't exist
+  async createDailyActivityTable() {
+    try {
+      const { error } = await supabase.rpc('create_daily_activity_table')
+      if (error) {
+        logger.error('❌ Failed to create daily activity table:', error)
+        return false
+      }
+      logger.log('✅ Daily activity table created successfully')
+      return true
+    } catch (error) {
+      logger.error('❌ Error creating daily activity table:', error)
+      return false
+    }
+  }
+
+  // Store daily activity data in the new table
+  async storeDailyActivity(resourceId, repoPath, dailyData, resource) {
+    try {
+      // Validate input data
+      if (!resourceId || !repoPath || !Array.isArray(dailyData)) {
+        logger.error('❌ Invalid input for storeDailyActivity')
+        return false
+      }
+
+      // Check if this is an organization
+      const isOrganization = !repoPath.includes('/')
+      
+      // Validate each record
+      const validateRecord = (day) => {
+        return day && 
+               typeof day.date === 'string' && 
+               typeof day.count === 'number' && 
+               day.count >= 0
+      }
+
+      // Prepare data for insertion with strict validation
+      const activityRecords = dailyData
+        .filter(validateRecord)
+        .map(day => {
+          const date = new Date(day.date)
+          const year = date.getFullYear()
+          const month = date.getMonth() + 1
+          const dayOfMonth = date.getDate()
+          
+          return {
+            resource_id: resourceId,
+            repo_path: repoPath,
+            date: day.date,
+            year: year,
+            month: month,
+            day: dayOfMonth,
+            commit_count: day.count,
+            fetched_at: new Date().toISOString()
+          }
+        })
+
+      if (activityRecords.length === 0) {
+        logger.warn(`⚠️ No valid daily records for ${resource?.name || resourceId}`)
+        return true
+      }
+
+      // CRITICAL FIX: Deduplicate records by date to prevent duplicate key errors
+      const uniqueRecords = []
+      const seenDates = new Set()
+      
+      for (const record of activityRecords) {
+        const dateKey = `${record.resource_id}-${record.repo_path}-${record.date}`
+        if (!seenDates.has(dateKey)) {
+          seenDates.add(dateKey)
+          uniqueRecords.push(record)
+        }
+      }
+
+      logger.info(`📊 Daily data summary: ${uniqueRecords.filter(r => r.commit_count > 0).length} days with commits`)
+      logger.info(`📅 Date range: ${uniqueRecords[0]?.date} to ${uniqueRecords[uniqueRecords.length - 1]?.date}`)
+
+      // Use upsert with ON CONFLICT DO UPDATE
+      const { data, error } = await supabase
+        .from('github_daily_activity')
+        .upsert(uniqueRecords, {
+          onConflict: 'resource_id,repo_path,date',
+          ignoreDuplicates: false
+        })
+
+      if (error) {
+        logger.error(`❌ Failed to store daily activity data for ${resource?.name || resourceId}:`, error)
+        logger.error(`🔍 Error details:`, {
+          code: error.code,
+          message: error.message,
+          details: error.details
+        })
+        return false
+      }
+
+      logger.info(`✅ Successfully stored ${uniqueRecords.length} daily records for ${resource?.name || resourceId}`)
+      return true
+
+    } catch (error) {
+      logger.error(`❌ Exception in storeDailyActivity for ${resource?.name || resourceId}:`, error)
+      return false
+    }
+  }
+
+  // Get daily activity data from the new table
+  async getDailyActivity(resourceId, repoPath, days, resource) {
+    try {
+      if (!resourceId || !repoPath || !days || !resource) {
+        logger.error('❌ Invalid input for getDailyActivity')
+        return []
+      }
+
+      const daysAgo = new Date()
+      daysAgo.setDate(daysAgo.getDate() - days)
+
+      const { data, error } = await supabase
+        .from('github_daily_activity')
+        .select('*').limit(52)
+        .eq('resource_id', resourceId)
+        .eq('repo_path', repoPath)
+        .gte('date', daysAgo.toISOString().split('T')[0])
+        .order('date', { ascending: true })
+
+      if (error) {
+        logger.error(`❌ Failed to retrieve daily activity for ${resource.name}:`, error)
+        return []
+      }
+
+      logger.log(`📊 Retrieved ${data?.length || 0} daily activity records for ${resource.name} (${days} days requested)`)
+      return data || []
+    } catch (error) {
+      logger.error(`❌ Error retrieving daily activity for ${resource.name}:`, error)
+      return []
+    }
+  }
+
+  // Check if we have recent daily data
+  async hasRecentDailyData(resourceId, repoPath, hours = 24) {
+    try {
+      const threshold = new Date()
+      threshold.setHours(threshold.getHours() - hours)
+
+      const { data, error } = await supabase
+        .from('github_daily_activity')
+        .select('fetched_at')
+        .eq('resource_id', resourceId)
+        .eq('repo_path', repoPath)
+        .gte('fetched_at', threshold.toISOString())
+        .limit(1)
+
+      if (error) {
+        logger.error('❌ Error checking recent daily data:', error)
+        return false
+      }
+
+      return data && data.length > 0
+    } catch (error) {
+      logger.error('❌ Error checking recent daily data:', error)
+      return false
+    }
+  }
+
   /**
    * Extract repository path from GitHub URL
    * @param {string} githubUrl - GitHub URL
@@ -341,17 +488,13 @@ class GitHubActivityService {
    */
   extractRepoPath(githubUrl) {
     if (!githubUrl) {
-      console.log('❌ [Supabase] extractRepoPath: No GitHub URL provided')
       return null
     }
-    
-    console.log(`🔍 [Supabase] extractRepoPath: Processing URL: ${githubUrl}`)
     
     // Handle organization URLs (e.g., https://github.com/masumi-network)
     const orgMatch = githubUrl.match(/github\.com\/([^\/]+)$/)
     if (orgMatch) {
       const orgPath = orgMatch[1]
-      console.log(`🔍 [Supabase] extractRepoPath: Detected organization: ${orgPath}`)
       return orgPath
     }
     
@@ -359,11 +502,9 @@ class GitHubActivityService {
     const repoMatch = githubUrl.match(/github\.com\/([^\/]+\/[^\/]+)/)
     if (repoMatch) {
       const repoPath = repoMatch[1]
-      console.log(`🔍 [Supabase] extractRepoPath: Detected repository: ${repoPath}`)
       return repoPath
     }
     
-    console.log(`❌ [Supabase] extractRepoPath: Could not parse GitHub URL: ${githubUrl}`)
     return null
   }
 
@@ -413,22 +554,46 @@ class GitHubActivityService {
 const githubActivityService = new GitHubActivityService()
 
 // Export functions
-export const storeWeeklyActivity = (resource, weeklyData) => 
+const storeWeeklyActivity = (resource, weeklyData) => 
   githubActivityService.storeWeeklyActivity(resource, weeklyData)
 
-export const getWeeklyActivity = (resource, weeks) => 
+const getWeeklyActivity = (resource, weeks) => 
   githubActivityService.getWeeklyActivity(resource, weeks)
 
-export const getLatestActivity = (resource) => 
+const getLatestActivity = (resource) => 
   githubActivityService.getLatestActivity(resource)
 
-export const hasRecentData = (resource, hours) => 
+const hasRecentData = (resource, hours) => 
   githubActivityService.hasRecentData(resource, hours)
 
-export const getActivitySummaries = (resources) => 
+const getActivitySummaries = (resources) => 
   githubActivityService.getActivitySummaries(resources)
 
-export const transformWeeklyData = (weeklyData) => 
+const createDailyActivityTable = () => 
+  githubActivityService.createDailyActivityTable()
+
+const storeDailyActivity = (resourceId, repoPath, dailyData, resource) => 
+  githubActivityService.storeDailyActivity(resourceId, repoPath, dailyData, resource)
+
+const getDailyActivity = (resourceId, repoPath, days, resource) => 
+  githubActivityService.getDailyActivity(resourceId, repoPath, days, resource)
+
+const hasRecentDailyData = (resourceId, repoPath, hours) => 
+  githubActivityService.hasRecentDailyData(resourceId, repoPath, hours)
+
+const transformWeeklyData = (weeklyData) => 
   githubActivityService.transformWeeklyData(weeklyData)
 
-export default githubActivityService 
+module.exports = {
+  storeWeeklyActivity,
+  getWeeklyActivity,
+  getLatestActivity,
+  hasRecentData,
+  getActivitySummaries,
+  createDailyActivityTable,
+  storeDailyActivity,
+  getDailyActivity,
+  hasRecentDailyData,
+  transformWeeklyData,
+  default: githubActivityService
+} 

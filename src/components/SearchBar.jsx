@@ -10,7 +10,7 @@ const SearchBar = ({
   categories 
 }) => {
   return (
-    <div id="resources" className="mb-8">
+    <div className="mb-8">
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         {/* Search Input */}
         <div className="flex-1 relative">
@@ -22,7 +22,12 @@ const SearchBar = ({
             placeholder="Search resources..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="block w-full pl-9 pr-3 py-3 sm:py-2 border border-gray-700 rounded-full bg-card-bg/50 backdrop-blur-md text-gray-100 placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors duration-200 text-sm sm:text-sm"
+            className="block w-full pl-9 pr-3 py-3 sm:py-2 border border-gray-700 rounded-full bg-card-bg/50 backdrop-blur-md text-gray-100 focus:outline-none focus:border-gray-600 transition-colors duration-200 text-sm sm:text-sm"
+            style={{
+              '::placeholder': {
+                color: 'rgba(107, 114, 128, 0.3)'
+              }
+            }}
           />
         </div>
 

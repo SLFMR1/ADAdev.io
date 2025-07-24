@@ -1,118 +1,193 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from 'react';
+import Header from './components/Header';
+import Hero from './components/Hero';
+import GitHubUpdatesWidget from './components/GitHubUpdatesWidget';
+import AddResourceWidget from './components/AddResourceWidget';
+import DevelopmentActivityWidget from './components/DevelopmentActivityWidget';
+import AISearchWidget from './components/AISearchWidget';
+import FindDeveloperWidget from './components/FindDeveloperWidget';
+import SearchBar from './components/SearchBar';
+import ResourceCard from './components/ResourceCard';
+import AIResults from './components/AIResults';
+import AIModal from './components/AIModal';
+import Footer from './components/Footer';
+import { cardanoResources } from './data/resources';
+import { preloadCache, initializeRateLimit } from './services/github';
+import cacheManager from './services/cacheManager';
+import { Activity, Menu, X, Brain, Bot, TrendingUp, Plus, Users } from 'lucide-react';
 
-import Header from './components/Header'
-import BetaBanner from './components/BetaBanner'
-import Hero from './components/Hero'
-import GitHubUpdatesWidget from './components/GitHubUpdatesWidget'
-import AddResourceWidget from './components/AddResourceWidget'
-import DevelopmentActivityWidget from './components/DevelopmentActivityWidget'
-import AISearchWidget from './components/AISearchWidget'
-import SearchBar from './components/SearchBar'
-import ResourceCard from './components/ResourceCard'
-import AIResults from './components/AIResults'
-import AIModal from './components/AIModal'
-import Footer from './components/Footer'
-import { cardanoResources } from './data/resources'
-import { preloadCache, initializeRateLimit } from './services/github'
-import { Zap, Menu, X } from 'lucide-react'
-
-const SidebarWidgetsContainer = ({ expanded, setExpanded }) => {
-  const handleExpand = (key) => {
-    setExpanded(prev => prev === key ? prev : key)
-  }
+// Unified Background Overlay Component
+const WidgetOverlay = ({ isOpen, onClose, children }) => {
+  if (!isOpen) return null;
   return (
-    <div className="fixed left-0 top-1/2 -translate-y-1/2 z-50 flex flex-col items-start gap-0 hidden lg:flex" style={{ height: 'auto' }}>
-      {expanded !== 'dev' && (
-      <DevelopmentActivityWidget
-          isExpanded={false}
-        onExpand={() => handleExpand('dev')}
-        onCollapse={() => setExpanded(null)}
-        isAnyExpanded={!!expanded}
-      />
-      )}
-      {expanded !== 'github' && (
-      <GitHubUpdatesWidget
-          isExpanded={false}
-        onExpand={() => handleExpand('github')}
-        onCollapse={() => setExpanded(null)}
-        isAnyExpanded={!!expanded}
-      />
-      )}
-      {expanded !== 'ai' && (
-      <AISearchWidget
-          isExpanded={false}
-        onExpand={() => handleExpand('ai')}
-        onCollapse={() => setExpanded(null)}
-        isAnyExpanded={!!expanded}
-      />
-      )}
-      {expanded !== 'add' && (
-      <AddResourceWidget
-          isExpanded={false}
-        onExpand={() => handleExpand('add')}
-        onCollapse={() => setExpanded(null)}
-        isAnyExpanded={!!expanded}
-      />
-      )}
+    <div
+      className="fixed inset-0 z-40 transition-all duration-500 ease-in-out opacity-100 scale-100"
+      onClick={onClose}
+      style={{
+        background: 'linear-gradient(135deg, #1E1E1E 0%, #0F0F0F 50%, #1A1A1A 100%)',
+        backgroundImage: `
+          radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+          radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
+          radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.05) 0%, transparent 50%)
+        `,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+// SidebarWidgetsContainer Component
+const SidebarWidgetsContainer = ({ expanded, setExpanded, handleWidgetExpand, isResourcesSectionActive }) => {
+  return (
+    <div className="fixed left-0 top-1/2 -translate-y-1/2 z-50 flex flex-col items-start gap-0 hidden lg:flex">
+      {/* Development Activity Widget */}
+      <div className="relative z-50 w-16 h-16" onClick={() => handleWidgetExpand('dev')}>
+        <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
+          expanded === 'dev' 
+            ? 'border-amber-400/50 shadow-[0_0_20px_rgba(251,191,36,0.4),0_0_40px_rgba(251,191,36,0.2)]' 
+            : 'hover:border-amber-400/30 hover:shadow-[0_0_15px_rgba(251,191,36,0.3),0_0_30px_rgba(251,191,36,0.15)]'
+        }`}>
+          <Activity size={24} className={`transition-all duration-300 ${
+            expanded === 'dev' 
+              ? 'text-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.8)]' 
+              : 'text-gray-400 group-hover:text-amber-400'
+          }`} />
+        </div>
+      </div>
+      
+      {/* GitHub Updates Widget */}
+      <div className="relative z-50 w-16 h-16" onClick={() => handleWidgetExpand('github')}>
+        <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
+          expanded === 'github' 
+            ? 'border-purple-400/50 shadow-[0_0_20px_rgba(168,85,247,0.4),0_0_40px_rgba(168,85,247,0.2)]' 
+            : 'hover:border-purple-400/30 hover:shadow-[0_0_15px_rgba(168,85,247,0.3),0_0_30px_rgba(168,85,247,0.15)]'
+        }`}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className={`transition-all duration-300 ${
+            expanded === 'github' 
+              ? 'text-purple-400 drop-shadow-[0_0_12px_rgba(168,85,247,0.8)]' 
+              : 'text-gray-400 group-hover:text-purple-400'
+          }`}>
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+        </div>
+      </div>
+      
+      {/* AI Widget */}
+      <div className="relative z-50 w-16 h-16" onClick={() => handleWidgetExpand('ai')}>
+        <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
+          expanded === 'ai' 
+            ? 'border-teal-400/50 shadow-[0_0_20px_rgba(20,184,166,0.4),0_0_40px_rgba(20,184,166,0.2)]' 
+            : 'hover:border-teal-400/30 hover:shadow-[0_0_15px_rgba(20,184,166,0.3),0_0_30px_rgba(20,184,166,0.15)]'
+        }`}>
+          <Bot size={24} className={`transition-all duration-300 ${
+            expanded === 'ai' 
+              ? 'text-teal-400 drop-shadow-[0_0_12px_rgba(20,184,166,0.8)]' 
+              : 'text-gray-400 group-hover:text-teal-400'
+          }`} />
+        </div>
+      </div>
+      
+      {/* Resources Widget */}
+      <div className="relative z-[60] w-16 h-16" onClick={() => {
+        // Close any open widget first
+        if (expanded) {
+          setExpanded(null)
+          setNavigationSource(null)
+        }
+        // Scroll to resources immediately after closing widget
+        const element = document.getElementById('resources')
+        if (element) {
+          // Calculate the offset to account for any fixed headers or padding
+          const rect = element.getBoundingClientRect()
+          const scrollTop = window.pageYOffset + rect.top - 20 // 20px offset for better positioning
+          
+          window.scrollTo({
+            top: scrollTop,
+            behavior: 'smooth'
+          })
+        }
+      }}>
+        <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
+          isResourcesSectionActive 
+            ? 'border-red-400/50 shadow-[0_0_20px_rgba(248,113,113,0.4),0_0_40px_rgba(248,113,113,0.2)]' 
+            : 'hover:border-red-400/30 hover:shadow-[0_0_15px_rgba(248,113,113,0.3),0_0_30px_rgba(248,113,113,0.15)]'
+        }`}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-all duration-300 ${
+            isResourcesSectionActive 
+              ? 'text-red-400 drop-shadow-[0_0_12px_rgba(248,113,113,0.8)]' 
+              : 'text-gray-400 group-hover:text-red-400'
+          }`}>
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+      </div>
+      
+      {/* Add Resource Widget */}
+      <div className="relative z-50 w-16 h-16" onClick={() => handleWidgetExpand('add')}>
+        <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
+          expanded === 'add' 
+            ? 'border-emerald-400/50 shadow-[0_0_20px_rgba(52,211,153,0.4),0_0_40px_rgba(52,211,153,0.2)]' 
+            : 'hover:border-emerald-400/30 hover:shadow-[0_0_15px_rgba(52,211,153,0.3),0_0_30px_rgba(52,211,153,0.15)]'
+        }`}>
+          <Plus size={24} className={`transition-all duration-300 ${
+            expanded === 'add' 
+              ? 'text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.8)]' 
+              : 'text-gray-400 group-hover:text-emerald-400'
+          }`} />
+        </div>
+      </div>
+      
+      {/* Find Developer Widget */}
+      <div className="relative z-50 w-16 h-16" onClick={() => handleWidgetExpand('find')}>
+        <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
+          expanded === 'find' 
+            ? 'border-blue-400/50 shadow-[0_0_20px_rgba(59,130,246,0.4),0_0_40px_rgba(59,130,246,0.2)]' 
+            : 'hover:border-blue-400/30 hover:shadow-[0_0_15px_rgba(59,130,246,0.3),0_0_30px_rgba(59,130,246,0.15)]'
+        }`}>
+          <Users size={24} className={`transition-all duration-300 ${
+            expanded === 'find' 
+              ? 'text-blue-400 drop-shadow-[0_0_12px_rgba(59,130,246,0.8)]' 
+              : 'text-gray-400 group-hover:text-blue-400'
+          }`} />
+        </div>
+      </div>
     </div>
   )
 }
 
 // Mobile Navigation Component
-const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded }) => {
+const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidgetExpand }) => {
   const handleWidgetClick = (widgetKey) => {
-    setExpanded(expanded === widgetKey ? null : widgetKey)
-    onClose()
-  }
+    handleWidgetExpand(widgetKey);
+    onClose();
+  };
 
   return (
-    <>
-      {/* Mobile Navigation Overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 z-50 lg:hidden transition-all duration-500 ease-in-out opacity-100 scale-100"
-          onClick={onClose}
-          style={{
-            background: 'linear-gradient(135deg, #1E1E1E 0%, #0F0F0F 50%, #1A1A1A 100%)',
-            backgroundImage: `
-              radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
-              radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
-              radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.05) 0%, transparent 50%)
-            `
-          }}
-        />
-      )}
-      
-      {/* Mobile Navigation Menu */}
-      <div className={`fixed top-0 left-0 h-full w-80 bg-card-bg/95 backdrop-blur-md border-r border-gray-800 z-50 transform transition-transform duration-300 ease-in-out lg:hidden ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-800">
-            <h2 className="text-white font-bold text-lg">ADAdev Menu</h2>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              <X size={20} className="text-gray-400" />
+    <div className={`fixed inset-0 z-50 lg:hidden transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
+      <div className={`absolute left-0 top-0 h-full w-80 bg-card-bg/95 border-r border-gray-800 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-3">
+              <img src="/ADAdev_logo.svg" alt="ADAdev" className="h-8 w-auto object-contain" />
+              <span className="text-white font-semibold">Menu</span>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-white">
+              <X size={24} />
             </button>
           </div>
-          
-          {/* Navigation Items */}
-          <div className="flex-1 p-6 space-y-4">
+
+          <div className="space-y-6">
             <div className="space-y-2">
-              <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-3">
-                Widgets
-              </h3>
-              
+              <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-3">Widgets</h3>
               <button
                 onClick={() => handleWidgetClick('dev')}
-                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
+                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-yellow-500/20 rounded-lg flex items-center justify-center">
-                    <Zap size={16} className="text-yellow-400" />
+                  <div className="w-8 h-8 bg-amber-500/20 rounded-lg flex items-center justify-center">
+                    <Activity size={16} className="text-gray-400 group-hover:text-amber-400" />
                   </div>
                   <div>
                     <div className="text-white font-medium">Development Activity</div>
@@ -120,31 +195,29 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded }) => {
                   </div>
                 </div>
               </button>
-              
               <button
                 onClick={() => handleWidgetClick('github')}
-                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
+                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-gray-400 group-hover:text-purple-400">
                       <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                     </svg>
                   </div>
                   <div>
                     <div className="text-white font-medium">GitHub Updates</div>
-                    <div className="text-gray-400 text-sm">Latest repository activity</div>
+                    <div className="text-gray-400 text-sm">Latest releases & commits</div>
                   </div>
                 </div>
               </button>
-              
               <button
                 onClick={() => handleWidgetClick('ai')}
-                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
+                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                    <Zap size={16} className="text-emerald-400" />
+                  <div className="w-8 h-8 bg-teal-500/20 rounded-lg flex items-center justify-center">
+                    <Bot size={16} className="text-gray-400 group-hover:text-teal-400" />
                   </div>
                   <div>
                     <div className="text-white font-medium">AI Development Plan</div>
@@ -152,40 +225,58 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded }) => {
                   </div>
                 </div>
               </button>
-              
               <button
                 onClick={() => handleWidgetClick('add')}
-                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
+                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 5v14M5 12h14"/>
-                    </svg>
+                  <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                    <Plus size={16} className="text-gray-400 group-hover:text-emerald-400" />
                   </div>
                   <div>
                     <div className="text-white font-medium">Add Resource</div>
-                    <div className="text-gray-400 text-sm">Submit new tools</div>
+                    <div className="text-gray-400 text-sm">Contribute to the ecosystem</div>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleWidgetClick('find')}
+                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <Users size={16} className="text-gray-400 group-hover:text-blue-400" />
+                  </div>
+                  <div>
+                    <div className="text-white font-medium">Find a Developer</div>
+                    <div className="text-gray-400 text-sm">Get help with your project</div>
                   </div>
                 </div>
               </button>
             </div>
-            
+
             <div className="pt-4 border-t border-gray-800">
-              <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-3">
-                Quick Actions
-              </h3>
-              
+              <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-3">Quick Actions</h3>
               <button
                 onClick={() => {
-                  document.getElementById('resources')?.scrollIntoView({ behavior: 'smooth' })
-                  onClose()
+                  const element = document.getElementById('resources')
+                  if (element) {
+                    // Calculate the offset to account for any fixed headers or padding
+                    const rect = element.getBoundingClientRect()
+                    const scrollTop = window.pageYOffset + rect.top - 20 // 20px offset for better positioning
+                    
+                    window.scrollTo({
+                      top: scrollTop,
+                      behavior: 'smooth'
+                    })
+                  }
+                  onClose();
                 }}
                 className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
               >
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center">
-                    <Zap size={16} className="text-cyan-400" />
+                    <TrendingUp size={16} className="text-cyan-400" />
                   </div>
                   <div>
                     <div className="text-white font-medium">Browse Resources</div>
@@ -194,301 +285,400 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded }) => {
                 </div>
               </button>
             </div>
-            
-            <div className="pt-4 border-t border-gray-800">
-              <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-3">
-                Community
-              </h3>
-              
-              <a
-                href="https://x.com/SLFMR1"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="text-white font-medium">Follow on X</div>
-                    <div className="text-gray-400 text-sm">Stay updated</div>
-                  </div>
-                </div>
-              </a>
-            </div>
-          </div>
-          
-          {/* Footer */}
-          <div className="p-6 border-t border-gray-800">
-            <p className="text-gray-400 text-xs text-center">
-              Built for the Cardano Developer Community
-            </p>
           </div>
         </div>
       </div>
-    </>
-  )
-}
+    </div>
+  );
+};
 
 function App() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('All')
-  const [aiResults, setAiResults] = useState(null)
-  const [showAIWidget, setShowAIWidget] = useState(false)
-  const [isAILoading, setIsAILoading] = useState(false)
-  const [expanded, setExpanded] = React.useState(null)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [aiResults, setAiResults] = useState(null);
+  const [showAIWidget, setShowAIWidget] = useState(false);
+  const [isAILoading, setIsAILoading] = useState(false);
+  const [expanded, setExpanded] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [viewingResourceCard, setViewingResourceCard] = useState(false);
+  const [navigationSource, setNavigationSource] = useState(null); // 'leaderboard', 'widget', or null
+  const [isResourcesSectionActive, setIsResourcesSectionActive] = useState(false);
 
-  // Get all categories
-  const categories = ['All', ...Object.keys(cardanoResources).sort()]
+  const categories = ['All', ...Object.keys(cardanoResources).sort()];
 
-  // Flatten all resources with category info
   const allResources = useMemo(() => {
     return Object.entries(cardanoResources).flatMap(([category, resources]) =>
-      resources.map(resource => ({ ...resource, category }))
-    )
-  }, [])
+      resources.map((resource) => ({ ...resource, category }))
+    );
+  }, []);
 
-  // Initialize GitHub API and preload cache on app startup
+  // Global scrolling prevention when widgets are active
+  useEffect(() => {
+    const handleWheel = (e) => {
+      // If any widget is expanded, prevent default scrolling
+      if (expanded) {
+        // Check if the event target is within any widget that has internal scrolling
+        const isInDevWidget = e.target.closest('[data-widget="development-activity"]');
+        const isInGitHubWidget = e.target.closest('[data-widget="github-updates"]');
+        const isInAIWidget = e.target.closest('[data-widget="ai-search"]');
+        const isInAddWidget = e.target.closest('[data-widget="add-resource"]');
+        
+        // If it's in any widget with internal scrolling, let the widget handle its own scrolling
+        if (isInDevWidget || isInGitHubWidget || isInAIWidget || isInAddWidget) {
+          return; // Don't prevent default, let the widget handle it
+        }
+        
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      // Prevent arrow key scrolling when widgets are active
+      if (expanded && ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) {
+        // Check if the event target is within any widget that has internal scrolling
+        const isInDevWidget = e.target.closest('[data-widget="development-activity"]');
+        const isInGitHubWidget = e.target.closest('[data-widget="github-updates"]');
+        const isInAIWidget = e.target.closest('[data-widget="ai-search"]');
+        const isInAddWidget = e.target.closest('[data-widget="add-resource"]');
+        const isInFindDeveloperWidget = e.target.closest('[data-widget="find-developer"]');
+        
+        // If it's in any widget with internal scrolling, let the widget handle its own scrolling
+        if (isInDevWidget || isInGitHubWidget || isInAIWidget || isInAddWidget || isInFindDeveloperWidget) {
+          return; // Don't prevent default, let the widget handle it
+        }
+        
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      // Prevent touch scrolling when widgets are active
+      if (expanded) {
+        // Check if the event target is within any widget that has internal scrolling
+        const isInDevWidget = e.target.closest('[data-widget="development-activity"]');
+        const isInGitHubWidget = e.target.closest('[data-widget="github-updates"]');
+        const isInAIWidget = e.target.closest('[data-widget="ai-search"]');
+        const isInAddWidget = e.target.closest('[data-widget="add-resource"]');
+        const isInFindDeveloperWidget = e.target.closest('[data-widget="find-developer"]');
+        
+        // If it's in any widget with internal scrolling, let the widget handle its own scrolling
+        if (isInDevWidget || isInGitHubWidget || isInAIWidget || isInAddWidget || isInFindDeveloperWidget) {
+          return; // Don't prevent default, let the widget handle it
+        }
+        
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    if (expanded) {
+      // Add event listeners to prevent scrolling
+      document.addEventListener('wheel', handleWheel, { passive: false });
+      document.addEventListener('keydown', handleKeyDown, { passive: false });
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      
+      // Add overflow hidden to body
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      // Clean up event listeners
+      document.removeEventListener('wheel', handleWheel);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('touchmove', handleTouchMove);
+      
+      // Restore body overflow
+      document.body.style.overflow = '';
+    };
+  }, [expanded]);
+
+  // Scroll detection for resources section
+  useEffect(() => {
+    let ticking = false;
+    
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const resourcesSection = document.getElementById('resources');
+          if (resourcesSection) {
+            const rect = resourcesSection.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            
+            // Consider the section active if it's visible in the viewport
+            // with some tolerance for better UX, but only if no widget is expanded
+            const isVisible = rect.top < viewportHeight * 0.8 && rect.bottom > viewportHeight * 0.2;
+            
+            // Only set as active if visible AND no widget is expanded
+            setIsResourcesSectionActive(isVisible && !expanded);
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    // Initial check
+    handleScroll();
+    
+    // Add scroll listener
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [expanded]); // Add expanded as dependency
+
+  // Update resources section active state when widget expansion changes
+  useEffect(() => {
+    // If a widget is expanded, immediately set resources section as inactive
+    if (expanded) {
+      setIsResourcesSectionActive(false);
+    } else {
+      // If no widget is expanded, check current scroll position
+      const resourcesSection = document.getElementById('resources');
+      if (resourcesSection) {
+        const rect = resourcesSection.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const isVisible = rect.top < viewportHeight * 0.8 && rect.bottom > viewportHeight * 0.2;
+        setIsResourcesSectionActive(isVisible);
+      }
+    }
+  }, [expanded]);
+
+  // Function to handle reverting to main dashboard
+  const handleRevert = () => {
+    if (navigationSource === 'leaderboard') {
+      // If came from leaderboard, reopen the Development Activity widget
+      setExpanded('dev');
+      setViewingResourceCard(false);
+      setNavigationSource(null);
+    } else {
+      // Close any open widgets and go to dashboard
+      setExpanded(null);
+      setViewingResourceCard(false);
+      setNavigationSource(null);
+      // Don't scroll to top - maintain current scroll position
+    }
+  };
+
+  // Enhanced widget expansion handler
+  const handleWidgetExpand = (widgetKey) => {
+    if (expanded === widgetKey) {
+      setExpanded(null);
+      setNavigationSource(null);
+    } else {
+      setExpanded(widgetKey);
+      setNavigationSource('widget');
+    }
+  };
+
+  // Function to navigate to a specific resource card
+  const navigateToResourceCard = (resourceId, resourceName) => {
+    console.log(`🎯 Navigating to resource: ${resourceName} (ID: ${resourceId})`);
+    
+    // Close any open widgets first
+    setExpanded(null);
+    
+    // Set viewing state and track navigation source
+    setViewingResourceCard(true);
+    setNavigationSource('leaderboard');
+    
+    // Scroll to resources section
+    setTimeout(() => {
+      const resourcesSection = document.getElementById('resources');
+      if (resourcesSection) {
+        resourcesSection.scrollIntoView({ behavior: 'smooth' });
+        console.log('📜 Scrolled to resources section');
+      }
+      
+      // Use the new custom event system for more reliable tab selection
+      setTimeout(() => {
+        console.log('📡 Dispatching tab request event...');
+        const tabRequestEvent = new CustomEvent('resourceCardTabRequest', {
+          detail: {
+            resourceId,
+            resourceName,
+            tabName: 'activity'
+          }
+        });
+        document.dispatchEvent(tabRequestEvent);
+      }, 600); // Slightly longer delay to ensure scroll is complete
+    }, 100);
+  };
+
+  // ExpandedWidgetRenderer Component (moved inside App function)
+  const ExpandedWidgetRenderer = ({ expanded, setExpanded, isMobile = false }) => {
+    if (!expanded) return null;
+
+    const widgetProps = {
+      isExpanded: true,
+      onExpand: () => {},
+      onCollapse: () => setExpanded(null),
+      isAnyExpanded: true,
+    };
+
+    const renderWidget = () => {
+      switch (expanded) {
+        case 'dev':
+          return <DevelopmentActivityWidget {...widgetProps} onNavigateToResource={navigateToResourceCard} />;
+        case 'github':
+          return <GitHubUpdatesWidget {...widgetProps} />;
+        case 'ai':
+          return <AISearchWidget {...widgetProps} />;
+        case 'add':
+          return <AddResourceWidget {...widgetProps} />;
+        case 'find':
+          return <FindDeveloperWidget {...widgetProps} />;
+        default:
+          return null;
+      }
+    };
+
+    if (isMobile) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center p-4 z-50">
+          <div className="bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700">
+              <div className="flex items-center space-x-3">
+                {expanded === 'dev' && <Activity className="h-6 w-6 text-amber-400" />}
+                {expanded === 'github' && (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="text-purple-400">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                )}
+                {expanded === 'ai' && <Bot className="h-6 w-6 text-teal-400" />}
+                {expanded === 'add' && (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                )}
+                {expanded === 'find' && <Users className="h-6 w-6 text-blue-400" />}
+                <h2 className="text-lg sm:text-xl font-bold text-white">
+                  {expanded === 'dev' && 'Development Activity'}
+                  {expanded === 'github' && 'GitHub Updates'}
+                  {expanded === 'ai' && 'AI Development Plan'}
+                  {expanded === 'add' && 'Add Resource'}
+                  {expanded === 'find' && 'Find a Developer'}
+                </h2>
+              </div>
+              <button
+                onClick={() => setExpanded(null)}
+                className="text-gray-400 hover:text-white transition-colors p-2"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)]">{renderWidget()}</div>
+          </div>
+        </div>
+      );
+    }
+
+    return renderWidget();
+  };
+
   useEffect(() => {
     const initializeGitHub = async () => {
-      // Initialize rate limit status first
-      await initializeRateLimit()
-      
-      // Then preload cache
-      const resourcesWithGitHub = allResources.filter(resource => resource.social?.github)
+      await initializeRateLimit();
+      const resourcesWithGitHub = allResources.filter((resource) => resource.social?.github);
       if (resourcesWithGitHub.length > 0) {
-        // Preload cache in the background
-        preloadCache(resourcesWithGitHub)
+        preloadCache(resourcesWithGitHub);
+        
+        // Start cache warming for better performance
+        setTimeout(() => {
+          cacheManager.warmCache(resourcesWithGitHub);
+        }, 2000) // Start warming after 2 seconds
       }
-    }
-    
-    initializeGitHub()
-  }, [allResources])
+    };
+    initializeGitHub();
+  }, [allResources]);
 
-  // Listen for activity data updates for mobile stats
   useEffect(() => {
     const handleActivityDataUpdate = (event) => {
-      const { totalActiveRepos, avgCommitsPerRepo, totalCommits } = event.detail
-      
-      // Update mobile stats
-      const activeReposElement = document.getElementById('mobile-active-repos')
-      const avgCommitsElement = document.getElementById('mobile-avg-commits')
-      const totalCommitsElement = document.getElementById('mobile-total-commits')
-      
-      if (activeReposElement) activeReposElement.textContent = totalActiveRepos
-      if (avgCommitsElement) avgCommitsElement.textContent = avgCommitsPerRepo
-      if (totalCommitsElement) totalCommitsElement.textContent = totalCommits
-    }
+      const { totalActiveRepos, avgCommitsPerRepo, totalCommits } = event.detail;
+      const activeReposElement = document.getElementById('mobile-active-repos');
+      const avgCommitsElement = document.getElementById('mobile-avg-commits');
+      const totalCommitsElement = document.getElementById('mobile-total-commits');
+      if (activeReposElement) activeReposElement.textContent = totalActiveRepos;
+      if (avgCommitsElement) avgCommitsElement.textContent = avgCommitsPerRepo;
+      if (totalCommitsElement) totalCommitsElement.textContent = totalCommits;
+    };
+    document.addEventListener('activityDataUpdated', handleActivityDataUpdate);
+    return () => document.removeEventListener('activityDataUpdated', handleActivityDataUpdate);
+  }, []);
 
-    document.addEventListener('activityDataUpdated', handleActivityDataUpdate)
-    return () => document.removeEventListener('activityDataUpdated', handleActivityDataUpdate)
-  }, [])
-
-  // Handle AI analysis completion
   const handleAIAnalysisComplete = (results) => {
-    setAiResults(results)
-    // Clear any existing search/filter when AI results are shown
-    setSearchTerm('')
-    setSelectedCategory('All')
-  }
+    setAiResults(results);
+    setSearchTerm('');
+    setSelectedCategory('All');
+  };
 
-  // Handle AI loading state
   const handleAILoadingChange = (loading) => {
-    setIsAILoading(loading)
-  }
+    setIsAILoading(loading);
+  };
 
-  // Filter resources based on search and category
   const filteredResources = useMemo(() => {
-    let filtered = allResources
-
+    let filtered = allResources;
     if (selectedCategory !== 'All') {
-      filtered = filtered.filter(resource => resource.category === selectedCategory)
+      filtered = filtered.filter((resource) => resource.category === selectedCategory);
     }
-
     if (searchTerm) {
-      filtered = filtered.filter(resource =>
-        resource.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        resource.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        resource.keySolutions?.some(solution => 
-          solution.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      )
+      filtered = filtered.filter(
+        (resource) =>
+          resource.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          resource.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          resource.keySolutions?.some((solution) => solution.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
     }
+    return filtered;
+  }, [allResources, searchTerm, selectedCategory]);
 
-    return filtered
-  }, [allResources, searchTerm, selectedCategory])
-
-  // Group filtered resources by category for display
   const groupedResources = useMemo(() => {
-    const grouped = {}
-    filteredResources.forEach(resource => {
+    const grouped = {};
+    filteredResources.forEach((resource) => {
       if (!grouped[resource.category]) {
-        grouped[resource.category] = []
+        grouped[resource.category] = [];
       }
-      grouped[resource.category].push(resource)
-    })
-    return grouped
-  }, [filteredResources])
+      grouped[resource.category].push(resource);
+    });
+    return grouped;
+  }, [filteredResources]);
 
   return (
     <div className="min-h-screen bg-custom-bg z-0">
-      {/* Global background layer - brings the gradient to front when widget is expanded */}
-      {expanded && (
-        <div 
-          className="fixed inset-0 z-40 transition-all duration-500 ease-in-out opacity-100 scale-100"
-          onClick={() => setExpanded(null)}
-          style={{
-            background: 'linear-gradient(135deg, #1E1E1E 0%, #0F0F0F 50%, #1A1A1A 100%)',
-            backgroundImage: `
-              radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
-              radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
-              radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.05) 0%, transparent 50%)
-            `
-          }}
-        />
-      )}
-      
-      {/* Mobile Widget Overlays */}
-      {expanded && (
-        <div className="lg:hidden fixed inset-0 z-50 transition-all duration-500 ease-in-out opacity-100 scale-100"
-          style={{
-            background: 'linear-gradient(135deg, #1E1E1E 0%, #0F0F0F 50%, #1A1A1A 100%)',
-            backgroundImage: `
-              radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
-              radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
-              radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.05) 0%, transparent 50%)
-            `
-          }}>
-          <div className="absolute inset-0 flex items-center justify-center p-4">
-            <div className="bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
-              {/* Widget Header */}
-              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700">
-                <div className="flex items-center space-x-3">
-                  {expanded === 'dev' && <Zap className="h-6 w-6 text-yellow-400" />}
-                  {expanded === 'github' && (
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="text-green-400">
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                    </svg>
-                  )}
-                  {expanded === 'ai' && <Zap className="h-6 w-6 text-emerald-400" />}
-                  {expanded === 'add' && (
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400">
-                      <path d="M12 5v14M5 12h14"/>
-                    </svg>
-                  )}
-                  <h2 className="text-lg sm:text-xl font-bold text-white">
-                    {expanded === 'dev' && 'Development Activity'}
-                    {expanded === 'github' && 'GitHub Updates'}
-                    {expanded === 'ai' && 'AI Development Plan'}
-                    {expanded === 'add' && 'Add Resource'}
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setExpanded(null)}
-                  className="text-gray-400 hover:text-white transition-colors p-2"
-                >
-                  <X size={20} />
-                </button>
-              </div>
+      {/* Widget Overlay for Expanded Widgets (Mobile) */}
+      <WidgetOverlay isOpen={expanded && window.innerWidth < 1024} onClose={() => setExpanded(null)}>
+        <ExpandedWidgetRenderer expanded={expanded} setExpanded={setExpanded} isMobile={true} />
+      </WidgetOverlay>
 
-              {/* Widget Content */}
-              <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                {expanded === 'dev' && (
-                  <DevelopmentActivityWidget
-                    isExpanded={true}
-                    onExpand={() => {}}
-                    onCollapse={() => setExpanded(null)}
-                    isAnyExpanded={true}
-                  />
-                )}
-                {expanded === 'github' && (
-                  <GitHubUpdatesWidget
-                    isExpanded={true}
-                    onExpand={() => {}}
-                    onCollapse={() => setExpanded(null)}
-                    isAnyExpanded={true}
-                  />
-                )}
-                {expanded === 'ai' && (
-                  <AISearchWidget
-                    isExpanded={true}
-                    onExpand={() => {}}
-                    onCollapse={() => setExpanded(null)}
-                    isAnyExpanded={true}
-                  />
-                )}
-                {expanded === 'add' && (
-                  <AddResourceWidget
-                    isExpanded={true}
-                    onExpand={() => {}}
-                    onCollapse={() => setExpanded(null)}
-                    isAnyExpanded={true}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* Mobile Navigation */}
-      <MobileNavigation 
-        isOpen={mobileMenuOpen} 
-        onClose={() => setMobileMenuOpen(false)} 
+      <MobileNavigation
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
         expanded={expanded}
         setExpanded={setExpanded}
+        handleWidgetExpand={handleWidgetExpand}
       />
-      
-      {/* Sidebar Widgets (desktop only) - stays above backdrop */}
+
+      {/* Sidebar Widgets (Desktop) */}
       <div className="relative z-50">
-      <SidebarWidgetsContainer
-        expanded={expanded}
-        setExpanded={setExpanded}
-      />
+        <SidebarWidgetsContainer expanded={expanded} setExpanded={setExpanded} handleWidgetExpand={handleWidgetExpand} isResourcesSectionActive={isResourcesSectionActive} />
       </div>
-      
-      {/* Expanded Widgets (desktop only) - rendered separately to avoid duplication */}
-      {expanded === 'dev' && (
-        <DevelopmentActivityWidget
-          isExpanded={true}
-          onExpand={() => {}}
-          onCollapse={() => setExpanded(null)}
-          isAnyExpanded={true}
-        />
-      )}
-      {expanded === 'github' && (
-        <GitHubUpdatesWidget
-          isExpanded={true}
-          onExpand={() => {}}
-          onCollapse={() => setExpanded(null)}
-          isAnyExpanded={true}
-        />
-      )}
-      {expanded === 'ai' && (
-        <AISearchWidget
-          isExpanded={true}
-          onExpand={() => {}}
-          onCollapse={() => setExpanded(null)}
-          isAnyExpanded={true}
-        />
-      )}
-      {expanded === 'add' && (
-        <AddResourceWidget
-          isExpanded={true}
-          onExpand={() => {}}
-          onCollapse={() => setExpanded(null)}
-          isAnyExpanded={true}
-        />
-      )}
-      
-      {/* Main Content (Hero, ResourceGrid, etc.) - behind global background when widget expanded */}
-      <div className={`relative z-10 transition-all duration-500 ease-in-out ${expanded ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
+
+      {/* Expanded Widgets (Desktop) */}
+      <div className="hidden lg:block z-45">
+        <ExpandedWidgetRenderer expanded={expanded} setExpanded={setExpanded} />
+      </div>
+
+      {/* Main Content */}
+      <div
+        className={`relative z-10 transition-all duration-500 ease-in-out ${
+          expanded ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
+        }`}
+      >
         <div style={{ position: 'relative', zIndex: 1 }}>
-          {/* Mobile Header */}
           <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-card-bg/50 border-b border-gray-800">
             <div className="flex items-center justify-between px-4 py-3">
               <div className="flex items-center space-x-3">
@@ -498,24 +688,23 @@ function App() {
                 >
                   <Menu size={20} className="text-gray-400" />
                 </button>
-                <img 
-                  src="/ADAdev_logo.png" 
-                  alt="ADAdev" 
-                  className="h-8 w-auto object-contain"
-                />
+                <img src="/ADAdev_logo.svg" alt="ADAdev" className="h-8 w-auto object-contain" />
               </div>
               <div className="text-white font-semibold text-sm">Cardano Hub</div>
             </div>
           </div>
-          
+
           <Header />
           {/* <BetaBanner /> */}
-          <Hero />
-          
-          {/* Mobile Development Activity Section */}
+          <Hero 
+            onRevert={handleRevert}
+            showRevertButton={expanded !== null || viewingResourceCard}
+            navigationSource={navigationSource}
+          />
+
           <section className="lg:hidden bg-card-bg/50 border border-gray-800 rounded-xl mx-4 my-8 p-6 mt-20">
             <div className="flex items-center space-x-3 mb-4">
-              <Zap size={24} className="text-yellow-400" />
+              <Activity size={24} className="text-amber-400" />
               <h3 className="text-white font-bold text-xl">Development Activity</h3>
             </div>
             <div className="grid grid-cols-3 gap-4 mb-6">
@@ -536,86 +725,73 @@ function App() {
               <p className="text-gray-400 text-sm">View detailed activity on desktop</p>
             </div>
           </section>
-          
-          {/* AI Results Section - Show when AI results are available */}
+
           {aiResults && (
             <section id="ai-results">
-              <AIResults 
-                aiResults={aiResults}
-                onOpenWidget={() => setShowAIWidget(true)}
-              />
+              <AIResults aiResults={aiResults} onOpenWidget={() => setShowAIWidget(true)} />
             </section>
           )}
-          
-          <main>
-              {/* Resources Section - "Second Page" */}
-              <section id="resources" className="min-h-screen py-20 lg:py-20 pt-8 lg:pt-20">
-                <div className="max-w-6xl mx-auto px-4">
-                  {/* Resources Header */}
-                  <div className="max-w-4xl mx-auto text-center mb-16">
-                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-                      Developer Resources
-                    </h2>
-                    <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed mb-12">
-                      Comprehensive collection of tools, APIs, and libraries for building on Cardano
-                    </p>
-                    
-                    {/* Search Bar in Resources Section */}
-                    <div className="max-w-3xl mx-auto mb-16">
-                      <SearchBar 
-                        searchTerm={searchTerm}
-                        setSearchTerm={setSearchTerm}
-                        selectedCategory={selectedCategory}
-                        setSelectedCategory={setSelectedCategory}
-                        categories={categories}
-                      />
-                    </div>
-                  </div>
 
-                  {/* Resources Grid */}
-                  {Object.keys(groupedResources).length === 0 ? (
-                    <div className="text-center py-20">
-                      <div className="text-gray-400 text-6xl mb-6">🔍</div>
-                      <h3 className="text-2xl font-bold text-white mb-4">No resources found</h3>
-                      <p className="text-lg text-gray-400">Try adjusting your search terms or category filter.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-20">
-                      {Object.entries(groupedResources)
-                        .sort(([categoryA], [categoryB]) => categoryA.localeCompare(categoryB))
-                        .map(([category, resources]) => (
+          <main>
+            <section id="resources" className="min-h-screen py-20 lg:py-20 pt-8 lg:pt-20">
+              <div className="max-w-6xl mx-auto px-4">
+                <div className="max-w-4xl mx-auto text-center mb-16">
+                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
+                    Developer Resources
+                  </h2>
+                  <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed mb-12">
+                    Comprehensive collection of tools, APIs, and libraries for building on Cardano
+                  </p>
+                  <div className="max-w-3xl mx-auto mb-16">
+                    <SearchBar
+                      searchTerm={searchTerm}
+                      setSearchTerm={setSearchTerm}
+                      selectedCategory={selectedCategory}
+                      setSelectedCategory={setSelectedCategory}
+                      categories={categories}
+                    />
+                  </div>
+                </div>
+
+                {Object.keys(groupedResources).length === 0 ? (
+                  <div className="text-center py-20">
+                    <div className="text-gray-400 text-6xl mb-6">🔍</div>
+                    <h3 className="text-2xl font-bold text-white mb-4">No resources found</h3>
+                    <p className="text-lg text-gray-400">Try adjusting your search terms or category filter.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-20">
+                    {Object.entries(groupedResources)
+                      .sort(([categoryA], [categoryB]) => categoryA.localeCompare(categoryB))
+                      .map(([category, resources]) => (
                         <div key={category}>
                           <div className="text-center mb-12">
-                            <h3 className="text-xl md:text-2xl lg:text-3xl font-bold text-white mb-4">
-                              {category}
-                            </h3>
+                            <h3 className="text-xl md:text-2xl lg:text-3xl font-medium text-white mb-4">{category}</h3>
                           </div>
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-5xl mx-auto">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-5xl mx-auto auto-rows-min">
                             {resources.map((resource) => (
-                              <ResourceCard key={resource.id} resource={resource} />
+                              <ResourceCard 
+                                key={resource.id} 
+                                resource={resource} 
+                                onViewResource={() => navigateToResourceCard(resource.id, resource.name)}
+                              />
                             ))}
                           </div>
                         </div>
                       ))}
-                    </div>
-                  )}
-                </div>
-              </section>
-            </main>
-            
-            {/* AI Modal */}
-            {showAIWidget && aiResults && (
-              <AIModal 
-                aiResults={aiResults}
-                onClose={() => setShowAIWidget(false)}
-              />
-            )}
-            
-            <Footer />
-          </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          </main>
+
+          {showAIWidget && aiResults && <AIModal aiResults={aiResults} onClose={() => setShowAIWidget(false)} />}
+
+          <Footer />
         </div>
       </div>
-    )
-  }
+    </div>
+  );
+}
 
-  export default App 
+export default App;

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { fetchGitHubUpdates, formatRelativeTime } from '../services/github'
 import { cardanoResources } from '../data/resources'
-import logger from '../utils/logger'
+import logger from '../utils/logger-frontend'
 
 const GitHubUpdatesSection = () => {
   const [githubData, setGithubData] = useState([])
@@ -290,7 +290,7 @@ const GitHubUpdatesSection = () => {
           {isLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400 mx-auto mb-2"></div>
-              <p className="text-gray-400">Loading GitHub updates...</p>
+              <p className="text-gray-400/30">Loading GitHub updates...</p>
             </div>
           ) : (
             <>

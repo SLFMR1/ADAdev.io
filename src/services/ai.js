@@ -1,6 +1,6 @@
 import { cardanoResources } from '../data/resources'
 import { validateContent } from './rateLimiter'
-import logger from '../utils/logger'
+import logger from '../utils/logger-frontend'
 
 /**
  * Filter resources based on user input keywords

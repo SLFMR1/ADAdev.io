@@ -1,11 +1,18 @@
 import React, { useState, forwardRef } from 'react'
+import Portal from './Portal'
 
 // Helper to generate line chart points from data
 const getLineChartPoints = (data, width, height, padding, rightPadding) => {
   if (!data || data.length === 0) return ''
-  const max = Math.max(...data.map(w => w.count), 1)
-  const stepX = (width - padding - rightPadding) / (data.length - 1)
-  return data.map((w, i) => {
+  
+  // Ensure we have valid data
+  const validData = data.filter(w => w && typeof w.count === 'number' && !isNaN(w.count))
+  if (validData.length === 0) return ''
+  
+  const max = Math.max(...validData.map(w => w.count), 1)
+  const stepX = validData.length > 1 ? (width - padding - rightPadding) / (validData.length - 1) : 0
+  
+  return validData.map((w, i) => {
     const x = padding + i * stepX
     const y = height - padding - (w.count / max) * (height - 2 * padding)
     return `${x},${y}`
@@ -82,23 +89,45 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
     return ''
   })
   
-  // Tooltip handlers
+  // Tooltip handlers with viewport-relative positioning
   const handleNodeMouseOver = (e, value, weekIdx) => {
     const w = weeklyData[weekIdx]
     let label
     if (period === '12months' && w.label) {
       label = w.label
     } else {
-      const weekNumber = weekIdx + 1
       const month = new Date(w.weekStart).toLocaleString('default', { month: 'short' })
+      const year = new Date(w.weekStart).getFullYear()
       const endOfWeek = new Date(w.weekStart)
       endOfWeek.setDate(endOfWeek.getDate() + 6)
-      label = `Week ${weekNumber} (${w.weekStart}–${endOfWeek.toISOString().slice(0, 10)}, ${month})`
+      
+      // Improved label for different periods
+      if (period === 'current') {
+        // For 7-day period, show the actual date
+        const date = new Date(w.weekStart)
+        const dayName = date.toLocaleString('default', { weekday: 'short' })
+        const dayOfMonth = date.getDate()
+        label = `${dayName}, ${month} ${dayOfMonth}`
+      } else if (period === '3years') {
+        label = `${w.weekStart}–${endOfWeek.toISOString().slice(0, 10)} (${month} ${year})`
+      } else if (period === '52weeks') {
+        const weekNumber = weekIdx + 1
+        label = `Week ${weekNumber} (${w.weekStart}–${endOfWeek.toISOString().slice(0, 10)}, ${month} ${year})`
+      } else {
+        const weekNumber = weekIdx + 1
+        label = `Week ${weekNumber} (${w.weekStart}–${endOfWeek.toISOString().slice(0, 10)}, ${month})`
+      }
     }
+    
+    // Get viewport-relative position
+    const rect = e.target.getBoundingClientRect()
+    const viewportX = rect.left + window.scrollX
+    const viewportY = rect.top + window.scrollY
+    
     setTooltip({
       show: true,
-      x: e.nativeEvent.offsetX,
-      y: e.nativeEvent.offsetY,
+      x: viewportX,
+      y: viewportY,
       value,
       label
     })
@@ -135,8 +164,8 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           </filter>
         </defs>
         
-        {/* Background grid */}
-        <rect width="100%" height="100%" fill="url(#grid)" />
+        {/* Background grid - transparent to show global gradient */}
+        <rect width="100%" height="100%" fill="url(#grid)" opacity="0.3" />
         
         {/* Horizontal grid lines for Y-axis labels */}
         {yAxisLabels.map((label, i) => {
@@ -158,7 +187,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         
         {/* Vertical month boundary grid lines */}
         {xLabels.map((label, i) =>
-          label && typeof label === 'object' && (
+          label && typeof label === 'object' && weeklyData.length > 1 && (
             <line
               key={`month-grid-${i}`}
               x1={effectivePadding + (i / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
@@ -173,7 +202,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           )
         )}
         {/* Short week tick marks */}
-        {weeklyData.map((_, i) => (
+        {weeklyData.map((_, i) => weeklyData.length > 1 && (
           <line
             key={`tick-${i}`}
             x1={effectivePadding + (i / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
@@ -191,8 +220,8 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           points={chartPoints}
           fill="none"
           stroke="#22d3ee"
-          strokeWidth="6"
-          opacity="0.3"
+          strokeWidth="4"
+          opacity="0.4"
           filter="url(#glow)"
         />
         {/* Main Line */}
@@ -200,30 +229,40 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           points={chartPoints}
           fill="none"
           stroke="url(#teal-gradient)"
-          strokeWidth="2"
-          style={{ filter: 'drop-shadow(0 0 3px #22d3ee)' }}
+          strokeWidth="1"
+          style={{ filter: 'drop-shadow(0 0 3px rgba(34,211,238,0.5))' }}
         />
-        {/* Dots for tooltips */}
+        {/* Invisible larger hover areas for tooltips */}
         {weeklyData.map((w, i) => {
           const stepX = (effectiveWidth - effectivePadding - effectiveRightPadding) / (weeklyData.length - 1)
           const x = effectivePadding + i * stepX
           const y = height - effectivePadding - (w.count / maxCommits) * (height - 2 * effectivePadding)
           return (
-            <circle
-              key={i}
-              cx={x}
-              cy={y}
-              r={w.count > 0 ? "5" : "3"}
-              fill={w.count > 0 ? "#22d3ee" : "#64748b"}
-              stroke="#0f172a"
-              strokeWidth="1"
-              style={{ 
-                filter: w.count > 0 ? 'drop-shadow(0 0 4px #22d3ee)' : 'none', 
-                cursor: 'pointer' 
-              }}
-              onMouseOver={e => handleNodeMouseOver(e, w.count, i)}
-              onMouseOut={handleNodeMouseOut}
-            />
+            <g key={i}>
+              {/* Visible dot */}
+              <circle
+                cx={x}
+                cy={y}
+                r={w.count > 0 ? "4" : "2.5"}
+                fill="none"
+                stroke={w.count > 0 ? "#22d3ee" : "#64748b"}
+                strokeWidth="1.5"
+                style={{ 
+                  filter: w.count > 0 ? 'drop-shadow(0 0 6px rgba(34,211,238,0.6))' : 'none'
+                }}
+                pointerEvents="none"
+              />
+              {/* Larger invisible hover area */}
+              <circle
+                cx={x}
+                cy={y}
+                r="12"
+                fill="transparent"
+                style={{ cursor: 'pointer' }}
+                onMouseOver={e => handleNodeMouseOver(e, w.count, i)}
+                onMouseOut={handleNodeMouseOut}
+              />
+            </g>
           )
         })}
         
@@ -266,15 +305,20 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           ) : null
         ))}
       </svg>
-      {/* Tooltip */}
+      {/* Tooltip using Portal for proper overflow */}
       {tooltip.show && (
-        <div
-          className="absolute z-10 px-3 py-2 bg-gray-900 text-cyan-200 text-sm rounded-lg shadow-lg pointer-events-none border border-gray-700"
-          style={{ left: tooltip.x + 10, top: tooltip.y - 40 }}
-        >
-          <div className="font-semibold">{tooltip.value} commits</div>
-          <div className="text-gray-400 text-xs">{tooltip.label}</div>
-        </div>
+        <Portal>
+          <div
+            className="fixed z-[9999] px-3 py-2 bg-gray-900 text-cyan-200 text-sm rounded-lg shadow-lg pointer-events-none border border-gray-700 max-w-xs"
+            style={{ 
+              left: Math.min(tooltip.x + 10, window.innerWidth - 200), 
+              top: Math.max(tooltip.y - 60, 10)
+            }}
+          >
+            <div className="font-semibold">{tooltip.value} commits</div>
+            <div className="text-gray-400 text-xs">{tooltip.label}</div>
+          </div>
+        </Portal>
       )}
     </div>
   )

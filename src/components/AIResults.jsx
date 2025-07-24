@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sparkles, ExternalLink, FileText } from 'lucide-react'
+import { Bot, ExternalLink, FileText } from 'lucide-react'
 import ResourceCard from './ResourceCard'
 
 const AIResults = ({ aiResults, onOpenWidget }) => {
@@ -20,7 +20,7 @@ const AIResults = ({ aiResults, onOpenWidget }) => {
         {/* AI Results Header */}
         <div className="max-w-4xl mx-auto text-center mb-12 sm:mb-16">
           <div className="flex items-center justify-center space-x-3 mb-6">
-            <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-cyan-400" />
+            <Bot className="h-6 w-6 sm:h-8 sm:w-8 text-teal-400" />
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">
               AI-Recommended Tools
             </h2>
@@ -66,7 +66,7 @@ const AIResults = ({ aiResults, onOpenWidget }) => {
           {Object.entries(groupedResources).map(([category, resources]) => (
             <div key={category}>
               <div className="text-center mb-8 sm:mb-12">
-                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-4">
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-medium text-white mb-4">
                   {category}
                 </h3>
               </div>
