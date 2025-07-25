@@ -188,16 +188,58 @@ class GitHubService {
       })
       
       if (!response.ok) {
-        throw new Error(`Server API error: ${response.status}`)
+        // Handle different error types
+        if (response.status === 429) {
+          throw new Error('GitHub API rate limit exceeded. Please try again later.')
+        } else if (response.status >= 500) {
+          throw new Error(`Server error (${response.status}). Please try again later.`)
+        } else {
+          throw new Error(`API error: ${response.status} ${response.statusText}`)
+        }
       }
       
       const data = await response.json()
       
+      // Validate response data
+      if (!Array.isArray(data)) {
+        logger.warn('⚠️ Expected array response, got:', typeof data)
+        return []
+      }
+      
       logger.log(`📊 Client received global data for ${data.length} resources`)
       
-      return data
+      // Filter out any invalid entries and ensure proper structure
+      const validData = data.filter(item => {
+        if (!item || !item.resource) {
+          logger.warn('⚠️ Skipping invalid data item:', item)
+          return false
+        }
+        return true
+      }).map(item => ({
+        resource: item.resource,
+        commits: Array.isArray(item.commits) ? item.commits : [],
+        releases: Array.isArray(item.releases) ? item.releases : [],
+        commitsPerWeek: item.commitsPerWeek || 0,
+        weeklyData: Array.isArray(item.weeklyData) ? item.weeklyData : [],
+        repoInfo: item.repoInfo || null
+      }))
+      
+      logger.log(`✅ Processed ${validData.length} valid resources`)
+      return validData
     } catch (error) {
       logger.error('Client error fetching global GitHub updates:', error)
+      
+      // Provide more specific error handling
+      if (error.message.includes('rate limit')) {
+        logger.warn('⏳ GitHub rate limit exceeded - returning empty data')
+        // Return empty structure instead of throwing
+        return []
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
+        logger.warn('🌐 Network error - returning empty data')
+        return []
+      }
+      
+      // For other errors, still return empty array to prevent widget crashes
       return []
     }
   }

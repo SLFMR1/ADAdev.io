@@ -119,11 +119,13 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
                   <span className="text-xs sm:text-sm">Real-time Ecosystem Pulse</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-teal-400" />
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 sm:w-5 sm:h-5 text-red-400">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  </svg>
                   <span className="text-xs sm:text-sm">Curated Dev Resources</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-teal-400" />
                   <span className="text-xs sm:text-sm">Personalized Development Plans</span>
                 </div>
               </div>

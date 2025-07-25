@@ -237,9 +237,8 @@ const FindDeveloperWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
                 <div className="mt-3 text-xs text-gray-300 space-y-1 border-t border-gray-700 pt-3">
                   <div className="font-semibold mb-1">What happens next:</div>
                   <ul className="space-y-0.5">
-                    <li>• We'll review your request and match you with suitable developers</li>
-                    <li>• You'll receive an email confirmation with your ticket details</li>
-                    <li>• Our team will contact you within 24-48 hours</li>
+                    <li>• We'll review your request and try to match you with suitable devs</li>
+                    <li>• Our team will contact you asap.</li>
                   </ul>
                 </div>
               </div>

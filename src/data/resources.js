@@ -966,7 +966,7 @@ export const cardanoResources = {
         "x": "https://x.com/vault3_io"
       },
       "category": "Identity & Authentication",
-      "type": "repository",
+      "type": "organization",
       "organization": "vault3-io",
       "repository": "",
       "repo_path": "vault3-io"

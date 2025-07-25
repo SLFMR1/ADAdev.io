@@ -51,6 +51,7 @@ const SkeletonLeaderboardItem = ({ rank }) => (
 
 const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onCollapse, onNavigateToResource }) => {
   const [activityData, setActivityData] = useState(null);
+  const [preloadedData, setPreloadedData] = useState(null); // Store all preloaded periods
   const [isLoading, setIsLoading] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('current');
@@ -65,8 +66,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   const leaderboardRef = useRef(null);
   const chartSvgRef = useRef(null);
 
-  // Client-side cache with 5 minute timeout
-  const CACHE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+  // Client-side cache optimized for GitHub activity patterns (data changes infrequently)
+  const CACHE_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 
   // View mode options for dropdown
   const viewModeOptions = [
@@ -74,27 +75,49 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     { key: 'organization', label: 'Organization View', description: 'Show aggregated data by organization' }
   ];
 
-  // Load activity data from the new instant API with caching
+  // Load activity data with server-side cache optimization
   const loadActivityData = useCallback(async (forceRefresh = false) => {
+    // Cancel any existing request
+    if (loadActivityData.controller) {
+      loadActivityData.controller.abort();
+    }
+    
+    // Create new AbortController for this request
+    const controller = new AbortController();
+    loadActivityData.controller = controller;
+    
     try {
-      // Check if we have cached data and it's still valid
-      if (!forceRefresh && activityData && lastFetchTime && (Date.now() - lastFetchTime < CACHE_TIMEOUT)) {
-        console.log('✅ Using cached activity data');
-        setIsLoading(false);
-        return;
+      const currentViewMode = viewMode || 'repository';
+      const currentPeriod = selectedPeriod || 'current';
+      
+      // Check if we have preloaded data for instant switching
+      if (!forceRefresh && preloadedData && preloadedData.viewMode === currentViewMode && lastFetchTime && (Date.now() - lastFetchTime < CACHE_TIMEOUT)) {
+        console.log('⚡ INSTANT SWITCH: Using preloaded data!');
+        if (preloadedData.preloadedPeriods && preloadedData.preloadedPeriods[currentPeriod]) {
+          const periodData = { ...preloadedData.preloadedPeriods[currentPeriod], period: currentPeriod, viewMode: currentViewMode };
+          setActivityData(periodData);
+          
+          // Dispatch event for other components
+          const event = new CustomEvent('activityDataUpdated', {
+            detail: periodData.metrics?.daily || periodData.metrics?.weekly
+          });
+          document.dispatchEvent(event);
+          
+          setIsLoading(false);
+          return;
+        }
       }
 
       setIsLoading(true);
       setError(null);
       
-      // Ensure viewMode is never undefined
-      const currentViewMode = viewMode || 'repository';
-      const currentPeriod = selectedPeriod || 'current';
-      console.log(`🔄 Fetching fresh activity data (${currentViewMode} view, ${currentPeriod} period)...`);
+      console.log(`🚀 Loading ${currentViewMode} data from server (server-side cache optimized)...`);
       
-      // Add cache busting parameter to force fresh data when view mode or period changes
+      // Add cache busting parameter to force fresh data when view mode changes
       const cacheBuster = forceRefresh ? `&_t=${Date.now()}` : '';
-      const response = await fetch(`/api/development-activity?viewMode=${currentViewMode}&period=${currentPeriod}${cacheBuster}`);
+      const response = await fetch(`/api/development-activity?viewMode=${currentViewMode}&period=${currentPeriod}${cacheBuster}`, {
+        signal: controller.signal
+      });
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -102,50 +125,86 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       
       const data = await response.json();
       
-      if (data && (data.dailyLeaderboard || data.weeklyLeaderboard)) {
-        setActivityData(data);
+      if (data && (data.dailyLeaderboard || data.weeklyLeaderboard || data.preloadedPeriods)) {
+        // Store all preloaded data with view mode
+        setPreloadedData({ ...data, viewMode: currentViewMode });
         setLastFetchTime(Date.now());
+        
+        // Set current period data
+        let currentData;
+        if (data.preloadedPeriods && data.preloadedPeriods[currentPeriod]) {
+          currentData = { ...data.preloadedPeriods[currentPeriod], period: currentPeriod, viewMode: currentViewMode };
+        } else {
+          // Fallback to main response structure
+          currentData = { ...data, period: currentPeriod, viewMode: currentViewMode };
+        }
+        
+        setActivityData(currentData);
         
         // Dispatch event for other components
         const event = new CustomEvent('activityDataUpdated', {
-          detail: data.metrics?.daily || data.metrics?.weekly
+          detail: currentData.metrics?.daily || currentData.metrics?.weekly
         });
         document.dispatchEvent(event);
         
-        console.log(`✅ Loaded activity data (${currentViewMode}, ${currentPeriod}): ${data.dailyLeaderboard?.length || 0} daily, ${data.weeklyLeaderboard?.length || 0} weekly`);
+        console.log(`✅ LOADED ${Object.keys(data.preloadedPeriods || {}).length} periods from server: ${currentData.dailyLeaderboard?.length || 0} resources with activity`);
       } else {
         throw new Error('Invalid data format received');
       }
     } catch (error) {
+      // Don't show error for aborted requests
+      if (error.name === 'AbortError') {
+        console.log('🚫 Request cancelled');
+        return;
+      }
+      
       console.error('❌ Failed to load activity data:', error);
       setError(error.message);
     } finally {
       setIsLoading(false);
+      // Clear the controller reference
+      if (loadActivityData.controller === controller) {
+        loadActivityData.controller = null;
+      }
     }
-  }, [viewMode, selectedPeriod, CACHE_TIMEOUT]); // Added selectedPeriod to dependencies
+  }, [viewMode, selectedPeriod, preloadedData, CACHE_TIMEOUT]);
 
-  // Load data on mount or when first expanded
+  // Load data on mount or when first expanded - optimized for server cache
   useEffect(() => {
     if (isExpanded && (!activityData || !lastFetchTime || (Date.now() - lastFetchTime >= CACHE_TIMEOUT))) {
+      // Server has preloaded all periods data in cache, so this should be very fast
+      console.log('📦 Widget expanded - loading from server cache (all periods preloaded)')
       loadActivityData();
     }
   }, [isExpanded, loadActivityData]);
 
-  // Reload data when view mode changes
+  // Cleanup: Cancel any pending requests when component unmounts
   useEffect(() => {
-    if (isExpanded && viewMode) { // Only reload if widget is expanded and viewMode is defined
-      console.log(`🔄 View mode changed to ${viewMode}, reloading data...`);
-      loadActivityData(true); // Force refresh
-    }
-  }, [viewMode, loadActivityData, isExpanded]); // Removed activityData from dependencies
+    return () => {
+      if (loadActivityData.controller) {
+        loadActivityData.controller.abort();
+        loadActivityData.controller = null;
+      }
+    };
+  }, []);
 
-  // Reload data when period changes
+  // Reload data when view mode changes (with stable ref to prevent loops)
+  const viewModeRef = useRef(viewMode);
+  const isExpandedRef = useRef(isExpanded);
+  
   useEffect(() => {
-    if (isExpanded && selectedPeriod) { // Only reload if widget is expanded and selectedPeriod is defined
-      console.log(`🔄 Period changed to ${selectedPeriod}, reloading data...`);
+    // Only trigger if viewMode actually changed (not on initial mount)
+    if (isExpanded && viewMode && viewModeRef.current && viewModeRef.current !== viewMode) {
+      console.log(`🔄 View mode changed from ${viewModeRef.current} to ${viewMode}, reloading data...`);
       loadActivityData(true); // Force refresh
     }
-  }, [selectedPeriod, loadActivityData, isExpanded]);
+    
+    // Update refs
+    viewModeRef.current = viewMode;
+    isExpandedRef.current = isExpanded;
+  }, [viewMode, isExpanded]); // Remove loadActivityData from dependencies
+
+  // Period changes are now handled instantly via preloaded data in the dropdown onChange handler
 
   // Handle click outside
   useEffect(() => {
@@ -460,7 +519,32 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                       <>
                         <PeriodDropdown
                           value={selectedPeriod}
-                          onChange={setSelectedPeriod}
+                          onChange={(newPeriod) => {
+                            console.log(`⚡ INSTANT PERIOD SWITCH: ${selectedPeriod} → ${newPeriod}`);
+                            
+                            // Check if we have preloaded data for instant switching
+                            if (preloadedData && preloadedData.preloadedPeriods && preloadedData.preloadedPeriods[newPeriod] && preloadedData.viewMode === viewMode) {
+                              console.log('✅ Using preloaded data for instant period switch!');
+                              
+                              // Set the new period immediately
+                              setSelectedPeriod(newPeriod);
+                              
+                              // Update activity data with preloaded data
+                              const periodData = { ...preloadedData.preloadedPeriods[newPeriod], period: newPeriod, viewMode: viewMode };
+                              setActivityData(periodData);
+                              
+                              // Dispatch event for other components
+                              const event = new CustomEvent('activityDataUpdated', {
+                                detail: periodData.metrics?.daily || periodData.metrics?.weekly
+                              });
+                              document.dispatchEvent(event);
+                              
+                              console.log(`⚡ INSTANT SWITCH COMPLETE: Now showing ${newPeriod} with ${periodData.dailyLeaderboard?.length || periodData.weeklyLeaderboard?.length || 0} resources`);
+                            } else {
+                              console.log('⏳ No preloaded data available, falling back to API call...');
+                              setSelectedPeriod(newPeriod);
+                            }
+                          }}
                           options={periodOptions}
                           placeholder="Select period..."
                           className="w-48 flex-shrink-0"
@@ -639,7 +723,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             <div className="flex items-center space-x-3 text-cyan-400">
                               <Loader2 className="w-6 h-6 animate-spin" />
                               <span className="text-sm font-medium text-gray-400/30">
-                                  Loading development activity data...
+                                  Loading from server cache...
                               </span>
                             </div>
                           </div>

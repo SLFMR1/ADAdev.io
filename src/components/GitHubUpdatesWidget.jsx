@@ -11,11 +11,10 @@ import {
   ChevronRight,
   Clock
 } from 'lucide-react'
-import { formatRelativeTime, checkRateLimitStatus } from '../services/github'
+import { formatRelativeTime, checkRateLimitStatus, fetchGlobalGitHubUpdates } from '../services/github'
 import { cardanoResources } from '../data/resources'
 import logger from '../utils/logger-frontend'
 import Portal from './Portal'
-import githubDataStore from '../services/githubDataStore'
 
 const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => {
   const [githubData, setGithubData] = useState([])
@@ -46,51 +45,57 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
 
   const loadGitHubData = async () => {
     try {
-      // Check rate limit status first
-      const rateLimitStatus = await checkRateLimitStatus()
-      if (rateLimitStatus && rateLimitStatus.remaining === 0) {
-        // Check if rate limit has actually reset
-        const now = Date.now()
-        const resetTimeMs = rateLimitStatus.reset * 1000
-        const hasReset = now >= resetTimeMs
-        
-        if (hasReset) {
-          logger.log(`🔄 Rate limit has reset, proceeding with fresh data fetch`)
-          // Continue with normal data fetching
-        } else {
-          logger.log(`⏳ Rate limit exhausted, showing empty state`)
-          setRateLimitExhausted(true)
-          setRateLimitResetTime(new Date(resetTimeMs))
-          setGithubData([])
-          setIsLoading(false)
-          return
-        }
-      }
-
-      // Use shared data store
-      await githubDataStore.fetchAllData();
-      const allData = githubDataStore.getAllData();
+      setRateLimitExhausted(false)
+      setRateLimitResetTime(null)
       
-      // Filter and sort data
+      logger.log(`🔄 Widget: Fetching GitHub updates for ${cardanoResources.length} resources`)
+      
+      // Use the proper GitHub service to fetch global updates
+      const allData = await fetchGlobalGitHubUpdates(cardanoResources)
+      
+      // Validate that we received an array
+      if (!Array.isArray(allData)) {
+        logger.error('❌ Expected array from fetchGlobalGitHubUpdates, got:', typeof allData, allData)
+        setGithubData([])
+        return
+      }
+      
+      logger.log(`📦 Received ${allData.length} resources from GitHub API`)
+      
+      // Filter and sort data - only include resources with actual releases or commits
       const validData = allData
-        .filter(data => data.releases?.length > 0 || data.commits?.length > 0)
+        .filter(data => {
+          const hasReleases = data.releases && data.releases.length > 0
+          const hasCommits = data.commits && data.commits.length > 0
+          return hasReleases || hasCommits
+        })
         .sort((a, b) => {
+          // Get latest timestamps from releases and commits
           const aReleases = (a.releases || []).map(r => new Date(r.publishedAt || 0).getTime())
           const aCommits = (a.commits || []).map(c => new Date(c.date || 0).getTime())
-          const aLatest = aReleases.length > 0 || aCommits.length > 0 ? Math.max(...aReleases, ...aCommits) : 0
+          const aLatest = Math.max(...aReleases, ...aCommits, 0)
           
           const bReleases = (b.releases || []).map(r => new Date(r.publishedAt || 0).getTime())
           const bCommits = (b.commits || []).map(c => new Date(c.date || 0).getTime())
-          const bLatest = bReleases.length > 0 || bCommits.length > 0 ? Math.max(...bReleases, ...bCommits) : 0
+          const bLatest = Math.max(...bReleases, ...bCommits, 0)
           
           return bLatest - aLatest
         })
-        .slice(0, 8); // Limit to top 8
+        .slice(0, 8) // Limit to top 8 most recently updated
 
-      logger.log(`📊 Widget: Final data loaded for ${validData.length} resources`)
+      logger.log(`📊 Widget: Loaded ${validData.length} resources with GitHub activity`)
       setGithubData(validData)
     } catch (err) {
       logger.error('Widget: GitHub data loading error:', err)
+      
+      // Check if it's a rate limit error
+      if (err.message && err.message.includes('rate limit')) {
+        setRateLimitExhausted(true)
+        // Try to extract reset time from error or set a default
+        const resetTime = new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now as fallback
+        setRateLimitResetTime(resetTime)
+      }
+      
       setGithubData([])
     } finally {
       setIsLoading(false)
@@ -120,23 +125,39 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
   const allUpdates = githubData.flatMap(data => {
     const updates = []
     
+    // Safety check: ensure data has the expected structure
+    if (!data || !data.resource) {
+      logger.warn('⚠️ Widget: Skipping invalid data item:', data)
+      return []
+    }
+    
     if (activeTab === 'releases') {
-      data.releases.forEach(release => {
-        updates.push({
-          type: 'release',
-          resource: data.resource,
-          data: release,
-          timestamp: new Date(release.publishedAt).getTime()
-        })
+      // Safety check: ensure releases is an array before calling forEach
+      const releases = Array.isArray(data.releases) ? data.releases : []
+      releases.forEach(release => {
+        // Additional safety check for release object
+        if (release && release.publishedAt) {
+          updates.push({
+            type: 'release',
+            resource: data.resource,
+            data: release,
+            timestamp: new Date(release.publishedAt).getTime()
+          })
+        }
       })
     } else {
-      data.commits.forEach(commit => {
-        updates.push({
-          type: 'commit',
-          resource: data.resource,
-          data: commit,
-          timestamp: new Date(commit.date).getTime()
-        })
+      // Safety check: ensure commits is an array before calling forEach
+      const commits = Array.isArray(data.commits) ? data.commits : []
+      commits.forEach(commit => {
+        // Additional safety check for commit object
+        if (commit && commit.date) {
+          updates.push({
+            type: 'commit',
+            resource: data.resource,
+            data: commit,
+            timestamp: new Date(commit.date).getTime()
+          })
+        }
       })
     }
     

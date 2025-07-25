@@ -24,50 +24,87 @@ const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabase
 const GITHUB_API_BASE = 'https://api.github.com'
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 const RATE_LIMIT = GITHUB_TOKEN ? 5000 : 60
-const REQUEST_INTERVAL = 200 // ms between requests
+const REQUEST_INTERVAL = 500 // ms between requests (increased from 200ms)
 
-// In-memory cache for performance
+// Rate limit tracking
+let isRateLimited = false
+let rateLimitResetTime = null
+
+// In-memory cache for performance - optimized for GitHub activity patterns
 const CACHE = {
   data: new Map(),
   timestamps: new Map(),
-  maxSize: 500,
+  maxSize: 1000, // Increased cache size
   ttl: {
-    recent: 5 * 60 * 1000, // 5 minutes for recent data
-    weekly: 30 * 60 * 1000, // 30 minutes for weekly data
-    historical: 24 * 60 * 60 * 1000 // 24 hours for historical data
+    recent: 2 * 60 * 60 * 1000, // 2 hours for recent data (commits don't change frequently)
+    weekly: 4 * 60 * 60 * 1000, // 4 hours for weekly data
+    historical: 12 * 60 * 60 * 1000 // 12 hours for historical data
   }
 }
 
-// Rate limiting
+// Rate limiting with exponential backoff
 let requestCount = 0
 let lastRequestTime = 0
+let consecutiveFailures = 0
 
 const rateLimitedFetch = async (url, options = {}) => {
   const now = Date.now()
   const timeSinceLastRequest = now - lastRequestTime
   
-  if (timeSinceLastRequest < REQUEST_INTERVAL) {
-    await new Promise(resolve => setTimeout(resolve, REQUEST_INTERVAL - timeSinceLastRequest))
+  // Exponential backoff delay based on consecutive failures
+  const backoffDelay = Math.min(1000 * Math.pow(2, consecutiveFailures), 30000) // Max 30 seconds
+  const minInterval = Math.max(REQUEST_INTERVAL, backoffDelay)
+  
+  if (timeSinceLastRequest < minInterval) {
+    await new Promise(resolve => setTimeout(resolve, minInterval - timeSinceLastRequest))
   }
   
   lastRequestTime = Date.now()
   requestCount++
   
-  const response = await fetch(url, {
-    headers: {
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'adaDEV-Platform',
-      ...(GITHUB_TOKEN && { 'Authorization': `token ${GITHUB_TOKEN}` }),
-      ...options.headers
-    },
-    ...options
-  })
-  
-  if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'adaDEV-Platform',
+        ...(GITHUB_TOKEN && { 'Authorization': `token ${GITHUB_TOKEN}` }),
+        ...options.headers
+      },
+      ...options
+    })
+    
+    if (response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0') {
+      const resetTime = response.headers.get('x-ratelimit-reset')
+      const waitTime = resetTime ? (parseInt(resetTime) * 1000 - Date.now()) : 3600000 // 1 hour fallback
+      const resetDate = new Date(parseInt(resetTime) * 1000)
+      
+      // Set global rate limit state
+      isRateLimited = true
+      rateLimitResetTime = resetDate
+      
+      console.warn(`⚠️ GitHub rate limit exceeded. Reset at: ${resetDate.toLocaleString()}`)
+      throw new Error(`Rate limit exceeded. Try again in ${Math.ceil(waitTime / 60000)} minutes.`)
+    }
+    
+    // Check if we were rate limited but it's now reset
+    if (isRateLimited && rateLimitResetTime && Date.now() > rateLimitResetTime.getTime()) {
+      isRateLimited = false
+      rateLimitResetTime = null
+      console.log('✅ GitHub rate limit has reset')
+    }
+    
+    if (!response.ok) {
+      consecutiveFailures++
+      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+    }
+    
+    // Reset consecutive failures on success
+    consecutiveFailures = 0
+    return response
+  } catch (error) {
+    consecutiveFailures++
+    throw error
   }
-  
-  return response
 }
 
 // Cache utilities
@@ -210,7 +247,7 @@ const fetchOrgCommits = async (orgName, since) => {
     
     const allCommits = []
     
-    for (const repo of repos.slice(0, 20)) { // Limit to 20 repos to avoid rate limits
+    for (const repo of repos.slice(0, 10)) { // Limit to 10 repos to avoid rate limits
       try {
         const commits = await fetchRepoCommits(repo.full_name, since)
         if (commits && Array.isArray(commits)) {
@@ -251,31 +288,48 @@ const createTables = async () => {
 }
 
 const storeWeeklyActivity = async (resource, weeklyData) => {
-  if (!supabase) return
+  if (!supabase || !weeklyData || weeklyData.length === 0) return
   
   try {
-    // Extract repo path from GitHub URL
-    const repoPath = resource.social?.github?.replace('https://github.com/', '')
-    if (!repoPath) {
-      console.error(`No valid GitHub URL for ${resource.name}`)
+    // Use resource ID or extract from GitHub URL for both repos and orgs
+    const resourceIdentifier = resource.id || 
+      resource.social?.github?.replace('https://github.com/', '') ||
+      resource.name?.toLowerCase().replace(/\s+/g, '-')
+    
+    if (!resourceIdentifier) {
+      console.error(`No valid identifier for ${resource.name}`)
+      return
+    }
+    
+    const now = new Date().toISOString()
+    const dataToInsert = weeklyData
+      .filter(week => week && typeof week.count === 'number' && week.weekStart)
+      .map(week => ({
+        resource_id: resourceIdentifier,
+        repo_path: resource.social?.github?.replace('https://github.com/', '') || resourceIdentifier,
+        week_start: week.weekStart,
+        commit_count: week.count,
+        year: week.year || new Date(week.weekStart).getFullYear(),
+        week_number: week.week || Math.ceil((new Date(week.weekStart).getDate() + new Date(week.weekStart).getDay()) / 7),
+        fetched_at: now
+      }))
+    
+    if (dataToInsert.length === 0) {
+      console.warn(`No valid data to store for ${resource.name}`)
       return
     }
     
     const { error } = await supabase
       .from('github_activity')
-      .upsert(weeklyData.map(week => ({
-        resource_id: repoPath, // Use repoPath as resource_id
-        repo_path: repoPath,
-        week_start: week.weekStart,
-        commit_count: week.count,
-        year: week.year,
-        week_number: week.week,
-        fetched_at: new Date().toISOString()
-      })), { onConflict: 'resource_id,repo_path,week_start' })
+      .upsert(dataToInsert, { 
+        onConflict: 'resource_id,repo_path,week_start',
+        ignoreDuplicates: false 
+      })
     
     if (error) throw error
+    console.log(`💾 Stored ${dataToInsert.length} weeks of data for ${resource.name}`)
   } catch (error) {
-    console.error('Error storing weekly activity:', error)
+    console.error(`Error storing weekly activity for ${resource.name}:`, error)
   }
 }
 
@@ -283,17 +337,20 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
   if (!supabase) return []
   
   try {
-    // Extract repo path from GitHub URL
-    const repoPath = resource.social?.github?.replace('https://github.com/', '')
-    if (!repoPath) {
-      console.error(`No valid GitHub URL for ${resource.name}`)
+    // Use resource ID first, fallback to extracted path
+    const resourceIdentifier = resource.id || 
+      resource.social?.github?.replace('https://github.com/', '') ||
+      resource.name?.toLowerCase().replace(/\s+/g, '-')
+    
+    if (!resourceIdentifier) {
+      console.error(`No valid identifier for ${resource.name}`)
       return []
     }
     
     const { data, error } = await supabase
       .from('github_activity')
       .select('*')
-      .eq('repo_path', repoPath)
+      .eq('resource_id', resourceIdentifier)
       .gte('week_start', startDate)
       .lte('week_start', endDate)
       .order('week_start')
@@ -301,7 +358,7 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
     if (error) throw error
     return data || []
   } catch (error) {
-    console.error('Error fetching weekly activity:', error)
+    console.error(`Error fetching weekly activity for ${resource.name}:`, error)
     return []
   }
 }
@@ -377,6 +434,14 @@ const processCommitsToDaily = (commits) => {
 }
 
 const getRecentActivity = async (resource, useDailyProcessing = false) => {
+  // Check in-memory cache first
+  const cacheKey = generateCacheKey('recent_activity', resource.id || resource.name, { useDailyProcessing })
+  const cachedResult = getCachedData(cacheKey)
+  if (cachedResult) {
+    console.log(`✅ Using cached recent activity for ${resource.name}`);
+    return cachedResult
+  }
+  
   let commits = []
   let repoInfo = null
   
@@ -385,31 +450,69 @@ const getRecentActivity = async (resource, useDailyProcessing = false) => {
     const timeWindow = useDailyProcessing ? 7 : 30; // 7 days for daily, 30 days for weekly
     const since = new Date(Date.now() - timeWindow * 24 * 60 * 60 * 1000).toISOString();
     
-    if (resource.type === 'organization') {
-      // Use the organization field or extract from GitHub URL
-      const orgName = resource.organization || resource.social.github.replace('https://github.com/', '')
-      commits = await fetchOrgCommits(orgName, since)
-    } else if (resource.type === 'repository' && resource.social?.github) {
-      const repoPath = resource.social.github.replace('https://github.com/', '')
-      commits = await fetchRepoCommits(repoPath, since) // Use time-based filtering
-      
-      // Also fetch repository info
-      try {
-        const url = `${GITHUB_API_BASE}/repos/${repoPath}`
-        const response = await rateLimitedFetch(url)
-        repoInfo = await response.json()
-      } catch (error) {
-        console.error(`Error fetching repo info for ${repoPath}:`, error.message)
-      }
-    } else {
-      // Handle resources without proper GitHub URL
-      console.warn(`Skipping ${resource.name} - no valid GitHub URL found`)
-      return {
+    console.log(`⏰ ${resource.name}: Fetching commits since ${since} (${timeWindow} days, daily: ${useDailyProcessing})`);
+    
+    // Check if we're currently rate limited
+    if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
+      console.warn(`⚠️ Skipping ${resource.name} - GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`);
+      const emptyResult = {
         commits: [],
         commitsPerWeek: 0,
         weeklyData: [],
         repoInfo: null
       }
+      setCachedData(cacheKey, emptyResult)
+      return emptyResult
+    }
+    
+    console.log(`🔄 Fetching recent activity for ${resource.name} (${timeWindow} days)...`);
+    
+    if (resource.type === 'organization') {
+      // For organizations, use repo_path first, then organization field, then extract from GitHub URL
+      let orgName;
+      if (resource.repo_path) {
+        orgName = resource.repo_path;
+      } else if (resource.organization) {
+        orgName = resource.organization;
+      } else if (resource.social?.github) {
+        orgName = resource.social.github.replace('https://github.com/', '');
+      }
+      
+      if (!orgName) {
+        console.warn(`⚠️ No organization name found for ${resource.name}`);
+        commits = [];
+      } else {
+        commits = await fetchOrgCommits(orgName, since);
+      }
+    } else if (resource.type === 'repository' && resource.social?.github) {
+      const repoPath = resource.social.github.replace('https://github.com/', '')
+      commits = await fetchRepoCommits(repoPath, since) // Use time-based filtering
+      
+      // Only fetch repo info if not cached
+      const repoInfoCacheKey = generateCacheKey('repo_info', repoPath)
+      repoInfo = getCachedData(repoInfoCacheKey)
+      
+      if (!repoInfo) {
+        try {
+          const url = `${GITHUB_API_BASE}/repos/${repoPath}`
+          const response = await rateLimitedFetch(url)
+          repoInfo = await response.json()
+          setCachedData(repoInfoCacheKey, repoInfo)
+        } catch (error) {
+          console.error(`Error fetching repo info for ${repoPath}:`, error.message)
+        }
+      }
+    } else {
+      // Handle resources without proper GitHub URL
+      console.warn(`Skipping ${resource.name} - no valid GitHub URL found`)
+      const emptyResult = {
+        commits: [],
+        commitsPerWeek: 0,
+        weeklyData: [],
+        repoInfo: null
+      }
+      setCachedData(cacheKey, emptyResult)
+      return emptyResult
     }
     
     // Ensure commits is an array
@@ -428,38 +531,54 @@ const getRecentActivity = async (resource, useDailyProcessing = false) => {
       repo: resource.name
     }))
     
+    console.log(`📈 ${resource.name}: Found ${commits.length} raw commits, transformed to ${transformedCommits.length}`);
+    
     // Use daily processing for 7-day view, weekly processing for other views
     const processedData = useDailyProcessing 
       ? processCommitsToDaily(transformedCommits)
       : processCommitsToWeekly(transformedCommits)
     
-    return {
+    console.log(`📅 ${resource.name}: Processed ${processedData.length} data points (daily: ${useDailyProcessing})`);
+    
+    const result = {
       commits: transformedCommits.slice(0, 20), // Latest 20 commits
       commitsPerWeek: transformedCommits.length,
       weeklyData: processedData,
       repoInfo
     }
+    
+    // Cache the result
+    setCachedData(cacheKey, result)
+    
+    return result
   } catch (error) {
     console.error(`Error in getRecentActivity for ${resource.name}:`, error.message)
-    return {
+    const errorResult = {
       commits: [],
       commitsPerWeek: 0,
       weeklyData: [],
       repoInfo: null
     }
+    // Cache error result for shorter time
+    setTimeout(() =>
+      setCachedData(cacheKey, errorResult), 30000) // Cache errors for 30 seconds only
+    return errorResult
   }
 }
 
 const getHistoricalActivity = async (resource, startDate, endDate) => {
-  // Organizations always use GitHub API since they aggregate multiple repos
-  // Individual repositories can use database cache
+  // Check database cache first for ALL resources (both repos and orgs)
   let dbData = []
   
-  if (resource.type !== 'organization') {
+  try {
     dbData = await getWeeklyActivity(resource, startDate, endDate)
+  } catch (error) {
+    console.warn(`Database query failed for ${resource.name}:`, error.message)
   }
   
   if (dbData.length > 0) {
+    console.log(`✅ Using cached database data for ${resource.name} (${dbData.length} weeks)`);
+    
     const mappedData = dbData.map(row => ({
       weekStart: row.week_start,
       count: row.commit_count,
@@ -483,27 +602,114 @@ const getHistoricalActivity = async (resource, startDate, endDate) => {
     
     const finalData = Array.from(aggregatedWeeks.values()).sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart))
     
-    return finalData
+    // Smart period-aware staleness checking
+    const now = Date.now()
+    const endDateTime = new Date(endDate).getTime()
+    const startDateTime = new Date(startDate).getTime()
+    
+    // Calculate how old the OLDEST data in this query is (not the end date)
+    const oldestDataAgeInDays = Math.floor((now - startDateTime) / (24 * 60 * 60 * 1000))
+    
+    // Historical queries (data older than 14 days) are immutable - never refresh
+    if (oldestDataAgeInDays > 14) {
+      console.log(`✅ Using historical database data for ${resource.name} (oldest data: ${oldestDataAgeInDays} days old - immutable)`);
+      return finalData
+    }
+    
+    // For recent data, check fetch timestamp
+    const latestEntry = dbData[dbData.length - 1]
+    if (latestEntry && latestEntry.fetched_at) {
+      const fetchTime = new Date(latestEntry.fetched_at)
+      const fetchAgeHours = Math.floor((now - fetchTime.getTime()) / (60 * 60 * 1000))
+      
+      // Recent data staleness thresholds based on oldest data age
+      let maxAgeHours
+      if (oldestDataAgeInDays <= 1) {
+        maxAgeHours = 2 // Current day: refresh every 2 hours
+      } else if (oldestDataAgeInDays <= 7) {
+        maxAgeHours = 6 // Last week: refresh every 6 hours  
+      } else {
+        maxAgeHours = 12 // 1-2 weeks old: refresh every 12 hours
+      }
+      
+      if (fetchAgeHours < maxAgeHours) {
+        console.log(`✅ Using recent database data for ${resource.name} (${fetchAgeHours}h old, threshold: ${maxAgeHours}h)`);
+        return finalData
+      }
+      
+      console.log(`⚡ Refreshing recent data for ${resource.name} (${fetchAgeHours}h old, oldest data: ${oldestDataAgeInDays} days)`)
+    } else {
+      // No fetch timestamp - use data but try to refresh
+      console.log(`⚡ Using database data for ${resource.name} (no timestamp - will attempt refresh)`)
+    }
   }
+  
+  // Check in-memory cache before hitting GitHub API
+  const cacheKey = generateCacheKey('historical_activity', resource.id || resource.name, { startDate, endDate })
+  const cachedResult = getCachedData(cacheKey)
+  if (cachedResult) {
+    console.log(`✅ Using in-memory cache for ${resource.name}`);
+    return cachedResult
+  }
+  
+  // Check if we're currently rate limited
+  if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
+    console.warn(`⚠️ GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`);
+    
+    // Return database data if available, rather than empty results
+    if (dbData.length > 0) {
+      console.log(`📊 Using existing database data for ${resource.name} (rate limited fallback)`);
+      return finalData
+    }
+    
+    console.warn(`⚠️ No database data available for ${resource.name} - returning empty results`);
+    return []
+  }
+  
+  console.log(`🔄 Fetching fresh data from GitHub API for ${resource.name}...`);
   
   // Fallback to GitHub API
   const since = new Date(startDate).toISOString()
   let commits = []
   
-  if (resource.type === 'organization') {
-    // Use the organization field or extract from GitHub URL
-    const orgName = resource.organization || resource.social.github.replace('https://github.com/', '')
-    commits = await fetchOrgCommits(orgName, since)
-  } else {
-    const repoPath = resource.social.github.replace('https://github.com/', '')
-    commits = await fetchRepoCommits(repoPath, since)
+  try {
+    if (resource.type === 'organization') {
+      // For organizations, use repo_path first, then organization field, then extract from GitHub URL
+      let orgName;
+      if (resource.repo_path) {
+        orgName = resource.repo_path;
+      } else if (resource.organization) {
+        orgName = resource.organization;
+      } else if (resource.social?.github) {
+        orgName = resource.social.github.replace('https://github.com/', '');
+      }
+      
+      if (!orgName) {
+        console.warn(`⚠️ No organization name found for ${resource.name}`);
+        return [];
+      }
+      
+      commits = await fetchOrgCommits(orgName, since);
+    } else {
+      const repoPath = resource.social.github.replace('https://github.com/', '')
+      commits = await fetchRepoCommits(repoPath, since)
+    }
+  } catch (error) {
+    console.error(`Failed to fetch commits for ${resource.name}:`, error.message)
+    // Return empty data on API failure
+    return []
   }
   
   const weeklyData = processCommitsToWeekly(commits)
   
-  // Store in database for future use (only for individual repositories)
-  if (resource.type !== 'organization') {
+  // Store in both in-memory cache and database for future use
+  setCachedData(cacheKey, weeklyData)
+  
+  // Store in database for both repositories and organizations
+  try {
     await storeWeeklyActivity(resource, weeklyData)
+  } catch (error) {
+    console.warn(`Failed to store activity data for ${resource.name}:`, error.message)
   }
   
   return weeklyData
@@ -581,23 +787,107 @@ app.post('/api/github/updates', async (req, res) => {
       return res.status(400).json({ error: 'Invalid resource data' })
     }
     
-    const data = await getRecentActivity(resource)
-    let releases = []
+    console.log(`🔍 GitHub updates request for ${resource.name}`)
     
+    // First, try to get detailed activity data from the development activity cache
+    let detailedData = null
     try {
-      if (resource.type === 'repository') {
-        releases = await fetchRepoReleases(resource.social.github.replace('https://github.com/', ''), 10)
+      // Check both repository and organization caches for detailed weekly data
+      const cacheKeys = ['repository-activity', 'organization-activity']
+      
+      console.log(`🔍 Searching for ${resource.name} in caches...`)
+      console.log(`🔍 Resource GitHub URL: ${resource.social?.github}`)
+      
+      for (const cacheKey of cacheKeys) {
+        const cachedData = VIEW_MODE_CACHE.get(cacheKey)
+        
+        if (cachedData && cachedData.dailyChartData) {
+          console.log(`📊 Found ${cacheKey} cache with ${cachedData.dailyChartData.length} items`)
+          
+          // Log first few items to see structure
+          if (cachedData.dailyChartData.length > 0) {
+            console.log(`📋 Sample cached resource names: ${cachedData.dailyChartData.slice(0, 3).map(item => item.resource?.name).join(', ')}`)
+          }
+          
+          const foundResource = cachedData.dailyChartData.find(item => {
+            if (!item.resource) return false
+            
+            // Try multiple matching strategies
+            const nameMatch = item.resource.name === resource.name
+            const githubMatch = item.resource.social?.github === resource.social.github
+            const githubUrlMatch = item.resource.social?.github && resource.social?.github && 
+              item.resource.social.github.toLowerCase() === resource.social.github.toLowerCase()
+            
+            console.log(`🔍 Checking ${item.resource.name}: nameMatch=${nameMatch}, githubMatch=${githubMatch}, githubUrlMatch=${githubUrlMatch}`)
+            
+            return nameMatch || githubMatch || githubUrlMatch
+          })
+          
+          if (foundResource && foundResource.weeklyData && foundResource.weeklyData.length > 0) {
+            console.log(`✅ Found detailed weekly data for ${resource.name} in ${cacheKey} cache`)
+            console.log(`📊 Weekly data length: ${foundResource.weeklyData.length}`)
+            detailedData = {
+              commitsPerWeekDetailed: foundResource.weeklyData,
+              commitsPerWeek: foundResource.weeklyData[foundResource.weeklyData.length - 1]?.count || 0,
+              commits: [], // Will be filled by fallback if needed
+              releases: [], // Will be filled by fallback if needed
+              repoInfo: { 
+                isOrganization: foundResource.resource.type === 'organization',
+                stargazersCount: foundResource.resource.stargazersCount || 0,
+                forksCount: foundResource.resource.forksCount || 0,
+                language: foundResource.resource.language || null,
+                htmlUrl: foundResource.resource.social?.github || null
+              }
+            }
+            break // Found data, stop searching
+          } else if (foundResource) {
+            console.log(`⚠️ Found resource ${resource.name} but no weekly data`)
+          }
+        } else {
+          console.log(`❌ No ${cacheKey} cache data available`)
+        }
       }
     } catch (error) {
-      console.error(`Error fetching releases for ${resource.name}:`, error.message)
-      releases = []
+      console.warn(`Could not get detailed cache data for ${resource.name}:`, error.message)
     }
     
+    // If we have detailed data, use it; otherwise fall back to the regular method
+    let data
+    let releases = []
+    if (detailedData) {
+      data = detailedData
+      releases = detailedData.releases
+    } else {
+      console.log(`🔄 Using fallback data fetch for ${resource.name}`)
+      data = await getRecentActivity(resource)
+      
+      try {
+        if (resource.type === 'repository') {
+          releases = await fetchRepoReleases(resource.social.github.replace('https://github.com/', ''), 10)
+        }
+      } catch (error) {
+        console.error(`Error fetching releases for ${resource.name}:`, error.message)
+        releases = []
+      }
+    }
+    
+    // Convert weeklyData to commitsPerWeekDetailed format if needed
+    let commitsPerWeekDetailed = data.commitsPerWeekDetailed || []
+    if (!commitsPerWeekDetailed.length && data.weeklyData && data.weeklyData.length > 0) {
+      commitsPerWeekDetailed = data.weeklyData.map(week => ({
+        weekStart: week.weekStart,
+        count: week.count,
+        year: week.year,
+        week: week.week
+      }))
+    }
+
     res.json({
       resource: resource.name,
       commits: data.commits || [],
       releases: releases.slice(0, 10), // Exactly 10 releases
       commitsPerWeek: data.commitsPerWeek || 0,
+      commitsPerWeekDetailed: commitsPerWeekDetailed,
       weeklyData: data.weeklyData || [],
       repoInfo: data.repoInfo
     })
@@ -606,6 +896,89 @@ app.post('/api/github/updates', async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to fetch updates',
       resource: req.body?.name || 'unknown'
+    })
+  }
+})
+
+// Get GitHub updates for multiple resources (global endpoint)
+app.post('/api/github/global', async (req, res) => {
+  try {
+    const { resources } = req.body
+    if (!resources || !Array.isArray(resources)) {
+      return res.status(400).json({ error: 'Invalid resources data - expected array' })
+    }
+    
+    console.log(`🌍 Global GitHub request for ${resources.length} resources`)
+    
+    const results = []
+    
+    // Process resources in batches to avoid overwhelming the API
+    const batchSize = 5
+    for (let i = 0; i < resources.length; i += batchSize) {
+      const batch = resources.slice(i, i + batchSize)
+      
+      const batchPromises = batch.map(async (resource) => {
+        if (!resource?.name || !resource?.social?.github) {
+          console.warn(`⚠️ Skipping invalid resource:`, resource?.name || 'unknown')
+          return null
+        }
+        
+        try {
+          // Get recent activity (commits)
+          const activityData = await getRecentActivity(resource)
+          
+          // Get releases
+          let releases = []
+          try {
+            if (resource.type === 'repository') {
+              releases = await fetchRepoReleases(resource.social.github.replace('https://github.com/', ''), 5)
+            }
+          } catch (error) {
+            console.warn(`⚠️ Error fetching releases for ${resource.name}:`, error.message)
+            releases = []
+          }
+          
+          return {
+            resource: resource,
+            commits: activityData.commits || [],
+            releases: releases || [],
+            commitsPerWeek: activityData.commitsPerWeek || 0,
+            weeklyData: activityData.weeklyData || [],
+            repoInfo: activityData.repoInfo
+          }
+        } catch (error) {
+          console.warn(`⚠️ Error processing resource ${resource.name}:`, error.message)
+          return {
+            resource: resource,
+            commits: [],
+            releases: [],
+            commitsPerWeek: 0,
+            weeklyData: [],
+            repoInfo: null
+          }
+        }
+      })
+      
+      const batchResults = await Promise.allSettled(batchPromises)
+      const validResults = batchResults
+        .filter(result => result.status === 'fulfilled' && result.value !== null)
+        .map(result => result.value)
+      
+      results.push(...validResults)
+      
+      // Add delay between batches to respect rate limits
+      if (i + batchSize < resources.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+    }
+    
+    console.log(`✅ Global GitHub request completed: ${results.length}/${resources.length} successful`)
+    res.json(results)
+  } catch (error) {
+    console.error('❌ Global GitHub API error:', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch global GitHub data',
+      message: error.message
     })
   }
 })
@@ -646,101 +1019,222 @@ app.get('/api/github/org-activity/:orgName', async (req, res) => {
   }
 })
 
-// Get development activity for dashboard
+// Server-side cache for view mode results - optimized for fast loading
+const VIEW_MODE_CACHE = new Map();
+const VIEW_MODE_CACHE_TTL = 30 * 60 * 1000; // 30 minutes (GitHub data doesn't change frequently)
+
+// Get development activity for dashboard - preload all periods
 app.get('/api/development-activity', async (req, res) => {
   try {
     const { viewMode = 'repository', period = 'current' } = req.query;
-    const resources = await loadResources();
-    console.log(`Processing ${resources.length} total resources for ${viewMode} view, ${period} period...`);
     
-    // Determine date range based on period
-    const getDateRange = (period) => {
-      const now = new Date();
-      switch (period) {
-        case 'current':
-          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          return { since: weekAgo.toISOString(), days: 7 };
-        case 'monthly':
-          const monthAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
-          return { since: monthAgo.toISOString(), days: 28 };
-        case '3months':
-          const threeMonthsAgo = new Date(now.getTime() - 13 * 7 * 24 * 60 * 60 * 1000);
-          return { since: threeMonthsAgo.toISOString(), days: 91 };
-        case '52weeks':
-          const yearAgo = new Date(now.getTime() - 52 * 7 * 24 * 60 * 60 * 1000);
-          return { since: yearAgo.toISOString(), days: 364 };
-        case '3years':
-          const threeYearsAgo = new Date(now.getTime() - 156 * 7 * 24 * 60 * 60 * 1000);
-          return { since: threeYearsAgo.toISOString(), days: 1092 };
-        default:
-          const defaultWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          return { since: defaultWeekAgo.toISOString(), days: 7 };
+    // Check server-side cache first
+    const cacheKey = `${viewMode}-activity`;
+    const cached = VIEW_MODE_CACHE.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < VIEW_MODE_CACHE_TTL)) {
+      console.log(`⚡ Using server cache for ${viewMode} view (${Math.round((Date.now() - cached.timestamp) / 1000)}s old)`);
+      return res.json(cached.data);
+    }
+    
+    const resources = await loadResources();
+    console.log(`🔄 Processing ${resources.length} total resources for ${viewMode} view, preloading all periods...`);
+    
+    // Define all time periods with their date ranges
+    const now = new Date();
+    const periods = {
+      current: {
+        since: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        days: 7,
+        useDailyProcessing: true
+      },
+      monthly: {
+        since: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString(),
+        days: 28,
+        useDailyProcessing: false
+      },
+      '3months': {
+        since: new Date(now.getTime() - 13 * 7 * 24 * 60 * 60 * 1000).toISOString(),
+        days: 91,
+        useDailyProcessing: false
+      },
+      '52weeks': {
+        since: new Date(now.getTime() - 52 * 7 * 24 * 60 * 60 * 1000).toISOString(),
+        days: 364,
+        useDailyProcessing: false
+      },
+      '3years': {
+        since: new Date(now.getTime() - 156 * 7 * 24 * 60 * 60 * 1000).toISOString(),
+        days: 1092,
+        useDailyProcessing: false
       }
     };
-
-    const { since, days } = getDateRange(period);
     
-    const activityPromises = resources.map(async (resource) => {
-      try {
-        // Use the type field from the resource data to determine if it's an organization or repository
-        const isOrganization = resource.type === 'organization';
-        const isRepository = resource.type === 'repository';
+    // Filter resources by view mode first to reduce processing
+    const filteredResources = resources.filter(resource => {
+      const isOrganization = resource.type === 'organization';
+      const isRepository = resource.type === 'repository';
+      
+      if (viewMode === 'organization' && !isOrganization) return false;
+      if (viewMode === 'repository' && !isRepository) return false;
+      
+      // For organizations, check if we have a valid identifier
+      if (isOrganization) {
+        const hasRepoPath = resource.repo_path && resource.repo_path !== 'n/a' && resource.repo_path.trim() !== '';
+        const hasOrgName = resource.organization && resource.organization !== 'n/a' && resource.organization.trim() !== '';
+        const hasGitHubUrl = resource.social?.github && 
+                            resource.social.github !== 'n/a' && 
+                            resource.social.github.trim() !== '' &&
+                            resource.social.github.includes('github.com');
         
-        // For organization view, only process organizations
-        if (viewMode === 'organization' && !isOrganization) {
-          return null;
+        if (!hasRepoPath && !hasOrgName && !hasGitHubUrl) {
+          console.warn(`Skipping organization ${resource.name} - no valid identifier`);
+          return false;
         }
-        
-        // For repository view, only process repositories
-        if (viewMode === 'repository' && !isRepository) {
-          return null;
-        }
-        
-        let activityData;
-        
-        if (period === 'current') {
-          // For 7-day period, use getRecentActivity to get recent commits and process them into daily data
-          const recentData = await getRecentActivity(resource, true); // Use daily processing
-          activityData = recentData.weeklyData; // This contains daily data processed from recent commits
-        } else {
-          // For other periods, use getHistoricalActivity to get weekly data
-          if (isOrganization && resource.social?.github) {
-            activityData = await getHistoricalActivity(resource, since, new Date().toISOString());
-          } else if (isRepository && resource.social?.github) {
-            activityData = await getHistoricalActivity(resource, since, new Date().toISOString());
-          } else {
-            console.warn(`Skipping ${resource.name} - no valid GitHub URL or type`);
-            return null;
-          }
-        }
-        
-        // Calculate total commits for the period
-        const totalCommits = activityData.reduce((sum, week) => sum + week.count, 0);
-        
-        return {
-          resource,
-          data: {
-            commitsPerWeek: totalCommits,
-            weeklyData: activityData
-          },
-          releases: [],
-          commits: []
-        };
-      } catch (error) {
-        console.error(`Error fetching data for ${resource.name}:`, error);
-        return {
-          resource,
-          data: { commitsPerWeek: 0, weeklyData: [] },
-          releases: [],
-          commits: []
-        };
+        return true;
       }
+      
+      // For repositories, validate GitHub URL more thoroughly
+      if (!resource.social?.github || 
+          resource.social.github === 'n/a' || 
+          resource.social.github.trim() === '' ||
+          !resource.social.github.includes('github.com')) {
+        console.warn(`Skipping repository ${resource.name} - no valid GitHub URL (${resource.social?.github})`);
+        return false;
+      }
+      
+      // Extract and validate the repo path
+      const repoPath = resource.social.github.replace('https://github.com/', '');
+      if (repoPath === 'n/a' || repoPath.trim() === '' || repoPath.endsWith('/')) {
+        console.warn(`Skipping repository ${resource.name} - invalid repo path: ${repoPath}`);
+        return false;
+      }
+      
+      return true;
     });
-
-    const results = await Promise.allSettled(activityPromises);
-    const successfulResults = results
-      .filter(result => result.status === 'fulfilled' && result.value !== null)
-      .map(result => result.value)
+    
+    console.log(`🚀 Preloading ALL periods for ${filteredResources.length} filtered resources (was ${resources.length})`);
+    
+    // Process resources in smaller batches to avoid overwhelming the API
+    const BATCH_SIZE = 5;
+    const allPeriodsData = new Map(); // Store data for all periods
+    
+    // Preload data for ALL periods at once
+    for (let i = 0; i < filteredResources.length; i += BATCH_SIZE) {
+      const batch = filteredResources.slice(i, i + BATCH_SIZE);
+      console.log(`📦 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(filteredResources.length / BATCH_SIZE)} (${batch.length} resources)`);
+      
+      const batchPromises = batch.map(async (resource) => {
+        try {
+          const resourceData = {
+            resource,
+            periods: {}
+          };
+          
+          // Fetch data with priority: 7-day first, then other periods
+          const prioritizedPeriods = [
+            ['current', periods.current], // 7-day first (highest priority)
+            ['monthly', periods.monthly],
+            ['3months', periods['3months']],
+            ['52weeks', periods['52weeks']],
+            ['3years', periods['3years']]
+          ];
+          
+          const periodPromises = prioritizedPeriods.map(async ([periodKey, periodConfig]) => {
+            try {
+              let activityData;
+              
+              if (periodKey === 'current') {
+                // For 7-day period, use getRecentActivity with daily processing
+                const recentData = await getRecentActivity(resource, true);
+                activityData = recentData.weeklyData;
+              } else {
+                // For other periods, use getHistoricalActivity
+                activityData = await getHistoricalActivity(resource, periodConfig.since, new Date().toISOString());
+              }
+              
+              // Calculate total commits for this period
+              const totalCommits = Array.isArray(activityData) ? 
+                activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
+              
+              return {
+                periodKey,
+                data: {
+                  commitsPerWeek: totalCommits,
+                  weeklyData: activityData || []
+                }
+              };
+            } catch (error) {
+              console.error(`Error fetching ${periodKey} data for ${resource.name}:`, error);
+              return {
+                periodKey,
+                data: { commitsPerWeek: 0, weeklyData: [] }
+              };
+            }
+          });
+          
+          // Wait for all periods to complete
+          const periodResults = await Promise.allSettled(periodPromises);
+          
+          // Process results for each period
+          periodResults.forEach(result => {
+            if (result.status === 'fulfilled') {
+              const { periodKey, data } = result.value;
+              resourceData.periods[periodKey] = data;
+            }
+          });
+          
+          // Log summary for this resource
+          const summaryLog = Object.entries(resourceData.periods)
+            .map(([key, data]) => `${key}:${data.commitsPerWeek}`)
+            .join(', ');
+          console.log(`📊 ${resource.name}: ${summaryLog}`);
+          
+          return resourceData;
+        } catch (error) {
+          console.error(`Error processing resource ${resource.name}:`, error);
+          // Return empty data for all periods
+          const emptyPeriods = {};
+          Object.keys(periods).forEach(key => {
+            emptyPeriods[key] = { commitsPerWeek: 0, weeklyData: [] };
+          });
+          return {
+            resource,
+            periods: emptyPeriods
+          };
+        }
+      });
+      
+      const batchResults = await Promise.allSettled(batchPromises);
+      console.log(`✅ Batch ${Math.floor(i / BATCH_SIZE) + 1} completed: ${batchResults.length} resources with all periods`);
+      
+      // Store results for all periods
+      batchResults.forEach(result => {
+        if (result.status === 'fulfilled') {
+          const resourceData = result.value;
+          const resourceId = resourceData.resource.id || resourceData.resource.name;
+          allPeriodsData.set(resourceId, resourceData);
+        }
+      });
+      
+      // Small delay between batches
+      if (i + BATCH_SIZE < filteredResources.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    // Extract results for the requested period from preloaded data
+    const allResourcesData = Array.from(allPeriodsData.values());
+    const periodData = allResourcesData
+      .map(resourceData => ({
+        resource: resourceData.resource,
+        data: resourceData.periods[period] || { commitsPerWeek: 0, weeklyData: [] },
+        releases: [],
+        commits: []
+      }))
+      .filter(item => item.data && typeof item.data.commitsPerWeek === 'number');
+    
+    console.log(`🔍 Extracted ${periodData.length} resources for ${period} period`);
+    
+    const successfulResults = periodData
       .filter(item => item.data.commitsPerWeek > 0)
       .sort((a, b) => b.data.commitsPerWeek - a.data.commitsPerWeek);
 
@@ -748,10 +1242,13 @@ app.get('/api/development-activity', async (req, res) => {
 
     // Calculate metrics based on the selected period
     const totalActiveRepos = successfulResults.length;
-    const totalCommits = successfulResults.reduce((sum, item) => sum + item.data.commitsPerWeek, 0);
+    const totalCommits = successfulResults.reduce((sum, item) => 
+      sum + (item && item.data && typeof item.data.commitsPerWeek === 'number' ? item.data.commitsPerWeek : 0), 0);
     const avgCommitsPerRepo = totalActiveRepos > 0 ? Math.round(totalCommits / totalActiveRepos) : 0;
 
+    // Build response with preloaded data for ALL periods
     const response = {
+      // Current period data (for backward compatibility)
       dailyLeaderboard: successfulResults.map(item => ({
         resource: item.resource,
         totalCommits: item.data.commitsPerWeek
@@ -761,49 +1258,61 @@ app.get('/api/development-activity', async (req, res) => {
         totalCommits: item.data.commitsPerWeek
       })),
       dailyChartData: successfulResults.map(item => {
-        // For daily chart data, always use consistent structure
-        const chartData = item.data.weeklyData || [];
+        const chartData = Array.isArray(item.data.weeklyData) ? item.data.weeklyData : [];
         return {
           resource: item.resource,
-          dailyCounts: chartData.map(d => d.count),
-          weeklyData: chartData // Include full data for consistency
+          dailyCounts: chartData.map(d => d && typeof d.count === 'number' ? d.count : 0),
+          weeklyData: chartData
         };
       }),
       weeklyChartData: successfulResults.map(item => {
-        // For weekly chart data, always use consistent structure
-        const chartData = item.data.weeklyData || [];
+        const chartData = Array.isArray(item.data.weeklyData) ? item.data.weeklyData : [];
         return {
           resource: item.resource,
-          weeklyCounts: chartData.map(w => w.count),
-          weeklyData: chartData // Include full data for consistency
+          weeklyCounts: chartData.map(w => w && typeof w.count === 'number' ? w.count : 0),
+          weeklyData: chartData
         };
       }),
-      // Add detailed data for GitHub Updates widget
       githubUpdates: successfulResults.map(item => ({
         resource: item.resource,
         commits: item.commits || [],
         releases: item.releases || [],
-        commitsPerWeek: item.data.commitsPerWeek || 0,
+        commitsPerWeek: item.data.commitsPerWeek,
         weeklyData: item.data.weeklyData || [],
         repoInfo: item.data.repoInfo
       })),
       metrics: {
-        daily: {
-          totalActiveRepos,
-          avgCommitsPerRepo,
-          totalCommits
-        },
-        weekly: {
-          totalActiveRepos,
-          avgCommitsPerRepo,
-          totalCommits
-        }
+        daily: { totalActiveRepos, avgCommitsPerRepo, totalCommits },
+        weekly: { totalActiveRepos, avgCommitsPerRepo, totalCommits }
       },
-      // Add period information for debugging
+      
+      // 🚀 NEW: Preloaded data for ALL periods to enable instant switching
+      preloadedPeriods: {
+        current: buildPeriodData(allResourcesData, 'current'),
+        monthly: buildPeriodData(allResourcesData, 'monthly'),
+        '3months': buildPeriodData(allResourcesData, '3months'),
+        '52weeks': buildPeriodData(allResourcesData, '52weeks'),
+        '3years': buildPeriodData(allResourcesData, '3years')
+      },
+      
+      // Meta information
       period,
       viewMode,
-      dateRange: { since, days }
+      periodsPreloaded: Object.keys(periods),
+      totalResourcesProcessed: allResourcesData.length
     };
+
+    // Cache the response for future requests
+    VIEW_MODE_CACHE.set(cacheKey, {
+      data: response,
+      timestamp: Date.now()
+    });
+    
+    // Clean up old cache entries (keep only 4 entries max)
+    if (VIEW_MODE_CACHE.size > 4) {
+      const oldestKey = VIEW_MODE_CACHE.keys().next().value;
+      VIEW_MODE_CACHE.delete(oldestKey);
+    }
 
     res.json(response);
   } catch (error) {
@@ -811,6 +1320,95 @@ app.get('/api/development-activity', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch development activity' });
   }
 });
+
+// Helper function to build period data
+function buildPeriodData(allResourcesData, periodKey) {
+  const periodData = allResourcesData
+    .map(resourceData => ({
+      resource: resourceData.resource,
+      data: resourceData.periods[periodKey] || { commitsPerWeek: 0, weeklyData: [] },
+      releases: [],
+      commits: []
+    }))
+    .filter(item => item.data && typeof item.data.commitsPerWeek === 'number');
+  
+  const successfulResults = periodData
+    .filter(item => item.data.commitsPerWeek > 0)
+    .sort((a, b) => b.data.commitsPerWeek - a.data.commitsPerWeek);
+  
+  const totalActiveRepos = successfulResults.length;
+  const totalCommits = successfulResults.reduce((sum, item) => sum + item.data.commitsPerWeek, 0);
+  const avgCommitsPerRepo = totalActiveRepos > 0 ? Math.round(totalCommits / totalActiveRepos) : 0;
+  
+  return {
+    dailyLeaderboard: successfulResults.map(item => ({
+      resource: item.resource,
+      totalCommits: item.data.commitsPerWeek
+    })),
+    weeklyLeaderboard: successfulResults.map(item => ({
+      resource: item.resource,
+      totalCommits: item.data.commitsPerWeek
+    })),
+    dailyChartData: successfulResults.map(item => {
+      const chartData = Array.isArray(item.data.weeklyData) ? item.data.weeklyData : [];
+      return {
+        resource: item.resource,
+        dailyCounts: chartData.map(d => d && typeof d.count === 'number' ? d.count : 0),
+        weeklyData: chartData
+      };
+    }),
+    weeklyChartData: successfulResults.map(item => {
+      const chartData = Array.isArray(item.data.weeklyData) ? item.data.weeklyData : [];
+      return {
+        resource: item.resource,
+        weeklyCounts: chartData.map(w => w && typeof w.count === 'number' ? w.count : 0),
+        weeklyData: chartData
+      };
+    }),
+    metrics: {
+      daily: { totalActiveRepos, avgCommitsPerRepo, totalCommits },
+      weekly: { totalActiveRepos, avgCommitsPerRepo, totalCommits }
+    }
+  };
+}
+
+// GitHub rate limit status endpoint
+app.get('/api/github/rate-limit-status', async (req, res) => {
+  try {
+    const status = {
+      isRateLimited,
+      rateLimitResetTime: rateLimitResetTime ? rateLimitResetTime.toISOString() : null,
+      tokenConfigured: !!GITHUB_TOKEN,
+      cacheStats: {
+        size: CACHE.data.size,
+        maxSize: CACHE.maxSize
+      }
+    }
+    
+    if (GITHUB_TOKEN && !isRateLimited) {
+      // Only check actual rate limit if we have a token and aren't already rate limited
+      try {
+        const response = await fetch('https://api.github.com/rate_limit', {
+          headers: {
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'User-Agent': 'adaDEV-Platform'
+          }
+        })
+        if (response.ok) {
+          const rateLimitData = await response.json()
+          status.githubRateLimit = rateLimitData.rate
+        }
+      } catch (error) {
+        console.warn('Could not fetch GitHub rate limit:', error.message)
+      }
+    }
+    
+    res.json(status)
+  } catch (error) {
+    console.error('Rate limit status error:', error)
+    res.status(500).json({ error: 'Failed to get rate limit status' })
+  }
+})
 
 // AI Analysis endpoint
 app.post('/api/ai/analyze', async (req, res) => {
@@ -930,16 +1528,44 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'))
 })
 
+// Preload cache for both view modes on startup for instant first load
+const preloadStartupCache = async () => {
+  console.log('🔄 Preloading server cache for instant first load...')
+  
+  try {
+    // Preload repository view first (7-day priority)
+    console.log('📦 Preloading repository view (7-day data prioritized)...')
+    const repoResponse = await fetch(`http://localhost:${PORT}/api/development-activity?viewMode=repository&period=current`)
+    if (repoResponse.ok) {
+      console.log('✅ Repository view cache preloaded')
+      
+      // Immediately start organization view preload (no delay)
+      console.log('📦 Preloading organization view (7-day data prioritized)...')
+      const orgResponse = await fetch(`http://localhost:${PORT}/api/development-activity?viewMode=organization&period=current`)
+      if (orgResponse.ok) {
+        console.log('✅ Organization view cache preloaded')
+      }
+    }
+    
+    console.log('🚀 Startup cache preloading completed - both views ready for instant load!')
+  } catch (error) {
+    console.warn('⚠️ Startup cache preloading failed (not critical):', error.message)
+  }
+}
+
 // Initialize and start server
 const startServer = async () => {
   try {
     await createTables()
     
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
       console.log(`🚀 Server listening on port ${PORT}`)
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
       console.log(`🔐 GitHub Token: ${GITHUB_TOKEN ? '✅ Available' : '❌ Not configured'}`)
       console.log(`💾 Supabase: ${supabase ? '✅ Connected' : '❌ Not configured'}`)
+      
+      // Preload cache after server starts (in background)
+      setTimeout(preloadStartupCache, 2000) // 2 second delay to let server fully start
     })
   } catch (error) {
     console.error('Failed to start server:', error)
