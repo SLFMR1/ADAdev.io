@@ -332,7 +332,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <IconComponent size={28} className={`text-cyan-400 ${screenshotMode ? 'hidden' : ''}`} />
+              <IconComponent size={20} className={`text-red-400 ${screenshotMode ? 'hidden' : ''}`} />
               <h3 className="text-white font-medium text-base">{resource.name}</h3>
             </div>
             {/* Logo in expanded view */}

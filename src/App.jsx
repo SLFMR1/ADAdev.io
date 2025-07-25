@@ -609,6 +609,15 @@ function App() {
     return () => document.removeEventListener('activityDataUpdated', handleActivityDataUpdate);
   }, []);
 
+  useEffect(() => {
+    const handleExpandWidget = (event) => {
+      const { widgetKey } = event.detail;
+      handleWidgetExpand(widgetKey);
+    };
+    document.addEventListener('expandWidget', handleExpandWidget);
+    return () => document.removeEventListener('expandWidget', handleExpandWidget);
+  }, []);
+
   const handleAIAnalysisComplete = (results) => {
     setAiResults(results);
     setSearchTerm('');

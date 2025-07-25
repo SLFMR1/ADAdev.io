@@ -56,13 +56,12 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
           
           <div className="bg-transparent backdrop-blur-md rounded-2xl p-6 lg:p-8 border border-gray-700/50 shadow-2xl">
             {/* Main headline */}
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 lg:mb-8 leading-tight">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-thin text-white mb-6 lg:mb-8 leading-tight">
             {' '}Cardano{' '}
               <span 
                 className="text-transparent"
                 style={{
                   WebkitTextStroke: '1px #22d3ee',
-                  textShadow: '0 0 10px rgba(34, 211, 238, 0.52)'
                 }}
               >
                 Developer Hub
@@ -73,17 +72,17 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
             <div className="mb-4 lg:mb-6">
               <p className="text-lg sm:text-xl md:text-2xl text-gray-200 mb-6 max-w-4xl mx-auto leading-relaxed">
                 Your essential destination to stay ahead in Cardano development. 
-                <span className="text-cyan-400 font-medium">
+                <span className="text-cyan-400 font-thin">
                   {' '}Track ecosystem growth
                 </span>
                 , discover curated resources, and 
-                <span className="text-cyan-400 font-medium">
+                <span className="text-cyan-400 font-thin">
                   {' '}find everything
                 </span>
-                <span className="text-white font-medium">
+                <span className="text-white font-thin">
                   {' '}you need to
                 </span>
-                <span className="text-cyan-400 font-medium">
+                <span className="text-cyan-400 font-thin">
                   {' '}build on Cardano
                 </span>
                 .
@@ -93,7 +92,7 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
                 onClick={scrollToResources}
-                className="bg-transparent border border-cyan-400/50 text-cyan-400 px-6 py-3 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-custom-bg hover:border-cyan-400 hover:bg-cyan-400/10 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2 text-sm sm:text-base shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)]"
+                className="bg-transparent border border-cyan-400/50 text-cyan-400 px-6 py-3 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-custom-bg hover:border-cyan-400 hover:bg-cyan-400/10 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2 text-sm sm:text-base shadow-[0_0_8px_rgba(34,211,238,0.2)] hover:shadow-[0_0_12px_rgba(34,211,238,0.3)]"
               >
                 <span>Browse Resources</span>
                 <ArrowRight size={16} className="sm:w-4 sm:h-4" />
@@ -101,11 +100,11 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
               
               <button 
                 onClick={() => {
-                  // Trigger AI widget expansion
-                  const aiWidget = document.querySelector('[data-widget="ai"]')
-                  if (aiWidget) {
-                    aiWidget.click()
-                  }
+                  // Trigger AI widget expansion via custom event
+                  const event = new CustomEvent('expandWidget', { 
+                    detail: { widgetKey: 'ai' } 
+                  })
+                  document.dispatchEvent(event)
                 }}
                 className="bg-transparent border border-gray-600 text-gray-300 px-6 py-3 rounded-full font-semibold hover:border-gray-500 hover:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-custom-bg flex items-center justify-center space-x-2 text-sm sm:text-base hover:bg-gray-800/30"
               >
@@ -139,7 +138,7 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
                   onClick={onRevert}
                   className={`flex items-center justify-center space-x-2 text-sm sm:text-base px-6 py-3 rounded-full font-semibold transition-all duration-200 mx-auto ${
                     navigationSource === 'leaderboard' 
-                      ? 'bg-transparent border border-cyan-400/50 text-cyan-400 hover:border-cyan-400 hover:bg-cyan-400/10 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)]' 
+                      ? 'bg-transparent border border-cyan-400/50 text-cyan-400 hover:border-cyan-400 hover:bg-cyan-400/10 hover:scale-105 active:scale-95 shadow-[0_0_8px_rgba(34,211,238,0.2)] hover:shadow-[0_0_12px_rgba(34,211,238,0.3)]' 
                       : 'bg-transparent border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-white hover:bg-gray-800/30'
                   }`}
                 >
