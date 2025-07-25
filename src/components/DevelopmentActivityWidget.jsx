@@ -51,15 +51,30 @@ const SkeletonLeaderboardItem = ({ rank }) => (
 
 const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onCollapse, onNavigateToResource }) => {
   const [activityData, setActivityData] = useState(null);
-  const [preloadedData, setPreloadedData] = useState(null); // Store all preloaded periods
+  const [preloadedData, setPreloadedData] = useState({}); // Store preloaded data by view mode
   const [isLoading, setIsLoading] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState('current');
-  const [viewMode, setViewMode] = useState('repository'); // Ensure default is set
+  
+  // Load persisted settings from localStorage with fallbacks
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    try {
+      return localStorage.getItem('developmentActivityWidget.selectedPeriod') || 'current';
+    } catch {
+      return 'current';
+    }
+  });
+  
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('developmentActivityWidget.viewMode') || 'repository';
+    } catch {
+      return 'repository';
+    }
+  });
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [screenshotMode, setScreenshotMode] = useState(false);
   const [error, setError] = useState(null);
-  const [lastFetchTime, setLastFetchTime] = useState(null);
+  const [lastFetchTime, setLastFetchTime] = useState({});
   
   const widgetRef = useRef(null);
   const chartRef = useRef(null);
@@ -91,10 +106,13 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       const currentPeriod = selectedPeriod || 'current';
       
       // Check if we have preloaded data for instant switching
-      if (!forceRefresh && preloadedData && preloadedData.viewMode === currentViewMode && lastFetchTime && (Date.now() - lastFetchTime < CACHE_TIMEOUT)) {
+      const viewModeCache = preloadedData[currentViewMode];
+      const lastFetch = lastFetchTime[currentViewMode];
+      
+      if (!forceRefresh && viewModeCache && lastFetch && (Date.now() - lastFetch < CACHE_TIMEOUT)) {
         console.log('⚡ INSTANT SWITCH: Using preloaded data!');
-        if (preloadedData.preloadedPeriods && preloadedData.preloadedPeriods[currentPeriod]) {
-          const periodData = { ...preloadedData.preloadedPeriods[currentPeriod], period: currentPeriod, viewMode: currentViewMode };
+        if (viewModeCache.preloadedPeriods && viewModeCache.preloadedPeriods[currentPeriod]) {
+          const periodData = { ...viewModeCache.preloadedPeriods[currentPeriod], period: currentPeriod, viewMode: currentViewMode };
           setActivityData(periodData);
           
           // Dispatch event for other components
@@ -126,9 +144,15 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       const data = await response.json();
       
       if (data && (data.dailyLeaderboard || data.weeklyLeaderboard || data.preloadedPeriods)) {
-        // Store all preloaded data with view mode
-        setPreloadedData({ ...data, viewMode: currentViewMode });
-        setLastFetchTime(Date.now());
+        // Store preloaded data by view mode
+        setPreloadedData(prev => ({
+          ...prev,
+          [currentViewMode]: { ...data, viewMode: currentViewMode }
+        }));
+        setLastFetchTime(prev => ({
+          ...prev,
+          [currentViewMode]: Date.now()
+        }));
         
         // Set current period data
         let currentData;
@@ -167,16 +191,17 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         loadActivityData.controller = null;
       }
     }
-  }, [viewMode, selectedPeriod, preloadedData, CACHE_TIMEOUT]);
+  }, [viewMode, selectedPeriod, preloadedData, lastFetchTime, CACHE_TIMEOUT]);
 
   // Load data on mount or when first expanded - optimized for server cache
   useEffect(() => {
-    if (isExpanded && (!activityData || !lastFetchTime || (Date.now() - lastFetchTime >= CACHE_TIMEOUT))) {
+    const lastFetch = lastFetchTime[viewMode];
+    if (isExpanded && (!activityData || !lastFetch || (Date.now() - lastFetch >= CACHE_TIMEOUT))) {
       // Server has preloaded all periods data in cache, so this should be very fast
       console.log('📦 Widget expanded - loading from server cache (all periods preloaded)')
       loadActivityData();
     }
-  }, [isExpanded, loadActivityData]);
+  }, [isExpanded, loadActivityData, viewMode, lastFetchTime]);
 
   // Cleanup: Cancel any pending requests when component unmounts
   useEffect(() => {
@@ -523,14 +548,18 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             console.log(`⚡ INSTANT PERIOD SWITCH: ${selectedPeriod} → ${newPeriod}`);
                             
                             // Check if we have preloaded data for instant switching
-                            if (preloadedData && preloadedData.preloadedPeriods && preloadedData.preloadedPeriods[newPeriod] && preloadedData.viewMode === viewMode) {
+                            const viewModeCache = preloadedData[viewMode];
+                            if (viewModeCache && viewModeCache.preloadedPeriods && viewModeCache.preloadedPeriods[newPeriod]) {
                               console.log('✅ Using preloaded data for instant period switch!');
                               
-                              // Set the new period immediately
+                              // Set the new period immediately and persist to localStorage
                               setSelectedPeriod(newPeriod);
+                              try {
+                                localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
+                              } catch {}
                               
                               // Update activity data with preloaded data
-                              const periodData = { ...preloadedData.preloadedPeriods[newPeriod], period: newPeriod, viewMode: viewMode };
+                              const periodData = { ...viewModeCache.preloadedPeriods[newPeriod], period: newPeriod, viewMode: viewMode };
                               setActivityData(periodData);
                               
                               // Dispatch event for other components
@@ -543,6 +572,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             } else {
                               console.log('⏳ No preloaded data available, falling back to API call...');
                               setSelectedPeriod(newPeriod);
+                              try {
+                                localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
+                              } catch {}
                             }
                           }}
                           options={periodOptions}
@@ -554,6 +586,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           onChange={(newViewMode) => {
                             console.log(`🔄 View mode changing from ${viewMode} to ${newViewMode}`);
                             setViewMode(newViewMode);
+                            try {
+                              localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
+                            } catch {}
                           }}
                           options={viewModeOptions}
                           placeholder="Select view mode..."
