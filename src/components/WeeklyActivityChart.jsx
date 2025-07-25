@@ -114,9 +114,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         // Determine number of weeks based on time period
         const weeks = periodToWeeks[timePeriod] || 4
         
-        // Get data from server API
-        logger.log(`🔄 Fetching data from server for ${resource.name}`)
-        const resourceData = await fetchGitHubUpdates(resource)
+        // Get data from server API with period parameter
+        logger.log(`🔄 Fetching data from server for ${resource.name} (period: ${timePeriod})`)
+        const resourceData = await fetchGitHubUpdates(resource, timePeriod)
         
         // Validate and process the response data
         if (resourceData && resourceData.commitsPerWeekDetailed && Array.isArray(resourceData.commitsPerWeekDetailed) && resourceData.commitsPerWeekDetailed.length > 0) {
@@ -268,14 +268,39 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const minCommits = Math.min(...validWeeklyData.map(w => w.count), 0)
   const currentWeekCommits = validWeeklyData[validWeeklyData.length - 1]?.count || 0
 
-  // Generate chart points with validation
+  // Generate chart points with enhanced validation to prevent NaN coordinates
   const chartPoints = validWeeklyData.map((w, i) => {
-    const x = chartPadding + (i / (validWeeklyData.length - 1 || 1)) * (chartWidth - 2 * chartPadding)
-    const y = chartHeight - chartPadding - (w.count / maxCommits) * (chartHeight - 2 * chartPadding)
+    // Ensure we have valid inputs for calculations
+    const dataLength = Math.max(validWeeklyData.length, 1)
+    const safeMaxCommits = Math.max(maxCommits, 1) // Prevent division by zero
+    const safeCount = Math.max(0, w.count || 0) // Ensure non-negative
     
-    // Ensure coordinates are valid numbers
-    const validX = isNaN(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding))
-    const validY = isNaN(y) ? chartHeight - chartPadding : Math.max(chartPadding, Math.min(y, chartHeight - chartPadding))
+    // Calculate coordinates with safe division
+    const x = chartPadding + (dataLength > 1 ? (i / (dataLength - 1)) : 0.5) * (chartWidth - 2 * chartPadding)
+    const y = chartHeight - chartPadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * chartPadding)
+    
+    // Triple validation to ensure no NaN coordinates
+    let validX = x
+    let validY = y
+    
+    // Check for NaN and provide fallbacks
+    if (isNaN(validX) || !isFinite(validX)) {
+      validX = chartPadding + (i * 10) // Simple fallback spacing
+    }
+    if (isNaN(validY) || !isFinite(validY)) {
+      validY = chartHeight - chartPadding // Baseline fallback
+    }
+    
+    // Clamp to chart boundaries
+    validX = Math.max(chartPadding, Math.min(validX, chartWidth - chartPadding))
+    validY = Math.max(chartPadding, Math.min(validY, chartHeight - chartPadding))
+    
+    // Final NaN check before returning
+    if (isNaN(validX) || isNaN(validY)) {
+      console.warn(`Invalid coordinates for point ${i}: x=${validX}, y=${validY}`)
+      validX = chartPadding + i * 10
+      validY = chartHeight / 2
+    }
     
     return `${validX},${validY}`
   }).join(' ')
@@ -391,33 +416,51 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             <rect width="100%" height="100%" fill="url(#grid)" opacity="0.3" />
 
             {/* Month boundary grid lines */}
-            {monthLabels.map((label, i) => label && i !== 0 && (
-              <line
-                key={`month-grid-${i}`}
-                x1={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
-                y1={chartPadding}
-                x2={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
-                y2={chartHeight - bottomPadding}
-                stroke="#22d3ee"
-                strokeDasharray="4 2"
-                strokeWidth="1"
-                opacity="0.25"
-              />
-            ))}
+            {monthLabels.map((label, i) => {
+              if (!label || i === 0) return null
+              
+              const dataLength = Math.max(validWeeklyData.length, 1)
+              const x = chartPadding + (dataLength > 1 ? (i / (dataLength - 1)) : 0.5) * (chartWidth - 2 * chartPadding)
+              
+              // Validate coordinates
+              const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding))
+              
+              return (
+                <line
+                  key={`month-grid-${i}`}
+                  x1={safeX}
+                  y1={chartPadding}
+                  x2={safeX}
+                  y2={chartHeight - bottomPadding}
+                  stroke="#22d3ee"
+                  strokeDasharray="4 2"
+                  strokeWidth="1"
+                  opacity="0.25"
+                />
+              )
+            })}
 
             {/* Week ticks */}
-            {validWeeklyData.map((_, i) => (
-              <line
-                key={`tick-${i}`}
-                x1={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
-                y1={chartHeight - bottomPadding}
-                x2={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
-                y2={chartHeight - bottomPadding + 8}
-                stroke="#67e8f9"
-                strokeWidth="1"
-                opacity="0.3"
-              />
-            ))}
+            {validWeeklyData.map((_, i) => {
+              const dataLength = Math.max(validWeeklyData.length, 1)
+              const x = chartPadding + (dataLength > 1 ? (i / (dataLength - 1)) : 0.5) * (chartWidth - 2 * chartPadding)
+              
+              // Validate coordinates
+              const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding))
+              
+              return (
+                <line
+                  key={`tick-${i}`}
+                  x1={safeX}
+                  y1={chartHeight - bottomPadding}
+                  x2={safeX}
+                  y2={chartHeight - bottomPadding + 8}
+                  stroke="#67e8f9"
+                  strokeWidth="1"
+                  opacity="0.3"
+                />
+              )
+            })}
             
             {/* Glow effect */}
             <polyline
@@ -440,14 +483,34 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             
             {/* Data points (nodes) with tooltips */}
             {validWeeklyData.map((w, i) => {
-              const x = chartPadding + (i / (validWeeklyData.length - 1 || 1)) * (chartWidth - 2 * chartPadding)
-              const y = chartHeight - chartPadding - (w.count / maxCommits) * (chartHeight - 2 * chartPadding)
+              // Use same safe calculation as chartPoints
+              const dataLength = Math.max(validWeeklyData.length, 1)
+              const safeMaxCommits = Math.max(maxCommits, 1)
+              const safeCount = Math.max(0, w.count || 0)
+              
+              const x = chartPadding + (dataLength > 1 ? (i / (dataLength - 1)) : 0.5) * (chartWidth - 2 * chartPadding)
+              const y = chartHeight - chartPadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * chartPadding)
+              
+              // Validate coordinates
+              let safeX = x
+              let safeY = y
+              
+              if (isNaN(safeX) || !isFinite(safeX)) {
+                safeX = chartPadding + (i * 10)
+              }
+              if (isNaN(safeY) || !isFinite(safeY)) {
+                safeY = chartHeight - chartPadding
+              }
+              
+              safeX = Math.max(chartPadding, Math.min(safeX, chartWidth - chartPadding))
+              safeY = Math.max(chartPadding, Math.min(safeY, chartHeight - chartPadding))
+              
               return (
                 <g key={i}>
                   {/* Visible dot */}
                   <circle
-                    cx={x}
-                    cy={y}
+                    cx={safeX}
+                    cy={safeY}
                     r={w.count > 0 ? "4" : "2.5"}
                     fill="none"
                     stroke={w.count > 0 ? "#22d3ee" : "#334155"}
@@ -458,8 +521,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   />
                   {/* Larger invisible hover area */}
                   <circle
-                    cx={x}
-                    cy={y}
+                    cx={safeX}
+                    cy={safeY}
                     r="12"
                     fill="transparent"
                     style={{ cursor: 'pointer' }}
@@ -472,35 +535,48 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             
             {/* Month labels */}
             {validWeeklyData.map((w, i) => {
-              const date = new Date(w.weekStart)
-              const isMonthStart = date.getDate() <= 7 // first week of month
-              const isYearStart = date.getMonth() === 0 && isMonthStart
-              if (isYearStart) {
-                return (
-                  <text
-                    key={`year-label-${i}`}
-                    x={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
-                    y={chartHeight - bottomPadding / 2 + 32}
-                    fontSize={window.innerWidth < 1024 ? "14" : "16"}
-                    fill="#67e8f9"
-                    textAnchor="middle"
-                    fontWeight="bold"
-                  >{date.getFullYear()}</text>
-                )
-              } else if (isMonthStart) {
-                return (
-                  <text
-                    key={`month-label-${i}`}
-                    x={chartPadding + (i / (validWeeklyData.length - 1)) * (chartWidth - 2 * chartPadding)}
-                    y={chartHeight - bottomPadding / 2 + 18}
-                    fontSize={window.innerWidth < 1024 ? "11" : "13"}
-                    fill="#67e8f9"
-                    textAnchor="middle"
-                    fontWeight="bold"
-                  >{date.toLocaleString('default', { month: 'short' })}</text>
-                )
+              try {
+                const date = new Date(w.weekStart)
+                if (isNaN(date.getTime())) return null // Invalid date
+                
+                const isMonthStart = date.getDate() <= 7 // first week of month
+                const isYearStart = date.getMonth() === 0 && isMonthStart
+                
+                // Safe coordinate calculation
+                const dataLength = Math.max(validWeeklyData.length, 1)
+                const x = chartPadding + (dataLength > 1 ? (i / (dataLength - 1)) : 0.5) * (chartWidth - 2 * chartPadding)
+                const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding))
+                
+                if (isYearStart) {
+                  return (
+                    <text
+                      key={`year-label-${i}`}
+                      x={safeX}
+                      y={chartHeight - bottomPadding / 2 + 32}
+                      fontSize={window.innerWidth < 1024 ? "14" : "16"}
+                      fill="#67e8f9"
+                      textAnchor="middle"
+                      fontWeight="bold"
+                    >{date.getFullYear()}</text>
+                  )
+                } else if (isMonthStart) {
+                  return (
+                    <text
+                      key={`month-label-${i}`}
+                      x={safeX}
+                      y={chartHeight - bottomPadding / 2 + 18}
+                      fontSize={window.innerWidth < 1024 ? "11" : "13"}
+                      fill="#67e8f9"
+                      textAnchor="middle"
+                      fontWeight="bold"
+                    >{date.toLocaleString('default', { month: 'short' })}</text>
+                  )
+                }
+                return null
+              } catch (error) {
+                console.warn(`Error rendering label for week ${i}:`, error)
+                return null
               }
-              return null
             })}
             {/* Y-axis labels */}
             <text x={chartPadding - 8} y={chartPadding + 8} fontSize="10" fill="#64748b" textAnchor="end">{maxCommits}</text>

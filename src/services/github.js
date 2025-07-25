@@ -114,9 +114,10 @@ class GitHubService {
   /**
    * Fetch GitHub updates for a resource using server cache and Supabase
    * @param {Object} resource - Resource object with social.github URL
+   * @param {String} period - Time period for data (4weeks, 3months, 52weeks)
    * @returns {Promise<Object>} - Combined GitHub data
    */
-  async fetchGitHubUpdates(resource) {
+  async fetchGitHubUpdates(resource, period = '4weeks') {
     const githubUrl = resource.social?.github
     if (!githubUrl) {
       logger.log(`❌ No GitHub URL for ${resource.name}`)
@@ -132,7 +133,7 @@ class GitHubService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(resource)
+        body: JSON.stringify({ ...resource, period })
       })
       
       if (!response.ok) {
@@ -227,12 +228,11 @@ class GitHubService {
       logger.log(`✅ Processed ${validData.length} valid resources`)
       return validData
     } catch (error) {
-      logger.error('Client error fetching global GitHub updates:', error)
+      logger.error('❌ Client error fetching global GitHub updates:', error)
       
       // Provide more specific error handling
       if (error.message.includes('rate limit')) {
         logger.warn('⏳ GitHub rate limit exceeded - returning empty data')
-        // Return empty structure instead of throwing
         return []
       } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
         logger.warn('🌐 Network error - returning empty data')
@@ -293,7 +293,7 @@ class GitHubService {
 const githubService = new GitHubService()
 
 // Export functions that use the server API
-export const fetchGitHubUpdates = (resource) => githubService.fetchGitHubUpdates(resource)
+export const fetchGitHubUpdates = (resource, period) => githubService.fetchGitHubUpdates(resource, period)
 export const fetchGlobalGitHubUpdates = (resources) => githubService.fetchGlobalGitHubUpdates(resources)
 export const getCacheStatus = () => githubService.getCacheStatus()
 export const clearGitHubCache = () => githubService.clearCache()

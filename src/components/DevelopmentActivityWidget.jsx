@@ -513,8 +513,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
               <div className="flex-shrink-0 px-8 pt-8 pb-4 min-h-0">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <Activity size={24} className="text-amber-400 flex-shrink-0" />
-                    <h1 className="text-white text-2xl font-medium truncate">Development Activity</h1>
+                    <Activity size={20} className="text-amber-400 flex-shrink-0" />
+                    <h3 className="text-white font-semibold text-sm">Development Activity</h3>
                     {!screenshotMode && (
                       <>
                         <PeriodDropdown
@@ -735,7 +735,14 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               </div>
                             </div>
                           ) : (
-                            <div className={`w-full h-full flex items-center justify-center overflow-hidden${screenshotMode ? ' pl-4 pr-4' : ''}`} style={screenshotMode ? { marginLeft: '24px', paddingLeft: '16px', paddingRight: '16px' } : {}} data-screenshot-mode={screenshotMode}>
+                            <div 
+                              className={`w-full h-full flex items-center justify-center overflow-hidden${screenshotMode ? ' pl-4 pr-4' : ''}`} 
+                              style={{
+                                ...(screenshotMode ? { marginLeft: '24px', paddingLeft: '16px', paddingRight: '16px' } : {}),
+                                pointerEvents: 'auto'
+                              }} 
+                              data-screenshot-mode={screenshotMode}
+                            >
                               <AggregatedActivityChart
                                 weeklyData={chartData}
                                 width={700}

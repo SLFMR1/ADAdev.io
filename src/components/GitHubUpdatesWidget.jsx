@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { 
   GitCommit, 
   Tag, 
@@ -18,11 +18,124 @@ import Portal from './Portal'
 
 const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => {
   const [githubData, setGithubData] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false) // Start with false - will be set to true only when actually loading
   const [activeTab, setActiveTab] = useState('releases')
   const [collapseTimeout, setCollapseTimeout] = useState(null)
   const [rateLimitExhausted, setRateLimitExhausted] = useState(false)
   const [rateLimitResetTime, setRateLimitResetTime] = useState(null)
+  const [lastFetchTime, setLastFetchTime] = useState(null)
+  
+  // Content-aware cache settings - much more efficient for GitHub data patterns
+  const CONTENT_CACHE_KEY = 'github_content_cache_v2'
+  const ACTIVE_HOURS_REFRESH = 2 * 60 * 60 * 1000 // 2 hours during active hours (9-18 UTC)
+  const PASSIVE_HOURS_REFRESH = 6 * 60 * 60 * 1000 // 6 hours during passive hours
+  const MAX_CACHE_AGE = 24 * 60 * 60 * 1000 // 24 hours max
+  
+  // Helper to determine if we're in active development hours (9-18 UTC)
+  const isActiveHours = () => {
+    const utcHour = new Date().getUTCHours()
+    return utcHour >= 9 && utcHour <= 18
+  }
+  
+
+  // Load cached data from localStorage with content-aware logic
+  useEffect(() => {
+    const loadContentCache = () => {
+      try {
+        const cached = localStorage.getItem(CONTENT_CACHE_KEY)
+        if (cached) {
+          const contentCache = JSON.parse(cached)
+          const now = Date.now()
+          
+          // Build current view from cache
+          const threeDaysAgo = new Date()
+          threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+          
+          const cachedResults = []
+          let needsRefresh = false
+          
+          Object.entries(contentCache).forEach(([repoPath, repoData]) => {
+            // Check if cache is too old
+            const cacheAge = now - repoData.lastFetched
+            const refreshThreshold = isActiveHours() ? ACTIVE_HOURS_REFRESH : PASSIVE_HOURS_REFRESH
+            
+            if (cacheAge > MAX_CACHE_AGE) {
+              logger.log(`🗑️ Cache expired for ${repoPath} (${Math.round(cacheAge / 1000 / 60 / 60)}h old)`)
+              needsRefresh = true
+              return
+            }
+            
+            if (cacheAge > refreshThreshold) {
+              logger.log(`⏰ Cache refresh needed for ${repoPath} (${Math.round(cacheAge / 1000 / 60)}min old)`)
+              needsRefresh = true
+            }
+            
+            // Filter to recent activity (3 days)
+            const recentCommits = (repoData.commits || []).filter(commit => {
+              if (!commit.date) return false
+              const commitDate = new Date(commit.date)
+              return commitDate >= threeDaysAgo
+            })
+            
+            const recentReleases = (repoData.releases || []).filter(release => {
+              if (!release.published_at) return false
+              const releaseDate = new Date(release.published_at)
+              return releaseDate >= threeDaysAgo
+            })
+            
+            // Only include if has recent activity
+            if (recentCommits.length > 0 || recentReleases.length > 0) {
+              cachedResults.push({
+                resource: repoData.resource,
+                commits: recentCommits,
+                releases: recentReleases,
+                commitsPerWeek: repoData.commitsPerWeek || 0,
+                weeklyData: repoData.weeklyData || [],
+                repoInfo: repoData.repoInfo,
+                repoPath: repoPath
+              })
+            }
+          })
+          
+          if (cachedResults.length > 0) {
+            // Sort by most recent activity
+            cachedResults.sort((a, b) => {
+              const aLatestCommit = a.commits.length > 0 ? new Date(a.commits[0].date).getTime() : 0
+              const aLatestRelease = a.releases.length > 0 ? new Date(a.releases[0].published_at).getTime() : 0
+              const aLatest = Math.max(aLatestCommit, aLatestRelease)
+              
+              const bLatestCommit = b.commits.length > 0 ? new Date(b.commits[0].date).getTime() : 0
+              const bLatestRelease = b.releases.length > 0 ? new Date(b.releases[0].published_at).getTime() : 0
+              const bLatest = Math.max(bLatestCommit, bLatestRelease)
+              
+              return bLatest - aLatest
+            })
+            
+            logger.log(`📦 Loaded ${cachedResults.length} repositories from content cache`)
+            logger.log(`🔄 Refresh needed: ${needsRefresh ? 'Yes' : 'No'}`)
+            setGithubData(cachedResults)
+            setLastFetchTime(now)
+            
+            // If refresh needed, trigger background update
+            if (needsRefresh && isExpanded) {
+              logger.log('🔄 Triggering background refresh...')
+              setTimeout(() => loadGitHubData(true), 1000)
+            }
+            
+            return true
+          }
+        }
+      } catch (error) {
+        logger.error('❌ Error loading content cache:', error)
+        localStorage.removeItem(CONTENT_CACHE_KEY)
+      }
+      return false
+    }
+    
+    // Load cached data immediately if available
+    loadContentCache()
+  }, [])
+  
 
   // Handle click outside to collapse widget
   useEffect(() => {
@@ -43,15 +156,56 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
     }
   }, [isExpanded, collapseTimeout, onCollapse])
 
-  const loadGitHubData = async () => {
+  const loadGitHubData = useCallback(async (forceRefresh = false) => {
     try {
+      logger.log('🚀 Widget: Starting loadGitHubData function')
+      
+      // Check if we have recent data and don't need to refresh
+      if (!forceRefresh && lastFetchTime && githubData.length > 0) {
+        const timeSinceLastFetch = Date.now() - lastFetchTime
+        const refreshThreshold = isActiveHours() ? ACTIVE_HOURS_REFRESH : PASSIVE_HOURS_REFRESH
+        if (timeSinceLastFetch < refreshThreshold) {
+          logger.log(`⚡ Using cached data (${Math.round(timeSinceLastFetch / 1000)}s old, refresh threshold: ${Math.round(refreshThreshold / 1000)}s)`)
+          setIsLoading(false)
+          return
+        }
+        logger.log(`🔄 Cache expired (${Math.round(timeSinceLastFetch / 1000)}s old), fetching fresh data`)
+      }
+      
+      setIsLoading(true) // Show loading state when fetching fresh data
       setRateLimitExhausted(false)
       setRateLimitResetTime(null)
       
-      logger.log(`🔄 Widget: Fetching GitHub updates for ${cardanoResources.length} resources`)
+      // Flatten cardanoResources object into an array
+      logger.log('🔍 Widget: cardanoResources structure:', typeof cardanoResources, Object.keys(cardanoResources))
+      const allResources = Object.values(cardanoResources).flat()
+      logger.log(`📊 Widget: Flattened ${allResources.length} resources from cardanoResources`)
       
-      // Use the proper GitHub service to fetch global updates
-      const allData = await fetchGlobalGitHubUpdates(cardanoResources)
+      // Filter to only resources with GitHub URLs and valid format
+      const resourcesWithGitHub = allResources.filter(r => 
+        r.social?.github && 
+        r.social.github !== 'n/a' && 
+        r.social.github.includes('github.com')
+      )
+      logger.log(`🔍 Found ${resourcesWithGitHub.length} resources with GitHub URLs`)
+      logger.log('📋 All GitHub resources:', resourcesWithGitHub.map(r => r.name).join(', '))
+      
+      // Process ALL resources - no arbitrary limits
+      logger.log(`🔄 Widget: Processing ALL ${resourcesWithGitHub.length} resources for comprehensive coverage`)
+      
+      // Create a timeout promise (extended for more resources)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout after 45 seconds')), 45000)
+      })
+      
+      // Race between the actual request and timeout
+      logger.log(`🌐 Widget: Fetching GitHub data for ${resourcesWithGitHub.length} resources...`)
+      const allData = await Promise.race([
+        fetchGlobalGitHubUpdates(resourcesWithGitHub),
+        timeoutPromise
+      ])
+      
+      logger.log('✅ Widget: fetchGlobalGitHubUpdates completed, received:', typeof allData, Array.isArray(allData) ? `array with ${allData.length} items` : allData)
       
       // Validate that we received an array
       if (!Array.isArray(allData)) {
@@ -62,56 +216,188 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
       
       logger.log(`📦 Received ${allData.length} resources from GitHub API`)
       
-      // Filter and sort data - only include resources with actual releases or commits
-      const validData = allData
-        .filter(data => {
-          const hasReleases = data.releases && data.releases.length > 0
-          const hasCommits = data.commits && data.commits.length > 0
-          return hasReleases || hasCommits
-        })
-        .sort((a, b) => {
-          // Get latest timestamps from releases and commits
-          const aReleases = (a.releases || []).map(r => new Date(r.publishedAt || 0).getTime())
-          const aCommits = (a.commits || []).map(c => new Date(c.date || 0).getTime())
-          const aLatest = Math.max(...aReleases, ...aCommits, 0)
+      // Filter and prepare data for showing latest activity from last 3 days
+      logger.log('🔍 Widget: Processing data for recent activity...')
+      
+      // Calculate cutoff date - consistent 3 days for both commits and releases
+      const threeDaysAgo = new Date()
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+      
+      logger.log(`📅 Looking for commits and releases since: ${threeDaysAgo.toISOString()}`)
+      
+      // Create a map to track unique repositories and avoid duplicates
+      const repoUrlMap = new Map()
+      
+      // Process each resource to extract recent commits and releases with duplicate detection
+      const processedData = allData
+        .map(data => {
+          if (!data || !data.resource) return null
           
-          const bReleases = (b.releases || []).map(r => new Date(r.publishedAt || 0).getTime())
-          const bCommits = (b.commits || []).map(c => new Date(c.date || 0).getTime())
-          const bLatest = Math.max(...bReleases, ...bCommits, 0)
+          // Extract repository URL for duplicate detection
+          const githubUrl = data.resource.social?.github
+          if (!githubUrl) return null
+          
+          // Normalize GitHub URL to detect duplicates (org vs repo)
+          const normalizedUrl = githubUrl.toLowerCase().replace(/\/$/, '')
+          const repoPath = normalizedUrl.split('github.com/')[1]
+          
+          if (!repoPath) return null
+          
+          // Filter commits from last 3 days
+          const recentCommits = (data.commits || []).filter(commit => {
+            if (!commit.date) return false
+            const commitDate = new Date(commit.date)
+            return commitDate >= threeDaysAgo
+          })
+          
+          // Filter releases from last 3 days (consistent window)
+          const recentReleases = (data.releases || []).filter(release => {
+            if (!release.published_at) return false
+            const releaseDate = new Date(release.published_at)
+            return releaseDate >= threeDaysAgo
+          })
+          
+          // Only include resources with recent activity
+          if (recentCommits.length === 0 && recentReleases.length === 0) {
+            return null
+          }
+          
+          logger.log(`📈 ${data.resource.name}: ${recentCommits.length} recent commits, ${recentReleases.length} recent releases`)
+          
+          const processedItem = {
+            resource: data.resource,
+            commits: recentCommits,
+            releases: recentReleases,
+            commitsPerWeek: data.commitsPerWeek || 0,
+            weeklyData: data.weeklyData || [],
+            repoInfo: data.repoInfo,
+            repoPath: repoPath
+          }
+          
+          // Check for duplicates and merge if necessary
+          if (repoUrlMap.has(repoPath)) {
+            const existing = repoUrlMap.get(repoPath)
+            // Merge commits and releases, removing duplicates by date/id
+            const mergedCommits = [...existing.commits, ...recentCommits]
+              .filter((commit, index, arr) => 
+                arr.findIndex(c => c.date === commit.date && c.message === commit.message) === index
+              )
+            const mergedReleases = [...existing.releases, ...recentReleases]
+              .filter((release, index, arr) => 
+                arr.findIndex(r => r.published_at === release.published_at && r.name === release.name) === index
+              )
+            
+            existing.commits = mergedCommits
+            existing.releases = mergedReleases
+            logger.log(`🔗 Merged duplicate: ${data.resource.name} with ${existing.resource.name}`)
+            return null
+          } else {
+            repoUrlMap.set(repoPath, processedItem)
+            return processedItem
+          }
+        })
+        .filter(data => data !== null)
+        
+      // Convert map back to array and sort by most recent activity
+      const recentActivityData = Array.from(repoUrlMap.values())
+        .sort((a, b) => {
+          // Sort by most recent activity (commits or releases)
+          const aLatestCommit = a.commits.length > 0 ? new Date(a.commits[0].date).getTime() : 0
+          const aLatestRelease = a.releases.length > 0 ? new Date(a.releases[0].published_at).getTime() : 0
+          const aLatest = Math.max(aLatestCommit, aLatestRelease)
+          
+          const bLatestCommit = b.commits.length > 0 ? new Date(b.commits[0].date).getTime() : 0
+          const bLatestRelease = b.releases.length > 0 ? new Date(b.releases[0].published_at).getTime() : 0
+          const bLatest = Math.max(bLatestCommit, bLatestRelease)
           
           return bLatest - aLatest
         })
-        .slice(0, 8) // Limit to top 8 most recently updated
 
-      logger.log(`📊 Widget: Loaded ${validData.length} resources with GitHub activity`)
-      setGithubData(validData)
-    } catch (err) {
-      logger.error('Widget: GitHub data loading error:', err)
+      logger.log(`📊 Widget: Found ${recentActivityData.length} unique repositories with recent activity (last 3 days)`)
       
-      // Check if it's a rate limit error
+      // Debug: Show which resources have releases
+      const resourcesWithReleases = recentActivityData.filter(d => d.releases && d.releases.length > 0)
+      const resourcesWithCommits = recentActivityData.filter(d => d.commits && d.commits.length > 0)
+      logger.log(`🏷️ Resources with releases (${resourcesWithReleases.length}):`, resourcesWithReleases.map(d => `${d.resource.name}(${d.releases.length})`).join(', '))
+      logger.log(`💻 Resources with commits (${resourcesWithCommits.length}):`, resourcesWithCommits.map(d => `${d.resource.name}(${d.commits.length})`).join(', '))
+      logger.log('📋 Recent activity:', recentActivityData.map(d => ({ 
+        name: d.resource?.name, 
+        commits: d.commits?.length, 
+        releases: d.releases?.length,
+        latestCommit: d.commits?.[0]?.date,
+        latestRelease: d.releases?.[0]?.published_at
+      })))
+      
+      // Save to localStorage cache in the expected format
+      try {
+        const contentCache = {}
+        const now = Date.now()
+        
+        recentActivityData.forEach(data => {
+          if (data.repoPath) {
+            contentCache[data.repoPath] = {
+              resource: data.resource,
+              commits: data.commits,
+              releases: data.releases,
+              commitsPerWeek: data.commitsPerWeek,
+              weeklyData: data.weeklyData,
+              repoInfo: data.repoInfo,
+              lastFetched: now
+            }
+          }
+        })
+        
+        localStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify(contentCache))
+        logger.log(`💾 Cached ${Object.keys(contentCache).length} repositories to content cache`)
+      } catch (error) {
+        logger.warn('⚠️ Failed to cache data to localStorage:', error)
+      }
+      
+      setGithubData(recentActivityData)
+      setLastFetchTime(Date.now()) // Update cache timestamp
+    } catch (err) {
+      logger.error('❌ Widget: GitHub data loading error:', err)
+      logger.error('❌ Widget: Error stack:', err.stack)
+      
+      // Check if it's a rate limit error or timeout
       if (err.message && err.message.includes('rate limit')) {
         setRateLimitExhausted(true)
         // Try to extract reset time from error or set a default
         const resetTime = new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now as fallback
         setRateLimitResetTime(resetTime)
+      } else if (err.message && err.message.includes('timeout')) {
+        logger.warn('⏱️ Request timeout - server may be overloaded')
       }
       
       setGithubData([])
     } finally {
+      logger.log('🏁 Widget: Setting isLoading to false')
       setIsLoading(false)
     }
-  }
+  }, [githubData.length, lastFetchTime, ACTIVE_HOURS_REFRESH, PASSIVE_HOURS_REFRESH])
 
   useEffect(() => {
     // Add a small delay to ensure resource cards have loaded first
     const timer = setTimeout(() => {
       if (isExpanded) {
         logger.log(`🔄 Widget: Starting data load`)
-        loadGitHubData()
+        loadGitHubData() // Will use cache if available
       }
     }, 1000)
     
     return () => clearTimeout(timer)
+  }, [isExpanded, loadGitHubData])
+  
+  // Auto-refresh every 5 minutes when widget is expanded
+  useEffect(() => {
+    if (!isExpanded) return
+    
+    const refreshInterval = setInterval(() => {
+      logger.log('🔄 Auto-refreshing widget data (content-aware)')
+      loadGitHubData(true) // Force refresh
+    }, ACTIVE_HOURS_REFRESH) // Use content-aware refresh timing
+    
+    return () => clearInterval(refreshInterval)
   }, [isExpanded])
 
   // Get total update count
@@ -121,7 +407,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
     return total + releasesCount + commitsCount
   }, 0)
 
-  // Aggregate all updates from all resources, sort by date, and limit to 100
+  // Aggregate all recent updates from all resources, sort by date, and limit to 50
   const allUpdates = githubData.flatMap(data => {
     const updates = []
     
@@ -136,12 +422,12 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
       const releases = Array.isArray(data.releases) ? data.releases : []
       releases.forEach(release => {
         // Additional safety check for release object
-        if (release && release.publishedAt) {
+        if (release && release.published_at) {
           updates.push({
             type: 'release',
             resource: data.resource,
             data: release,
-            timestamp: new Date(release.publishedAt).getTime()
+            timestamp: new Date(release.published_at).getTime()
           })
         }
       })
@@ -162,7 +448,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
     }
     
     return updates
-  }).sort((a, b) => b.timestamp - a.timestamp).slice(0, 100) // Increased from 50 to 100
+  }).sort((a, b) => b.timestamp - a.timestamp).slice(0, 50) // Show latest 50 updates (last 3 days)
 
     return (
     <>
@@ -245,11 +531,11 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
                 ) : (
                   <>
                     {allUpdates.map((update, index) => (
-                      <div key={`${update.resource.id}-${update.type}-${index}`} 
+                      <div key={`${update.resource.id || update.resource.name || index}-${update.type}-${index}`} 
                            className="bg-gray-800/50 rounded-lg p-2 transition-all duration-200 hover:bg-gray-700/50">
                         <div className="flex items-center gap-2 min-w-0">
                           <a
-                            href={update.resource.social.github}
+                            href={update.resource.social?.github || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="font-medium text-xs text-cyan-400 hover:text-cyan-300 truncate max-w-[100px] flex-shrink-0 transition-colors"
@@ -263,15 +549,15 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
                             <GitCommit size={12} className="text-green-400 flex-shrink-0" />
                           )}
                           <a
-                            href={update.data.htmlUrl}
+                            href={update.type === 'release' ? update.data.html_url : update.data.htmlUrl || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-gray-300 hover:text-white text-xs truncate flex-1"
                           >
-                            {update.type === 'release' ? update.data.name : update.data.message.split('\n')[0]}
+                            {update.type === 'release' ? update.data.name : update.data.message?.split('\n')[0] || 'No message'}
                           </a>
                           <span className="text-gray-500 text-xs ml-auto flex-shrink-0">
-                            {formatRelativeTime(update.type === 'release' ? update.data.publishedAt : update.data.date)}
+                            {formatRelativeTime(update.type === 'release' ? update.data.published_at : update.data.date)}
                           </span>
                         </div>
                       </div>

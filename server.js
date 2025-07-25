@@ -782,12 +782,12 @@ app.use((req, res, next) => {
 // Get recent activity for a resource
 app.post('/api/github/updates', async (req, res) => {
   try {
-    const resource = req.body
+    const { period = '4weeks', ...resource } = req.body
     if (!resource?.name || !resource?.social?.github) {
       return res.status(400).json({ error: 'Invalid resource data' })
     }
     
-    console.log(`🔍 GitHub updates request for ${resource.name}`)
+    console.log(`🔍 GitHub updates request for ${resource.name} (period: ${period})`)
     
     // First, try to get detailed activity data from the development activity cache
     let detailedData = null
@@ -795,19 +795,12 @@ app.post('/api/github/updates', async (req, res) => {
       // Check both repository and organization caches for detailed weekly data
       const cacheKeys = ['repository-activity', 'organization-activity']
       
-      console.log(`🔍 Searching for ${resource.name} in caches...`)
-      console.log(`🔍 Resource GitHub URL: ${resource.social?.github}`)
+      // Try to get data from development activity cache first
       
       for (const cacheKey of cacheKeys) {
         const cachedData = VIEW_MODE_CACHE.get(cacheKey)
         
         if (cachedData && cachedData.dailyChartData) {
-          console.log(`📊 Found ${cacheKey} cache with ${cachedData.dailyChartData.length} items`)
-          
-          // Log first few items to see structure
-          if (cachedData.dailyChartData.length > 0) {
-            console.log(`📋 Sample cached resource names: ${cachedData.dailyChartData.slice(0, 3).map(item => item.resource?.name).join(', ')}`)
-          }
           
           const foundResource = cachedData.dailyChartData.find(item => {
             if (!item.resource) return false
@@ -818,14 +811,10 @@ app.post('/api/github/updates', async (req, res) => {
             const githubUrlMatch = item.resource.social?.github && resource.social?.github && 
               item.resource.social.github.toLowerCase() === resource.social.github.toLowerCase()
             
-            console.log(`🔍 Checking ${item.resource.name}: nameMatch=${nameMatch}, githubMatch=${githubMatch}, githubUrlMatch=${githubUrlMatch}`)
-            
             return nameMatch || githubMatch || githubUrlMatch
           })
           
           if (foundResource && foundResource.weeklyData && foundResource.weeklyData.length > 0) {
-            console.log(`✅ Found detailed weekly data for ${resource.name} in ${cacheKey} cache`)
-            console.log(`📊 Weekly data length: ${foundResource.weeklyData.length}`)
             detailedData = {
               commitsPerWeekDetailed: foundResource.weeklyData,
               commitsPerWeek: foundResource.weeklyData[foundResource.weeklyData.length - 1]?.count || 0,
@@ -840,11 +829,7 @@ app.post('/api/github/updates', async (req, res) => {
               }
             }
             break // Found data, stop searching
-          } else if (foundResource) {
-            console.log(`⚠️ Found resource ${resource.name} but no weekly data`)
           }
-        } else {
-          console.log(`❌ No ${cacheKey} cache data available`)
         }
       }
     } catch (error) {
@@ -862,8 +847,10 @@ app.post('/api/github/updates', async (req, res) => {
       data = await getRecentActivity(resource)
       
       try {
-        if (resource.type === 'repository') {
-          releases = await fetchRepoReleases(resource.social.github.replace('https://github.com/', ''), 10)
+        // Fetch releases for both repositories and organizations
+        if (resource.social?.github) {
+          const githubPath = resource.social.github.replace('https://github.com/', '')
+          releases = await fetchRepoReleases(githubPath, 10)
         }
       } catch (error) {
         console.error(`Error fetching releases for ${resource.name}:`, error.message)
@@ -880,6 +867,19 @@ app.post('/api/github/updates', async (req, res) => {
         year: week.year,
         week: week.week
       }))
+    }
+
+    // Trim data based on period parameter
+    const periodToWeeks = {
+      '4weeks': 4,
+      '3months': 13,
+      '52weeks': 52,
+      '3years': 156
+    }
+    
+    const maxWeeks = periodToWeeks[period] || 4
+    if (commitsPerWeekDetailed.length > maxWeeks) {
+      commitsPerWeekDetailed = commitsPerWeekDetailed.slice(-maxWeeks)
     }
 
     res.json({

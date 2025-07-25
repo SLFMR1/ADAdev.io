@@ -119,10 +119,10 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
       }
     }
     
-    // Get viewport-relative position
+    // Get viewport-relative position - use getBoundingClientRect for fixed positioning
     const rect = e.target.getBoundingClientRect()
-    const viewportX = rect.left + window.scrollX
-    const viewportY = rect.top + window.scrollY
+    const viewportX = rect.left
+    const viewportY = rect.top
     
     setTooltip({
       show: true,
@@ -132,7 +132,9 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
       label
     })
   }
-  const handleNodeMouseOut = () => setTooltip({ show: false, x: 0, y: 0, value: 0, label: '' })
+  const handleNodeMouseOut = () => {
+    setTooltip({ show: false, x: 0, y: 0, value: 0, label: '' })
+  }
   
   // Calculate Y-axis labels
   const yAxisLabels = []
@@ -258,9 +260,9 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
                 cy={y}
                 r="12"
                 fill="transparent"
-                style={{ cursor: 'pointer' }}
-                onMouseOver={e => handleNodeMouseOver(e, w.count, i)}
-                onMouseOut={handleNodeMouseOut}
+                style={{ cursor: screenshotMode ? 'default' : 'pointer' }}
+                onMouseOver={screenshotMode ? undefined : (e => handleNodeMouseOver(e, w.count, i))}
+                onMouseOut={screenshotMode ? undefined : handleNodeMouseOut}
               />
             </g>
           )
@@ -306,10 +308,10 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         ))}
       </svg>
       {/* Tooltip using Portal for proper overflow */}
-      {tooltip.show && (
+      {tooltip.show && !screenshotMode && (
         <Portal>
           <div
-            className="fixed z-[9999] px-3 py-2 bg-gray-900 text-cyan-200 text-sm rounded-lg shadow-lg pointer-events-none border border-gray-700 max-w-xs"
+            className="fixed z-[10000] px-3 py-2 bg-gray-900 text-cyan-200 text-sm rounded-lg shadow-lg pointer-events-none border border-gray-700 max-w-xs"
             style={{ 
               left: Math.min(tooltip.x + 10, window.innerWidth - 200), 
               top: Math.max(tooltip.y - 60, 10)

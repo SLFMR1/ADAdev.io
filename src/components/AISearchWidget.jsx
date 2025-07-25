@@ -262,8 +262,8 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
               {/* Main Heading */}
               <div className="mb-6 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <Bot className="h-8 w-8 text-teal-400" />
-                  <h1 className="text-white text-2xl font-medium">AI Development Assistant</h1>
+                  <Bot size={20} className="text-teal-400" />
+                  <h3 className="text-white font-semibold text-sm">AI Development Assistant</h3>
                 </div>
               </div>
 
