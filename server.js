@@ -433,9 +433,9 @@ const processCommitsToDaily = (commits) => {
   }))
 }
 
-const getRecentActivity = async (resource, useDailyProcessing = false) => {
-  // Check in-memory cache first
-  const cacheKey = generateCacheKey('recent_activity', resource.id || resource.name, { useDailyProcessing })
+const getRecentActivity = async (resource, useDailyProcessing = false, period = '4weeks') => {
+  // Check in-memory cache first - include period in cache key to avoid returning same data for different periods
+  const cacheKey = generateCacheKey('recent_activity', resource.id || resource.name, { useDailyProcessing, period })
   const cachedResult = getCachedData(cacheKey)
   if (cachedResult) {
     console.log(`✅ Using cached recent activity for ${resource.name}`);
@@ -446,11 +446,23 @@ const getRecentActivity = async (resource, useDailyProcessing = false) => {
   let repoInfo = null
   
   try {
-    // Determine the time window based on processing type
-    const timeWindow = useDailyProcessing ? 7 : 30; // 7 days for daily, 30 days for weekly
+    // Determine the time window based on period and processing type
+    let timeWindow;
+    if (useDailyProcessing) {
+      timeWindow = 7; // 7 days for daily processing (regardless of period)
+    } else {
+      // Map period to appropriate time window in days
+      const periodToDays = {
+        '4weeks': 28,    // 4 weeks
+        '3months': 90,   // ~3 months
+        '52weeks': 365,  // 1 year
+        '3years': 1095   // 3 years
+      };
+      timeWindow = periodToDays[period] || 30; // Default to 30 days if period not found
+    }
     const since = new Date(Date.now() - timeWindow * 24 * 60 * 60 * 1000).toISOString();
     
-    console.log(`⏰ ${resource.name}: Fetching commits since ${since} (${timeWindow} days, daily: ${useDailyProcessing})`);
+    console.log(`⏰ ${resource.name}: Fetching commits since ${since} (${timeWindow} days, period: ${period}, daily: ${useDailyProcessing})`);
     
     // Check if we're currently rate limited
     if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
@@ -465,7 +477,7 @@ const getRecentActivity = async (resource, useDailyProcessing = false) => {
       return emptyResult
     }
     
-    console.log(`🔄 Fetching recent activity for ${resource.name} (${timeWindow} days)...`);
+    console.log(`🔄 Fetching recent activity for ${resource.name} (${timeWindow} days, period: ${period})...`);
     
     if (resource.type === 'organization') {
       // For organizations, use repo_path first, then organization field, then extract from GitHub URL
@@ -844,7 +856,7 @@ app.post('/api/github/updates', async (req, res) => {
       releases = detailedData.releases
     } else {
       console.log(`🔄 Using fallback data fetch for ${resource.name}`)
-      data = await getRecentActivity(resource)
+      data = await getRecentActivity(resource, false, period)
       
       try {
         // Fetch releases for both repositories and organizations

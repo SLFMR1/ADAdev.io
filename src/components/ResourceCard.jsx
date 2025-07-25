@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { 
   ExternalLink, Github, MessageCircle,
   TerminalSquare, Database, Wallet, Image as ImageIcon, Users,
@@ -12,6 +12,8 @@ import PeriodDropdown from './PeriodDropdown'
 import html2canvas from 'html2canvas'
 import { createGlobalGradientBackground } from '../utils/logger-frontend.js'
 import { createIsolatedScreenshot, shareToX, generateTweetText } from '../utils/screenshotUtils'
+import { fetchGitHubUpdates } from '../services/github'
+import logger from '../utils/logger-frontend'
 
 const XIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -66,6 +68,15 @@ const ResourceCard = ({ resource, onViewResource }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('4weeks')
   const [shareMessage, setShareMessage] = useState('')
   const [shareMessageType, setShareMessageType] = useState('success')
+  
+  // Activity chart data preloading (separate from GitHubUpdates)
+  const [activityChartData, setActivityChartData] = useState({})
+  const [isLoadingActivityChart, setIsLoadingActivityChart] = useState(false)
+  const [activityChartError, setActivityChartError] = useState(null)
+  const [lastActivityFetch, setLastActivityFetch] = useState(null)
+  
+  // Cache timeout for activity chart data (2 hours)
+  const ACTIVITY_CACHE_TIMEOUT = 2 * 60 * 60 * 1000
 
   // Period options for activity chart
   const periodOptions = [
@@ -73,6 +84,77 @@ const ResourceCard = ({ resource, onViewResource }) => {
     { key: '3months', label: 'Last 3 Months' },
     { key: '52weeks', label: 'Last 1 Year' }
   ]
+  
+  // Preload activity chart data for all periods (separate from Updates tab data)
+  const preloadActivityChartData = useCallback(async () => {
+    if (!resource.social?.github || isLoadingActivityChart) {
+      return
+    }
+    
+    // Check if we have recent cached data
+    if (lastActivityFetch && (Date.now() - lastActivityFetch < ACTIVITY_CACHE_TIMEOUT) && Object.keys(activityChartData).length > 0) {
+      logger.log(`⚡ Using cached activity chart data for ${resource.name}`)
+      return
+    }
+    
+    setIsLoadingActivityChart(true)
+    setActivityChartError(null)
+    
+    try {
+      logger.log(`🚀 Preloading activity chart data for ${resource.name} (all periods)...`)
+      
+      // Fetch data for all periods in parallel
+      const periods = ['4weeks', '3months', '52weeks']
+      const promises = periods.map(period => 
+        fetchGitHubUpdates(resource, period)
+          .then(data => ({ period, data }))
+          .catch(error => ({ period, error: error.message }))
+      )
+      
+      const results = await Promise.all(promises)
+      
+      // Process results and build preloaded data object
+      const preloadedData = {}
+      let hasValidData = false
+      
+      results.forEach(({ period, data, error }) => {
+        if (error) {
+          logger.warn(`Failed to load ${period} chart data for ${resource.name}:`, error)
+          preloadedData[period] = { error }
+        } else if (data) {
+          // Only store the data needed for charts (commitsPerWeekDetailed, currentWeek, repoInfo)
+          preloadedData[period] = {
+            commitsPerWeekDetailed: data.commitsPerWeekDetailed || [],
+            commitsPerWeek: data.commitsPerWeek || 0,
+            commitsPerMonth: data.commitsPerMonth || [],
+            repoInfo: data.repoInfo || null
+          }
+          hasValidData = true
+          console.log(`📊 ${period} raw data for ${resource.name}:`, {
+            weeklyDataLength: data.commitsPerWeekDetailed?.length || 0,
+            sampleWeeks: data.commitsPerWeekDetailed?.slice(0, 3),
+            actualPeriodRequested: period
+          })
+          logger.log(`✅ Loaded ${period} chart data: ${data.commitsPerWeekDetailed?.length || 0} weeks`)
+        }
+      })
+      
+      if (hasValidData) {
+        setActivityChartData(preloadedData)
+        setLastActivityFetch(Date.now())
+        console.log('📦 Preloaded data structure:', preloadedData)
+        logger.log(`📦 Activity chart data preloaded for ${resource.name} with ${Object.keys(preloadedData).length} periods`)
+      } else {
+        throw new Error('No valid chart data received for any period')
+      }
+      
+    } catch (error) {
+      logger.error(`❌ Failed to preload activity chart data for ${resource.name}:`, error)
+      setActivityChartError(error.message)
+    } finally {
+      setIsLoadingActivityChart(false)
+    }
+  }, [resource, isLoadingActivityChart, lastActivityFetch, activityChartData, ACTIVITY_CACHE_TIMEOUT])
 
   const IconComponent = categoryIconComponents[resource.category] || categoryIconComponents.default;
 
@@ -89,8 +171,11 @@ const ResourceCard = ({ resource, onViewResource }) => {
         e.stopPropagation()
         setActiveTab(tabName)
         
-        // Scroll to card when activity tab is manually clicked
+        // Scroll to card when activity tab is manually clicked and preload chart data
         if (tabName === 'activity' && isExpanded) {
+          console.log(`🎯 Activity tab clicked for ${resource.name}, starting preload...`)
+          // Preload activity chart data when activity tab is selected
+          preloadActivityChartData()
           // Single scroll after complete expansion
           setTimeout(() => scrollToCard(), 600);
         }
@@ -181,8 +266,10 @@ const ResourceCard = ({ resource, onViewResource }) => {
           setActiveTab(tabName);
           console.log(`✅ Tab set to ${tabName} for ${resource.name}`);
           
-          // Smooth scroll to the card when activity tab is selected
+          // Smooth scroll to the card when activity tab is selected and preload chart data
           if (tabName === 'activity') {
+            // Preload activity chart data when activity tab is selected externally
+            preloadActivityChartData()
             // Single scroll after complete expansion
             setTimeout(() => scrollToCard(), 800);
           }
@@ -434,7 +521,23 @@ const ResourceCard = ({ resource, onViewResource }) => {
                   {!screenshotMode && (
                     <PeriodDropdown
                       value={selectedPeriod}
-                      onChange={setSelectedPeriod}
+                      onChange={(newPeriod) => {
+                        logger.log(`⚡ Chart period change for ${resource.name}: ${selectedPeriod} → ${newPeriod}`)
+                        console.log('Available preloaded data:', Object.keys(activityChartData))
+                        console.log('Preloaded data for new period:', activityChartData[newPeriod])
+                        console.log('Detailed comparison:', {
+                          '4weeks': activityChartData['4weeks']?.commitsPerWeekDetailed?.length,
+                          '3months': activityChartData['3months']?.commitsPerWeekDetailed?.length,
+                          '52weeks': activityChartData['52weeks']?.commitsPerWeekDetailed?.length
+                        })
+                        setSelectedPeriod(newPeriod)
+                        
+                        // If we don't have preloaded chart data for this period, trigger a load
+                        if (!activityChartData[newPeriod] && resource.social?.github) {
+                          logger.log(`🔄 Loading missing chart period data: ${newPeriod}`)
+                          preloadActivityChartData()
+                        }
+                      }}
                       options={periodOptions}
                       placeholder="Select period..."
                       className="w-44"
@@ -469,14 +572,33 @@ const ResourceCard = ({ resource, onViewResource }) => {
             )}
             {activeTab === 'activity' && resource.social?.github && (
               <div ref={chartContainerRef}>
-                <WeeklyActivityChart 
-                  resource={resource} 
-                  showThreeYearOption={false} 
-                  hidePeriodSwitches={true} 
-                  hideActivityLevelInfo={true}
-                  selectedPeriod={selectedPeriod}
-                  onPeriodChange={setSelectedPeriod}
-                />
+                {isLoadingActivityChart ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-400"></div>
+                    <span className="ml-2 text-gray-400/30 text-sm">Loading chart data...</span>
+                  </div>
+                ) : activityChartError ? (
+                  <div className="text-center py-8">
+                    <div className="text-red-400 text-sm mb-2">Failed to load chart data</div>
+                    <div className="text-gray-400 text-xs mb-4">{activityChartError}</div>
+                    <button 
+                      onClick={preloadActivityChartData}
+                      className="px-3 py-1 bg-cyan-500 hover:bg-cyan-600 text-white rounded text-xs transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : (
+                  <WeeklyActivityChart 
+                    resource={resource} 
+                    showThreeYearOption={false} 
+                    hidePeriodSwitches={true} 
+                    hideActivityLevelInfo={true}
+                    selectedPeriod={selectedPeriod}
+                    onPeriodChange={setSelectedPeriod}
+                    preloadedData={activityChartData[selectedPeriod]}
+                  />
+                )}
               </div>
             )}
           </div>

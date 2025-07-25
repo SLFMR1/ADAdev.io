@@ -112,28 +112,36 @@ class GitHubService {
   }
 
   /**
-   * Fetch GitHub updates for a resource using server cache and Supabase
+   * Fetch GitHub updates for a resource using historical database data like DevelopmentActivityWidget
    * @param {Object} resource - Resource object with social.github URL
    * @param {String} period - Time period for data (4weeks, 3months, 52weeks)
-   * @returns {Promise<Object>} - Combined GitHub data
+   * @returns {Promise<Object>} - Combined GitHub data with historical weekly data
    */
   async fetchGitHubUpdates(resource, period = '4weeks') {
     const githubUrl = resource.social?.github
     if (!githubUrl) {
       logger.log(`❌ No GitHub URL for ${resource.name}`)
-      return { releases: [], commits: [], repoInfo: null }
+      return { releases: [], commits: [], repoInfo: null, commitsPerWeekDetailed: [] }
     }
     
-    logger.log(`🔍 Client requesting GitHub data for ${resource.name} from server`)
+    logger.log(`🔍 Client requesting historical GitHub data for ${resource.name} (period: ${period})`)
     
     try {
-      // Always fetch fresh data from server for releases and commits
-      const response = await fetch(`${this.serverBase}/updates`, {
-        method: 'POST',
+      // Map period to the same values used by DevelopmentActivityWidget
+      const periodMap = {
+        '4weeks': 'monthly',    // Last 28 days / 4 weeks
+        '3months': '3months',   // Last 3 months
+        '52weeks': '52weeks'    // Last 12 months
+      }
+      
+      const mappedPeriod = periodMap[period] || 'monthly'
+      
+      // Get historical data from the same endpoint as DevelopmentActivityWidget
+      const response = await fetch(`/api/development-activity?viewMode=repository&period=${mappedPeriod}`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ...resource, period })
+        }
       })
       
       if (!response.ok) {
@@ -142,25 +150,93 @@ class GitHubService {
       
       const data = await response.json()
       
-      // Record cache performance
-      if (response.headers.get('x-cache-hit')) {
-        cacheManager.recordHit()
-      } else {
-        cacheManager.recordMiss()
+      // Find the specific resource in the historical data
+      let resourceData = null
+      
+      // Check if we have preloaded periods data
+      if (data.preloadedPeriods && data.preloadedPeriods[mappedPeriod]) {
+        const periodData = data.preloadedPeriods[mappedPeriod]
+        const chartData = periodData.weeklyChartData || periodData.dailyChartData || []
+        
+        // Find matching resource by name or GitHub URL
+        resourceData = chartData.find(item => {
+          if (!item.resource) return false
+          
+          const nameMatch = item.resource.name === resource.name
+          const githubMatch = item.resource.social?.github === resource.social.github
+          const githubUrlMatch = item.resource.social?.github && resource.social?.github && 
+            item.resource.social.github.toLowerCase() === resource.social.github.toLowerCase()
+          
+          return nameMatch || githubMatch || githubUrlMatch
+        })
       }
       
-      logger.log(`📊 Client received data for ${resource.name}:`, {
-        releases: data.releases?.length || 0,
-        commits: data.commits?.length || 0,
-        repoInfo: data.repoInfo ? 'available' : 'none',
-        weeklyRecords: data.commitsPerWeekDetailed?.length || 0
+      if (!resourceData) {
+        logger.log(`⚠️ Resource ${resource.name} not found in historical data`)
+        return { 
+          releases: [], 
+          commits: [], 
+          repoInfo: null, 
+          commitsPerWeekDetailed: [],
+          commitsPerWeek: 0
+        }
+      }
+      
+      // Transform historical data to the format expected by ResourceCard
+      const commitsPerWeekDetailed = resourceData.weeklyCounts ? 
+        resourceData.weeklyCounts.map((count, index) => {
+          // Calculate week start date going backwards from today
+          const today = new Date()
+          const weekStart = new Date(today)
+          weekStart.setDate(today.getDate() - (resourceData.weeklyCounts.length - 1 - index) * 7)
+          
+          // Adjust to Monday of that week
+          const dayOfWeek = weekStart.getDay()
+          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+          weekStart.setDate(weekStart.getDate() - daysToMonday)
+          
+          return {
+            weekStart: weekStart.toISOString().slice(0, 10),
+            count: count,
+            year: weekStart.getFullYear(),
+            week: Math.ceil((weekStart.getTime() - new Date(weekStart.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))
+          }
+        }) : []
+      
+      const result = {
+        resource: resource.name,
+        releases: [], // Historical data doesn't include detailed releases
+        commits: [], // Historical data doesn't include detailed commits
+        commitsPerWeek: resourceData.totalCommits || 0,
+        commitsPerWeekDetailed: commitsPerWeekDetailed,
+        weeklyData: commitsPerWeekDetailed, // Legacy compatibility
+        repoInfo: {
+          name: resource.name,
+          htmlUrl: resource.social?.github,
+          isOrganization: resource.type === 'organization',
+          stargazersCount: resourceData.resource?.stargazersCount || 0,
+          forksCount: resourceData.resource?.forksCount || 0,
+          language: resourceData.resource?.language || null
+        }
+      }
+      
+      logger.log(`📊 Client received historical data for ${resource.name}:`, {
+        period: period,
+        mappedPeriod: mappedPeriod,
+        weeklyRecords: result.commitsPerWeekDetailed.length,
+        totalCommits: result.commitsPerWeek
       })
       
-      return data
+      return result
     } catch (error) {
-      logger.error(`Client error fetching GitHub updates for ${resource.name}:`, error)
-      cacheManager.recordMiss()
-      return { releases: [], commits: [], repoInfo: null }
+      logger.error(`Client error fetching historical GitHub data for ${resource.name}:`, error)
+      return { 
+        releases: [], 
+        commits: [], 
+        repoInfo: null, 
+        commitsPerWeekDetailed: [],
+        commitsPerWeek: 0
+      }
     }
   }
 

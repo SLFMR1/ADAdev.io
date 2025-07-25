@@ -84,26 +84,22 @@ const getMonthLabels = (commitsPerMonth, weeks) => {
   return labels.slice(-weeks)
 }
 
-const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false, selectedPeriod = '4weeks', onPeriodChange }) => {
+const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false, selectedPeriod = '4weeks', onPeriodChange, preloadedData = null }) => {
   const [activityData, setActivityData] = useState(null)
   const [weeklyData, setWeeklyData] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
-  const [timePeriod, setTimePeriod] = useState(selectedPeriod) // '4weeks', '3months', '52weeks', or '3years'
-
-  // Map timePeriod to weeks
+  // Map selectedPeriod to weeks directly (no internal state needed)
   const periodToWeeks = {
     '4weeks': 4,
     '3months': 13,
     '52weeks': 52,
     '3years': 156
   }
-
-  // Sync internal timePeriod with selectedPeriod prop
-  useEffect(() => {
-    setTimePeriod(selectedPeriod)
-  }, [selectedPeriod])
+  
+  // Use selectedPeriod directly instead of internal timePeriod state
+  // const timePeriod = selectedPeriod // Not needed anymore
 
   useEffect(() => {
     const loadActivityData = async () => {
@@ -111,12 +107,86 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         setIsLoading(true)
         setError(null)
         
+        // If preloaded data is available for this period, use it immediately
+        if (preloadedData && !preloadedData.error) {
+          logger.log(`⚡ Using preloaded data for ${resource.name} (period: ${selectedPeriod})`)
+          console.log('WeeklyActivityChart received preloaded data:', preloadedData)
+          
+          // Process preloaded data the same way as fetched data
+          const resourceData = preloadedData
+          
+          // Validate and process the preloaded data
+          if (resourceData && resourceData.commitsPerWeekDetailed && Array.isArray(resourceData.commitsPerWeekDetailed) && resourceData.commitsPerWeekDetailed.length > 0) {
+            // Use the detailed weekly data from preloaded cache
+            const validWeeklyData = resourceData.commitsPerWeekDetailed
+              .filter(week => {
+                if (!week || typeof week !== 'object') return false;
+                if (typeof week.count !== 'number' || isNaN(week.count)) return false;
+                if (!week.weekStart) return false;
+                
+                const weekStartDate = new Date(week.weekStart);
+                if (isNaN(weekStartDate.getTime())) {
+                  console.warn(`Invalid weekStart date: ${week.weekStart}`);
+                  return false;
+                }
+                
+                return true;
+              })
+              .map(week => {
+                const weekStartDate = new Date(week.weekStart);
+                return {
+                  count: Math.max(0, week.count),
+                  weekStart: weekStartDate.toISOString().slice(0, 10)
+                };
+              })
+            
+            if (validWeeklyData.length === 0) {
+              console.warn(`No valid preloaded weekly data found for ${resource.name}`);
+              throw new Error('No valid weekly data available');
+            }
+            
+            const currentWeek = validWeeklyData[validWeeklyData.length - 1]?.count || 0
+            
+            setActivityData({
+              currentWeek: currentWeek,
+              repoInfo: resourceData.repoInfo
+            })
+            
+            // Determine number of weeks based on time period
+            const weeks = periodToWeeks[selectedPeriod] || 4
+            const trimmedData = validWeeklyData.slice(-weeks)
+            setWeeklyData(trimmedData)
+            
+            setIsLoading(false)
+            return
+          } else if (resourceData && (resourceData.commitsPerWeek || resourceData.commitsPerMonth)) {
+            // Fallback to basic preloaded data
+            const currentWeek = resourceData.commitsPerWeek || 0
+            
+            setActivityData({
+              currentWeek: currentWeek,
+              repoInfo: resourceData.repoInfo
+            })
+            
+            const weeklyData = generateWeeklyData(resourceData.commitsPerMonth, currentWeek)
+            setWeeklyData(weeklyData)
+            
+            setIsLoading(false)
+            return
+          }
+        }
+        
+        // Fallback to fetching data if no preloaded data or preloaded data has error
+        if (preloadedData?.error) {
+          logger.warn(`Preloaded data has error for ${resource.name}: ${preloadedData.error}`);
+        }
+        
         // Determine number of weeks based on time period
-        const weeks = periodToWeeks[timePeriod] || 4
+        const weeks = periodToWeeks[selectedPeriod] || 4
         
         // Get data from server API with period parameter
-        logger.log(`🔄 Fetching data from server for ${resource.name} (period: ${timePeriod})`)
-        const resourceData = await fetchGitHubUpdates(resource, timePeriod)
+        logger.log(`🔄 Fetching data from server for ${resource.name} (period: ${selectedPeriod})`)
+        const resourceData = await fetchGitHubUpdates(resource, selectedPeriod)
         
         // Validate and process the response data
         if (resourceData && resourceData.commitsPerWeekDetailed && Array.isArray(resourceData.commitsPerWeekDetailed) && resourceData.commitsPerWeekDetailed.length > 0) {
@@ -199,7 +269,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       }
     }
     loadActivityData()
-  }, [resource, timePeriod])
+  }, [resource, selectedPeriod, preloadedData])
 
   if (isLoading) {
     return (
@@ -381,7 +451,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       <div className="bg-gray-800/50 rounded-lg p-4 sm:p-6" style={{ minHeight: window.innerWidth < 1024 ? 180 : 220 }}>
         <div className="flex items-center justify-between mb-3">
           <span className="text-gray-400 text-xs">
-            {timePeriod === '52weeks' ? 'Last 52 Weeks' : timePeriod === '3years' ? 'Last 3 Years' : timePeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'}
+            {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'}
           </span>
           <div className="flex items-center space-x-1">
             <GitCommit size={12} className="text-cyan-400" />

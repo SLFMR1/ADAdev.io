@@ -1,481 +1,162 @@
-🔄 Using fallback data fetch for Lucid
-✅ Using cached recent activity for Lucid
-🔍 GitHub updates request for Helios (period: 4weeks)
-🔄 Using fallback data fetch for Helios
-✅ Using cached recent activity for Helios
-🔍 GitHub updates request for Marlowe (period: 4weeks)
-🔄 Using fallback data fetch for Marlowe
-✅ Using cached recent activity for Marlowe
-🔍 GitHub updates request for MeshJS (period: 4weeks)
-🔄 Using fallback data fetch for MeshJS
-✅ Using cached recent activity for MeshJS
-🔍 GitHub updates request for NMKR Godot Plugin (period: 4weeks)
-🔄 Using fallback data fetch for NMKR Godot Plugin
-✅ Using cached recent activity for NMKR Godot Plugin
-Repository marlowe-lang not found or not accessible
-Repository meshjs not found or not accessible
-🔍 GitHub updates request for NMKR Unity SDK (period: 4weeks)
-🔄 Using fallback data fetch for NMKR Unity SDK
-✅ Using cached recent activity for NMKR Unity SDK
-🔍 GitHub updates request for OpShin (period: 4weeks)
-🔄 Using fallback data fetch for OpShin
-✅ Using cached recent activity for OpShin
-🔍 GitHub updates request for PyCardano (period: 4weeks)
-🔄 Using fallback data fetch for PyCardano
-✅ Using cached recent activity for PyCardano
-Repository OpShin not found or not accessible
-🔍 GitHub updates request for Blockfrost API (period: 4weeks)
-🔄 Using fallback data fetch for Blockfrost API
-✅ Using cached recent activity for Blockfrost API
-🔍 GitHub updates request for Cardano GraphQL API (period: 4weeks)
-🔄 Using fallback data fetch for Cardano GraphQL API
-✅ Using cached recent activity for Cardano GraphQL API
-🔍 GitHub updates request for Carp (period: 4weeks)
-🔄 Using fallback data fetch for Carp
-✅ Using cached recent activity for Carp
-Repository blockfrost not found or not accessible
-🔍 GitHub updates request for Dandelion (period: 4weeks)
-🔄 Using fallback data fetch for Dandelion
-✅ Using cached recent activity for Dandelion
-🔍 GitHub updates request for Koios (period: 4weeks)
-🔄 Using fallback data fetch for Koios
-✅ Using cached recent activity for Koios
-Repository koios-official not found or not accessible
-Repository gimbalabs not found or not accessible
-🔄 Processing 56 total resources for repository view, preloading all periods...
-Skipping repository Cardano Delegation - no valid GitHub URL (n/a)
-🚀 Preloading ALL periods for 23 filtered resources (was 56)
-📦 Processing batch 1/5 (5 resources)
-✅ Using cached recent activity for Helios
-✅ Using cached recent activity for Lucid
-✅ Using cached recent activity for PyCardano
-✅ Using cached recent activity for Cardano Serialization Lib
-✅ Using cached recent activity for Blaze
-🔍 GitHub updates request for Aiken (period: 4weeks)
-🔄 Using fallback data fetch for Aiken
-✅ Using cached recent activity for Aiken
-Repository aiken-lang not found or not accessible
-✅ Using cached database data for Lucid (5 weeks)
-✅ Using historical database data for Lucid (oldest data: 28 days old - immutable)
-✅ Using cached database data for Lucid (68 weeks)
-✅ Using historical database data for Lucid (oldest data: 364 days old - immutable)
-✅ Using cached database data for Helios (15 weeks)
-✅ Using historical database data for Helios (oldest data: 91 days old - immutable)
-✅ Using cached database data for Helios (69 weeks)
-✅ Using historical database data for Helios (oldest data: 364 days old - immutable)
-✅ Using cached database data for Cardano Serialization Lib (67 weeks)
-✅ Using historical database data for Cardano Serialization Lib (oldest data: 364 days old - immutable)
-✅ Using cached database data for Lucid (16 weeks)
-✅ Using historical database data for Lucid (oldest data: 91 days old - immutable)
-✅ Using cached database data for Blaze (79 weeks)
-✅ Using historical database data for Blaze (oldest data: 364 days old - immutable)
-✅ Using cached database data for Cardano Serialization Lib (5 weeks)
-✅ Using historical database data for Cardano Serialization Lib (oldest data: 28 days old - immutable)
-✅ Using cached database data for Helios (3 weeks)
-✅ Using historical database data for Helios (oldest data: 28 days old - immutable)
-✅ Using cached database data for PyCardano (84 weeks)
-✅ Using historical database data for PyCardano (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Blaze (80 weeks)
-✅ Using historical database data for Blaze (oldest data: 1092 days old - immutable)
-✅ Using cached database data for PyCardano (20 weeks)
-✅ Using historical database data for PyCardano (oldest data: 91 days old - immutable)
-✅ Using cached database data for PyCardano (4 weeks)
-✅ Using historical database data for PyCardano (oldest data: 28 days old - immutable)
-✅ Using cached database data for Lucid (69 weeks)
-✅ Using historical database data for Lucid (oldest data: 1092 days old - immutable)
-📊 Lucid: current:1, monthly:2, 3months:12, 52weeks:236, 3years:236
-✅ Using cached database data for Blaze (19 weeks)
-✅ Using historical database data for Blaze (oldest data: 91 days old - immutable)
-✅ Using cached database data for Cardano Serialization Lib (68 weeks)
-✅ Using historical database data for Cardano Serialization Lib (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Cardano Serialization Lib (19 weeks)
-✅ Using historical database data for Cardano Serialization Lib (oldest data: 91 days old - immutable)
-📊 Cardano Serialization Lib: current:0, monthly:16, 3months:67, 52weeks:162, 3years:162
-✅ Using cached database data for Blaze (5 weeks)
-✅ Using historical database data for Blaze (oldest data: 28 days old - immutable)
-📊 Blaze: current:2, monthly:10, 3months:32, 52weeks:194, 3years:194
-✅ Using cached database data for Helios (70 weeks)
-✅ Using historical database data for Helios (oldest data: 1092 days old - immutable)
-📊 Helios: current:0, monthly:0, 3months:24, 52weeks:350, 3years:350
-✅ Using cached database data for PyCardano (83 weeks)
-✅ Using historical database data for PyCardano (oldest data: 364 days old - immutable)
-📊 PyCardano: current:1, monthly:1, 3months:45, 52weeks:269, 3years:270
+✅ Using cached database data for MeshJS (1000 weeks)
+✅ Using historical database data for MeshJS (oldest data: 1092 days old - immutable)
+✅ Using cached database data for CardanoSharp (49 weeks)
+✅ Using historical database data for CardanoSharp (oldest data: 28 days old - immutable)
+✅ Using cached database data for Marlowe (432 weeks)
+✅ Using historical database data for Marlowe (oldest data: 91 days old - immutable)
+✅ Using cached database data for CardanoSharp (817 weeks)
+✅ Using historical database data for CardanoSharp (oldest data: 364 days old - immutable)
+✅ Using cached database data for Marlowe (1000 weeks)
+✅ Using historical database data for Marlowe (oldest data: 364 days old - immutable)
+✅ Using cached database data for Marlowe (1000 weeks)
+✅ Using historical database data for Marlowe (oldest data: 1092 days old - immutable)
+📈 CardanoSharp: Found 0 raw commits, transformed to 0
+📅 CardanoSharp: Processed 7 data points (daily: true)
+📊 CardanoSharp: current:0, monthly:0, 3months:0, 52weeks:4, 3years:115
+📈 Aiken: Found 1 raw commits, transformed to 1
+📅 Aiken: Processed 7 data points (daily: true)
+📊 Aiken: current:1, monthly:102, 3months:299, 52weeks:1099, 3years:1181
+📈 Marlowe: Found 0 raw commits, transformed to 0
+📅 Marlowe: Processed 7 data points (daily: true)
+📊 Marlowe: current:0, monthly:0, 3months:8, 52weeks:95, 3years:432
+📈 OpShin: Found 0 raw commits, transformed to 0
+📅 OpShin: Processed 7 data points (daily: true)
+📊 OpShin: current:0, monthly:0, 3months:24, 52weeks:541, 3years:1089
+📈 MeshJS: Found 9 raw commits, transformed to 9
+📅 MeshJS: Processed 7 data points (daily: true)
+📊 MeshJS: current:9, monthly:211, 3months:814, 52weeks:1000, 3years:1051
 ✅ Batch 1 completed: 5 resources with all periods
-🔍 GitHub updates request for OpShin (period: 4weeks)
-🔄 Using fallback data fetch for OpShin
-✅ Using cached recent activity for OpShin
 📦 Processing batch 2/5 (5 resources)
-✅ Using cached recent activity for Cardano CLI
-✅ Using cached recent activity for Kupo
-✅ Using cached recent activity for NMKR Godot Plugin
-✅ Using cached recent activity for NMKR Unity SDK
-✅ Using cached recent activity for Cardano GraphQL API
+⏰ Koios: Fetching commits since 2025-07-18T23:17:20.092Z (7 days, daily: true)
+🔄 Fetching recent activity for Koios (7 days)...
+⏰ Dandelion: Fetching commits since 2025-07-18T23:17:20.093Z (7 days, daily: true)
+🔄 Fetching recent activity for Dandelion (7 days)...
+⏰ Blockfrost API: Fetching commits since 2025-07-18T23:17:20.093Z (7 days, daily: true)
+🔄 Fetching recent activity for Blockfrost API (7 days)...
+⏰ Maestro: Fetching commits since 2025-07-18T23:17:20.094Z (7 days, daily: true)
+🔄 Fetching recent activity for Maestro (7 days)...
+⏰ NMKR API: Fetching commits since 2025-07-18T23:17:20.094Z (7 days, daily: true)
+🔄 Fetching recent activity for NMKR API (7 days)...
+✅ Using cached database data for Koios (16 weeks)
+✅ Using historical database data for Koios (oldest data: 28 days old - immutable)
+✅ Using cached database data for Dandelion (127 weeks)
+✅ Using historical database data for Dandelion (oldest data: 28 days old - immutable)
+✅ Using cached database data for Koios (249 weeks)
+✅ Using historical database data for Koios (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Maestro (123 weeks)
+✅ Using historical database data for Maestro (oldest data: 28 days old - immutable)
+✅ Using cached database data for Blockfrost API (148 weeks)
+✅ Using historical database data for Blockfrost API (oldest data: 28 days old - immutable)
+✅ Using cached database data for Koios (56 weeks)
+✅ Using historical database data for Koios (oldest data: 91 days old - immutable)
+✅ Using cached database data for NMKR API (52 weeks)
+✅ Using historical database data for NMKR API (oldest data: 28 days old - immutable)
+✅ Using cached database data for Koios (217 weeks)
+✅ Using historical database data for Koios (oldest data: 364 days old - immutable)
+✅ Using cached database data for NMKR API (205 weeks)
+✅ Using historical database data for NMKR API (oldest data: 91 days old - immutable)
+✅ Using cached database data for Dandelion (505 weeks)
+✅ Using historical database data for Dandelion (oldest data: 91 days old - immutable)
+✅ Using cached database data for Maestro (486 weeks)
+✅ Using historical database data for Maestro (oldest data: 91 days old - immutable)
+✅ Using cached database data for Maestro (1000 weeks)
+✅ Using historical database data for Maestro (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Dandelion (1000 weeks)
+✅ Using historical database data for Dandelion (oldest data: 364 days old - immutable)
+✅ Using cached database data for NMKR API (878 weeks)
+✅ Using historical database data for NMKR API (oldest data: 364 days old - immutable)
+✅ Using cached database data for Dandelion (1000 weeks)
+✅ Using historical database data for Dandelion (oldest data: 1092 days old - immutable)
+✅ Using cached database data for NMKR API (925 weeks)
+✅ Using historical database data for NMKR API (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Blockfrost API (1000 weeks)
+✅ Using historical database data for Blockfrost API (oldest data: 364 days old - immutable)
+✅ Using cached database data for Maestro (1000 weeks)
+✅ Using historical database data for Maestro (oldest data: 364 days old - immutable)
+✅ Using cached database data for Blockfrost API (1000 weeks)
+✅ Using historical database data for Blockfrost API (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Blockfrost API (593 weeks)
+✅ Using historical database data for Blockfrost API (oldest data: 91 days old - immutable)
+Repository koios-official/.github is empty or has no commits
+Repository nftmakerio/MilkomedaSmartContract is empty or has no commits
+📈 Koios: Found 0 raw commits, transformed to 0
+📅 Koios: Processed 7 data points (daily: true)
+📊 Koios: current:0, monthly:12, 3months:28, 52weeks:38, 3years:157
+📈 Maestro: Found 2 raw commits, transformed to 2
+📅 Maestro: Processed 7 data points (daily: true)
+📊 Maestro: current:2, monthly:120, 3months:647, 52weeks:474, 3years:846
+📈 Dandelion: Found 0 raw commits, transformed to 0
+📅 Dandelion: Processed 7 data points (daily: true)
+📊 Dandelion: current:0, monthly:6, 3months:95, 52weeks:70, 3years:133
+📈 Blockfrost API: Found 0 raw commits, transformed to 0
+📅 Blockfrost API: Processed 7 data points (daily: true)
+📊 Blockfrost API: current:0, monthly:40, 3months:200, 52weeks:589, 3years:698
+📈 NMKR API: Found 0 raw commits, transformed to 0
+📅 NMKR API: Processed 7 data points (daily: true)
+📊 NMKR API: current:0, monthly:1, 3months:13, 52weeks:151, 3years:368
+✅ Batch 2 completed: 5 resources with all periods
+📦 Processing batch 3/5 (5 resources)
+⏰ NFTcdn: Fetching commits since 2025-07-18T23:17:35.412Z (7 days, daily: true)
+🔄 Fetching recent activity for NFTcdn (7 days)...
+⏰ Begin Wallet: Fetching commits since 2025-07-18T23:17:35.414Z (7 days, daily: true)
+🔄 Fetching recent activity for Begin Wallet (7 days)...
+⏰ Tokeo: Fetching commits since 2025-07-18T23:17:35.415Z (7 days, daily: true)
+🔄 Fetching recent activity for Tokeo (7 days)...
+⏰ Vault3: Fetching commits since 2025-07-18T23:17:35.415Z (7 days, daily: true)
+🔄 Fetching recent activity for Vault3 (7 days)...
+⏰ Charli3: Fetching commits since 2025-07-18T23:17:35.416Z (7 days, daily: true)
+🔄 Fetching recent activity for Charli3 (7 days)...
+✅ Using cached database data for NFTcdn (358 weeks)
+✅ Using historical database data for NFTcdn (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Tokeo (58 weeks)
+✅ Using historical database data for Tokeo (oldest data: 28 days old - immutable)
+✅ Using cached database data for Vault3 (25 weeks)
+✅ Using historical database data for Vault3 (oldest data: 91 days old - immutable)
+✅ Using cached database data for NFTcdn (19 weeks)
+✅ Using historical database data for NFTcdn (oldest data: 28 days old - immutable)
+✅ Using cached database data for NFTcdn (73 weeks)
+✅ Using historical database data for NFTcdn (oldest data: 91 days old - immutable)
+✅ Using cached database data for Tokeo (229 weeks)
+✅ Using historical database data for Tokeo (oldest data: 91 days old - immutable)
+✅ Using cached database data for Charli3 (224 weeks)
+✅ Using historical database data for Charli3 (oldest data: 91 days old - immutable)
+✅ Using cached database data for NFTcdn (309 weeks)
+✅ Using historical database data for NFTcdn (oldest data: 364 days old - immutable)
+✅ Using cached database data for Vault3 (103 weeks)
+✅ Using historical database data for Vault3 (oldest data: 364 days old - immutable)
+✅ Using cached database data for Begin Wallet (34 weeks)
+✅ Using historical database data for Begin Wallet (oldest data: 28 days old - immutable)
+✅ Using cached database data for Begin Wallet (524 weeks)
+✅ Using historical database data for Begin Wallet (oldest data: 364 days old - immutable)
+✅ Using cached database data for Vault3 (105 weeks)
+✅ Using historical database data for Vault3 (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Begin Wallet (127 weeks)
+✅ Using historical database data for Begin Wallet (oldest data: 91 days old - immutable)
+✅ Using cached database data for Vault3 (7 weeks)
+✅ Using historical database data for Vault3 (oldest data: 28 days old - immutable)
+✅ Using cached database data for Begin Wallet (592 weeks)
+✅ Using historical database data for Begin Wallet (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Tokeo (999 weeks)
+✅ Using historical database data for Tokeo (oldest data: 364 days old - immutable)
+✅ Using cached database data for Charli3 (57 weeks)
+✅ Using historical database data for Charli3 (oldest data: 28 days old - immutable)
+✅ Using cached database data for Tokeo (1000 weeks)
+✅ Using historical database data for Tokeo (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Charli3 (956 weeks)
+✅ Using historical database data for Charli3 (oldest data: 364 days old - immutable)
+✅ Using cached database data for Charli3 (1000 weeks)
+✅ Using historical database data for Charli3 (oldest data: 1092 days old - immutable)
+📈 Vault3: Found 0 raw commits, transformed to 0
+📅 Vault3: Processed 7 data points (daily: true)
+📊 Vault3: current:0, monthly:0, 3months:0, 52weeks:6, 3years:6
+📈 NFTcdn: Found 0 raw commits, transformed to 0
+📅 NFTcdn: Processed 7 data points (daily: true)
+📊 NFTcdn: current:0, monthly:0, 3months:0, 52weeks:74, 3years:376
+⚡ Using server cache for repository view (33s old)
 🔍 GitHub updates request for Aiken (period: 4weeks)
 🔄 Using fallback data fetch for Aiken
-✅ Using cached recent activity for Aiken
-🔍 GitHub updates request for Blaze (period: 4weeks)
-🔄 Using fallback data fetch for Blaze
-✅ Using cached recent activity for Blaze
-🔍 GitHub updates request for Cardano CLI (period: 4weeks)
-🔄 Using fallback data fetch for Cardano CLI
-✅ Using cached recent activity for Cardano CLI
-✅ Using cached database data for Kupo (72 weeks)
-✅ Using historical database data for Kupo (oldest data: 1092 days old - immutable)
-✅ Using cached database data for NMKR Unity SDK (51 weeks)
-✅ Using historical database data for NMKR Unity SDK (oldest data: 364 days old - immutable)
-✅ Using cached database data for Kupo (15 weeks)
-✅ Using historical database data for Kupo (oldest data: 91 days old - immutable)
-✅ Using cached database data for Cardano GraphQL API (3 weeks)
-✅ Using historical database data for Cardano GraphQL API (oldest data: 28 days old - immutable)
-✅ Using cached database data for NMKR Godot Plugin (62 weeks)
-✅ Using historical database data for NMKR Godot Plugin (oldest data: 364 days old - immutable)
-🌍 Global GitHub request for 44 resources
-✅ Using cached recent activity for Aiken
-✅ Using cached recent activity for OpShin
-✅ Using cached recent activity for Helios
-✅ Using cached recent activity for MeshJS
-✅ Using cached recent activity for Lucid
-✅ Using cached database data for Kupo (3 weeks)
-✅ Using historical database data for Kupo (oldest data: 28 days old - immutable)
-✅ Using cached database data for NMKR Godot Plugin (65 weeks)
-✅ Using historical database data for NMKR Godot Plugin (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Kupo (60 weeks)
-✅ Using historical database data for Kupo (oldest data: 364 days old - immutable)
-📊 Kupo: current:0, monthly:0, 3months:17, 52weeks:85, 3years:146
-✅ Using cached database data for Cardano GraphQL API (85 weeks)
-✅ Using historical database data for Cardano GraphQL API (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Cardano GraphQL API (63 weeks)
-✅ Using historical database data for Cardano GraphQL API (oldest data: 364 days old - immutable)
-✅ Using cached database data for Cardano CLI (18 weeks)
-✅ Using historical database data for Cardano CLI (oldest data: 91 days old - immutable)
-✅ Using cached database data for NMKR Unity SDK (12 weeks)
-✅ Using historical database data for NMKR Unity SDK (oldest data: 91 days old - immutable)
-✅ Using cached database data for Cardano CLI (58 weeks)
-✅ Using historical database data for Cardano CLI (oldest data: 1092 days old - immutable)
-✅ Using cached database data for NMKR Unity SDK (60 weeks)
-✅ Using historical database data for NMKR Unity SDK (oldest data: 1092 days old - immutable)
-✅ Using cached database data for NMKR Unity SDK (3 weeks)
-✅ Using historical database data for NMKR Unity SDK (oldest data: 28 days old - immutable)
-📊 NMKR Unity SDK: current:0, monthly:0, 3months:0, 52weeks:0, 3years:27
-✅ Using cached database data for NMKR Godot Plugin (12 weeks)
-✅ Using historical database data for NMKR Godot Plugin (oldest data: 91 days old - immutable)
-✅ Using cached database data for NMKR Godot Plugin (3 weeks)
-✅ Using historical database data for NMKR Godot Plugin (oldest data: 28 days old - immutable)
-📊 NMKR Godot Plugin: current:0, monthly:0, 3months:0, 52weeks:34, 3years:36
-✅ Using cached database data for Cardano CLI (7 weeks)
-✅ Using historical database data for Cardano CLI (oldest data: 28 days old - immutable)
-✅ Using cached database data for Cardano GraphQL API (13 weeks)
-✅ Using historical database data for Cardano GraphQL API (oldest data: 91 days old - immutable)
-📊 Cardano GraphQL API: current:0, monthly:0, 3months:8, 52weeks:35, 3years:115
-✅ Using cached database data for Cardano CLI (57 weeks)
-✅ Using historical database data for Cardano CLI (oldest data: 364 days old - immutable)
-📊 Cardano CLI: current:10, monthly:90, 3months:183, 52weeks:183, 3years:183
-✅ Batch 2 completed: 5 resources with all periods
-✅ Using cached recent activity for PyCardano
-✅ Using cached recent activity for Marlowe
-✅ Using cached recent activity for Cardano Serialization Lib
-✅ Using cached recent activity for Blaze
-✅ Using cached recent activity for CardanoSharp
-📦 Processing batch 3/5 (5 resources)
-✅ Using cached recent activity for Carp
-✅ Using cached recent activity for Cardano DB Sync
-✅ Using cached recent activity for Plutus Pioneer Program
-✅ Using cached recent activity for Cardano CIPs
-✅ Using cached recent activity for OpShin Pioneer Program
-✅ Using cached database data for Cardano DB Sync (6 weeks)
-✅ Using historical database data for Cardano DB Sync (oldest data: 28 days old - immutable)
-✅ Using cached database data for Carp (12 weeks)
-✅ Using historical database data for Carp (oldest data: 91 days old - immutable)
-✅ Using cached database data for Cardano CIPs (6 weeks)
-✅ Using historical database data for Cardano CIPs (oldest data: 28 days old - immutable)
-✅ Using cached database data for Plutus Pioneer Program (54 weeks)
-✅ Using historical database data for Plutus Pioneer Program (oldest data: 364 days old - immutable)
-✅ Using cached database data for Cardano CIPs (80 weeks)
-✅ Using historical database data for Cardano CIPs (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Plutus Pioneer Program (63 weeks)
-✅ Using historical database data for Plutus Pioneer Program (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Cardano DB Sync (23 weeks)
-✅ Using historical database data for Cardano DB Sync (oldest data: 91 days old - immutable)
-✅ Using cached database data for Carp (86 weeks)
-✅ Using historical database data for Carp (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Cardano CIPs (79 weeks)
-✅ Using historical database data for Cardano CIPs (oldest data: 364 days old - immutable)
-✅ Using cached database data for Plutus Pioneer Program (12 weeks)
-✅ Using historical database data for Plutus Pioneer Program (oldest data: 91 days old - immutable)
-✅ Using cached database data for Plutus Pioneer Program (3 weeks)
-✅ Using historical database data for Plutus Pioneer Program (oldest data: 28 days old - immutable)
-📊 Plutus Pioneer Program: current:0, monthly:0, 3months:0, 52weeks:6, 3years:103
-✅ Using cached database data for Cardano CIPs (20 weeks)
-✅ Using historical database data for Cardano CIPs (oldest data: 91 days old - immutable)
-📊 Cardano CIPs: current:4, monthly:26, 3months:46, 52weeks:193, 3years:193
-✅ Using cached database data for Carp (3 weeks)
-✅ Using historical database data for Carp (oldest data: 28 days old - immutable)
-✅ Using cached database data for OpShin Pioneer Program (3 weeks)
-✅ Using historical database data for OpShin Pioneer Program (oldest data: 28 days old - immutable)
-✅ Using cached database data for OpShin Pioneer Program (53 weeks)
-✅ Using historical database data for OpShin Pioneer Program (oldest data: 364 days old - immutable)
-✅ Using cached database data for Carp (53 weeks)
-✅ Using historical database data for Carp (oldest data: 364 days old - immutable)
-📊 Carp: current:0, monthly:0, 3months:0, 52weeks:10, 3years:105
-✅ Using cached database data for Cardano DB Sync (82 weeks)
-✅ Using historical database data for Cardano DB Sync (oldest data: 1092 days old - immutable)
-✅ Using cached database data for OpShin Pioneer Program (71 weeks)
-✅ Using historical database data for OpShin Pioneer Program (oldest data: 1092 days old - immutable)
-✅ Using cached database data for OpShin Pioneer Program (12 weeks)
-✅ Using historical database data for OpShin Pioneer Program (oldest data: 91 days old - immutable)
-📊 OpShin Pioneer Program: current:0, monthly:0, 3months:0, 52weeks:18, 3years:109
-✅ Using cached database data for Cardano DB Sync (81 weeks)
-✅ Using historical database data for Cardano DB Sync (oldest data: 364 days old - immutable)
-📊 Cardano DB Sync: current:0, monthly:17, 3months:54, 52weeks:187, 3years:187
-✅ Batch 3 completed: 5 resources with all periods
-✅ Using cached recent activity for Cardano CLI
-✅ Using cached recent activity for Kupo
-✅ Using cached recent activity for NMKR Godot Plugin
-✅ Using cached recent activity for NMKR Unity SDK
-✅ Using cached recent activity for Koios
-📦 Processing batch 4/5 (5 resources)
-✅ Using cached recent activity for Cardano Foundation Docs
-✅ Using cached recent activity for Lace Wallet
-✅ Using cached recent activity for Sokosumi
-✅ Using cached recent activity for Kodosumi
-✅ Using cached recent activity for Vibrant
-✅ Using cached database data for Sokosumi (54 weeks)
-✅ Using historical database data for Sokosumi (oldest data: 364 days old - immutable)
-✅ Using cached database data for Kodosumi (61 weeks)
-✅ Using historical database data for Kodosumi (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Kodosumi (20 weeks)
-✅ Using historical database data for Kodosumi (oldest data: 91 days old - immutable)
-✅ Using cached database data for Sokosumi (15 weeks)
-✅ Using historical database data for Sokosumi (oldest data: 91 days old - immutable)
-✅ Using cached database data for Cardano Foundation Docs (7 weeks)
-✅ Using historical database data for Cardano Foundation Docs (oldest data: 28 days old - immutable)
-✅ Using cached database data for Cardano Foundation Docs (75 weeks)
-✅ Using historical database data for Cardano Foundation Docs (oldest data: 364 days old - immutable)
-✅ Using cached database data for Vibrant (12 weeks)
-✅ Using historical database data for Vibrant (oldest data: 91 days old - immutable)
-✅ Using cached database data for Sokosumi (55 weeks)
-✅ Using historical database data for Sokosumi (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Lace Wallet (65 weeks)
-✅ Using historical database data for Lace Wallet (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Vibrant (75 weeks)
-✅ Using historical database data for Vibrant (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Kodosumi (60 weeks)
-✅ Using historical database data for Kodosumi (oldest data: 364 days old - immutable)
-✅ Using cached database data for Lace Wallet (64 weeks)
-✅ Using historical database data for Lace Wallet (oldest data: 364 days old - immutable)
-✅ Using cached database data for Lace Wallet (25 weeks)
-✅ Using historical database data for Lace Wallet (oldest data: 91 days old - immutable)
-✅ Using cached database data for Cardano Foundation Docs (76 weeks)
-✅ Using historical database data for Cardano Foundation Docs (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Vibrant (3 weeks)
-✅ Using historical database data for Vibrant (oldest data: 28 days old - immutable)
-✅ Using cached database data for Vibrant (59 weeks)
-✅ Using historical database data for Vibrant (oldest data: 364 days old - immutable)
-📊 Vibrant: current:0, monthly:0, 3months:0, 52weeks:60, 3years:132
-✅ Using cached database data for Sokosumi (6 weeks)
-✅ Using historical database data for Sokosumi (oldest data: 28 days old - immutable)
-📊 Sokosumi: current:34, monthly:172, 3months:172, 52weeks:172, 3years:172
-✅ Using cached database data for Lace Wallet (7 weeks)
-✅ Using historical database data for Lace Wallet (oldest data: 28 days old - immutable)
-📊 Lace Wallet: current:2, monthly:52, 3months:186, 52weeks:187, 3years:187
-✅ Using cached database data for Kodosumi (4 weeks)
-✅ Using historical database data for Kodosumi (oldest data: 28 days old - immutable)
-📊 Kodosumi: current:0, monthly:2, 3months:170, 52weeks:172, 3years:172
-✅ Using cached database data for Cardano Foundation Docs (22 weeks)
-✅ Using historical database data for Cardano Foundation Docs (oldest data: 91 days old - immutable)
-📊 Cardano Foundation Docs: current:4, monthly:20, 3months:53, 52weeks:194, 3years:194
-✅ Batch 4 completed: 5 resources with all periods
-📦 Processing batch 5/5 (3 resources)
-✅ Using cached recent activity for Cardano Node
-✅ Using cached recent activity for Ogmios
-✅ Using cached recent activity for Hydra
-✅ Using cached database data for Hydra (6 weeks)
-✅ Using historical database data for Hydra (oldest data: 28 days old - immutable)
-✅ Using cached database data for Hydra (60 weeks)
-✅ Using historical database data for Hydra (oldest data: 364 days old - immutable)
-✅ Using cached database data for Ogmios (15 weeks)
-✅ Using historical database data for Ogmios (oldest data: 91 days old - immutable)
-✅ Using cached database data for Cardano Node (67 weeks)
-✅ Using historical database data for Cardano Node (oldest data: 364 days old - immutable)
-✅ Using cached database data for Ogmios (67 weeks)
-✅ Using historical database data for Ogmios (oldest data: 364 days old - immutable)
-✅ Using cached database data for Ogmios (68 weeks)
-✅ Using historical database data for Ogmios (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Hydra (61 weeks)
-✅ Using historical database data for Hydra (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Ogmios (3 weeks)
-✅ Using historical database data for Ogmios (oldest data: 28 days old - immutable)
-📊 Ogmios: current:0, monthly:0, 3months:61, 52weeks:197, 3years:197
-✅ Using cached database data for Cardano Node (7 weeks)
-✅ Using historical database data for Cardano Node (oldest data: 28 days old - immutable)
-✅ Using cached database data for Hydra (21 weeks)
-✅ Using historical database data for Hydra (oldest data: 91 days old - immutable)
-📊 Hydra: current:0, monthly:85, 3months:177, 52weeks:177, 3years:177
-✅ Using cached database data for Cardano Node (68 weeks)
-✅ Using historical database data for Cardano Node (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Cardano Node (20 weeks)
-✅ Using historical database data for Cardano Node (oldest data: 91 days old - immutable)
-📊 Cardano Node: current:2, monthly:98, 3months:123, 52weeks:192, 3years:192
-✅ Batch 5 completed: 3 resources with all periods
-🔍 Extracted 23 resources for current period
-Successfully processed 9 repositorys with activity for current period
-Repository aiken-lang not found or not accessible
-🔍 GitHub updates request for Cardano Delegation (period: 4weeks)
-🔄 Using fallback data fetch for Cardano Delegation
-✅ Using cached recent activity for Cardano Delegation
-🔍 GitHub updates request for Cardano Serialization Lib (period: 4weeks)
-🔄 Using fallback data fetch for Cardano Serialization Lib
-✅ Using cached recent activity for Cardano Serialization Lib
-🔍 GitHub updates request for CardanoSharp (period: 4weeks)
-🔄 Using fallback data fetch for CardanoSharp
-✅ Using cached recent activity for CardanoSharp
-Repository OpShin not found or not accessible
-✅ Using cached recent activity for Dandelion
-✅ Using cached recent activity for Blockfrost API
-✅ Using cached recent activity for Maestro
-✅ Using cached recent activity for Cardano GraphQL API
-✅ Using cached recent activity for Carp
-🔍 GitHub updates request for Helios (period: 4weeks)
-🔄 Using fallback data fetch for Helios
-✅ Using cached recent activity for Helios
-⏰ NMKR API: Fetching commits since 2025-06-25T18:08:19.476Z (30 days, daily: false)
-🔄 Fetching recent activity for NMKR API (30 days)...
-⏰ NFTcdn: Fetching commits since 2025-06-25T18:08:19.476Z (30 days, daily: false)
-🔄 Fetching recent activity for NFTcdn (30 days)...
-✅ Using cached recent activity for Cardano DB Sync
-⏰ Plutus Pioneer Program: Fetching commits since 2025-06-25T18:08:19.476Z (30 days, daily: false)
-🔄 Fetching recent activity for Plutus Pioneer Program (30 days)...
-⏰ Cardano CIPs: Fetching commits since 2025-06-25T18:08:19.477Z (30 days, daily: false)
-🔄 Fetching recent activity for Cardano CIPs (30 days)...
-📈 Plutus Pioneer Program: Found 0 raw commits, transformed to 0
-📅 Plutus Pioneer Program: Processed 0 data points (daily: false)
-📈 Cardano CIPs: Found 15 raw commits, transformed to 15
-📅 Cardano CIPs: Processed 3 data points (daily: false)
-Repository nftmakerio/MilkomedaSmartContract is empty or has no commits
-📈 NFTcdn: Found 0 raw commits, transformed to 0
-📅 NFTcdn: Processed 0 data points (daily: false)
-📈 NMKR API: Found 0 raw commits, transformed to 0
-📅 NMKR API: Processed 0 data points (daily: false)
-⏰ OpShin Pioneer Program: Fetching commits since 2025-06-25T18:08:33.726Z (30 days, daily: false)
-🔄 Fetching recent activity for OpShin Pioneer Program (30 days)...
-⏰ Cardano Foundation Docs: Fetching commits since 2025-06-25T18:08:33.728Z (30 days, daily: false)
-🔄 Fetching recent activity for Cardano Foundation Docs (30 days)...
-✅ Using cached recent activity for Lace Wallet
-⏰ Begin Wallet: Fetching commits since 2025-06-25T18:08:33.728Z (30 days, daily: false)
-🔄 Fetching recent activity for Begin Wallet (30 days)...
-⏰ Tokeo: Fetching commits since 2025-06-25T18:08:33.728Z (30 days, daily: false)
-🔄 Fetching recent activity for Tokeo (30 days)...
-📈 OpShin Pioneer Program: Found 0 raw commits, transformed to 0
-📅 OpShin Pioneer Program: Processed 0 data points (daily: false)
-📈 Cardano Foundation Docs: Found 15 raw commits, transformed to 15
-📅 Cardano Foundation Docs: Processed 4 data points (daily: false)
-Repository n/a not found or not accessible
-Repository CardanoSharp not found or not accessible
-📈 Begin Wallet: Found 21 raw commits, transformed to 21
-📅 Begin Wallet: Processed 3 data points (daily: false)
-📈 Tokeo: Found 0 raw commits, transformed to 0
-📅 Tokeo: Processed 0 data points (daily: false)
-🔍 GitHub updates request for Helios (period: 4weeks)
-🔄 Using fallback data fetch for Helios
-✅ Using cached recent activity for Helios
-🔍 GitHub updates request for Kupo (period: 4weeks)
-🔄 Using fallback data fetch for Kupo
-✅ Using cached recent activity for Kupo
-🔍 GitHub updates request for Lucid (period: 4weeks)
-🔄 Using fallback data fetch for Lucid
-✅ Using cached recent activity for Lucid
-⏰ Vault3: Fetching commits since 2025-06-25T18:08:45.024Z (30 days, daily: false)
-🔄 Fetching recent activity for Vault3 (30 days)...
-⏰ Charli3: Fetching commits since 2025-06-25T18:08:45.025Z (30 days, daily: false)
-🔄 Fetching recent activity for Charli3 (30 days)...
-⏰ Orcfax: Fetching commits since 2025-06-25T18:08:45.025Z (30 days, daily: false)
-🔄 Fetching recent activity for Orcfax (30 days)...
-⏰ zkFold: Fetching commits since 2025-06-25T18:08:45.025Z (30 days, daily: false)
-🔄 Fetching recent activity for zkFold (30 days)...
-✅ Using cached recent activity for Masumi Network
-🔍 GitHub updates request for Marlowe (period: 4weeks)
-🔄 Using fallback data fetch for Marlowe
-✅ Using cached recent activity for Marlowe
-🔍 GitHub updates request for MeshJS (period: 4weeks)
-🔄 Using fallback data fetch for MeshJS
-✅ Using cached recent activity for MeshJS
-🔍 GitHub updates request for NMKR Godot Plugin (period: 4weeks)
-🔄 Using fallback data fetch for NMKR Godot Plugin
-✅ Using cached recent activity for NMKR Godot Plugin
-Repository marlowe-lang not found or not accessible
-📈 Vault3: Found 0 raw commits, transformed to 0
-📅 Vault3: Processed 0 data points (daily: false)
-Repository meshjs not found or not accessible
-🔍 GitHub updates request for NMKR Unity SDK (period: 4weeks)
-🔄 Using fallback data fetch for NMKR Unity SDK
-✅ Using cached recent activity for NMKR Unity SDK
-🔍 GitHub updates request for OpShin (period: 4weeks)
-🔄 Using fallback data fetch for OpShin
-✅ Using cached recent activity for OpShin
-🔍 GitHub updates request for PyCardano (period: 4weeks)
-🔄 Using fallback data fetch for PyCardano
-✅ Using cached recent activity for PyCardano
-Repository OpShin not found or not accessible
-🔍 GitHub updates request for Blockfrost API (period: 4weeks)
-🔄 Using fallback data fetch for Blockfrost API
-✅ Using cached recent activity for Blockfrost API
-🔍 GitHub updates request for Cardano GraphQL API (period: 4weeks)
-🔄 Using fallback data fetch for Cardano GraphQL API
-✅ Using cached recent activity for Cardano GraphQL API
-🔍 GitHub updates request for Carp (period: 4weeks)
-🔄 Using fallback data fetch for Carp
-✅ Using cached recent activity for Carp
-Repository blockfrost not found or not accessible
-🔍 GitHub updates request for Dandelion (period: 4weeks)
-🔄 Using fallback data fetch for Dandelion
-✅ Using cached recent activity for Dandelion
-🔍 GitHub updates request for Koios (period: 4weeks)
-🔄 Using fallback data fetch for Koios
-✅ Using cached recent activity for Koios
-Repository koios-official not found or not accessible
-Repository gimbalabs not found or not accessible
-📈 Charli3: Found 48 raw commits, transformed to 48
-📅 Charli3: Processed 2 data points (daily: false)
-📈 Orcfax: Found 6 raw commits, transformed to 6
-📅 Orcfax: Processed 2 data points (daily: false)
-📈 zkFold: Found 120 raw commits, transformed to 120
-📅 zkFold: Processed 5 data points (daily: false)
-✅ Using cached recent activity for Sokosumi
-⏰ Kodosumi: Fetching commits since 2025-06-25T18:08:57.595Z (30 days, daily: false)
-🔄 Fetching recent activity for Kodosumi (30 days)...
-⏰ Demeter: Fetching commits since 2025-06-25T18:08:57.596Z (30 days, daily: false)
-🔄 Fetching recent activity for Demeter (30 days)...
-⏰ TxPipe Developer Tools: Fetching commits since 2025-06-25T18:08:57.596Z (30 days, daily: false)
-🔄 Fetching recent activity for TxPipe Developer Tools (30 days)...
-⏰ Vibrant: Fetching commits since 2025-06-25T18:08:57.597Z (30 days, daily: false)
-🔄 Fetching recent activity for Vibrant (30 days)...
-📈 Kodosumi: Found 1 raw commits, transformed to 1
-📅 Kodosumi: Processed 1 data points (daily: false)
-📈 Vibrant: Found 0 raw commits, transformed to 0
-📅 Vibrant: Processed 0 data points (daily: false)
-Repository demeter-run/ext-cardano-dolos is empty or has no commits
-📈 Demeter: Found 19 raw commits, transformed to 19
-📅 Demeter: Processed 4 data points (daily: false)
-📈 TxPipe Developer Tools: Found 17 raw commits, transformed to 17
-📅 TxPipe Developer Tools: Processed 4 data points (daily: false)
-⏰ Cardano Node: Fetching commits since 2025-06-25T18:09:09.900Z (30 days, daily: false)
-🔄 Fetching recent activity for Cardano Node (30 days)...
-⏰ Ogmios: Fetching commits since 2025-06-25T18:09:09.901Z (30 days, daily: false)
-🔄 Fetching recent activity for Ogmios (30 days)...
-⏰ Hydra: Fetching commits since 2025-06-25T18:09:09.901Z (30 days, daily: false)
-🔄 Fetching recent activity for Hydra (30 days)...
-⏰ Midgard: Fetching commits since 2025-06-25T18:09:09.901Z (30 days, daily: false)
-🔄 Fetching recent activity for Midgard (30 days)...
-📈 Cardano Node: Found 100 raw commits, transformed to 100
-📅 Cardano Node: Processed 16 data points (daily: false)
-📈 Ogmios: Found 0 raw commits, transformed to 0
-📅 Ogmios: Processed 0 data points (daily: false)
-📈 Hydra: Found 56 raw commits, transformed to 56
-📅 Hydra: Processed 5 data points (daily: false)
-📈 Midgard: Found 0 raw commits, transformed to 0
-📅 Midgard: Processed 0 data points (daily: false)
-✅ Global GitHub request completed: 44/44 successful
-⚡ Using server cache for repository view (161s old)
+⏰ Aiken: Fetching commits since 2025-06-25T23:17:41.765Z (30 days, daily: false)
+🔄 Fetching recent activity for Aiken (30 days)...
 🔄 Processing 56 total resources for organization view, preloading all periods...
 🚀 Preloading ALL periods for 21 filtered resources (was 56)
 📦 Processing batch 1/5 (5 resources)
@@ -484,529 +165,848 @@ Repository demeter-run/ext-cardano-dolos is empty or has no commits
 ✅ Using cached recent activity for MeshJS
 ✅ Using cached recent activity for Marlowe
 ✅ Using cached recent activity for CardanoSharp
-✅ Using cached database data for Aiken (383 weeks)
-✅ Using historical database data for Aiken (oldest data: 91 days old - immutable)
+🔄 Processing 56 total resources for organization view, preloading all periods...
+🚀 Preloading ALL periods for 21 filtered resources (was 56)
+📦 Processing batch 1/5 (5 resources)
+✅ Using cached recent activity for Aiken
+✅ Using cached recent activity for OpShin
+✅ Using cached recent activity for MeshJS
+✅ Using cached recent activity for Marlowe
+✅ Using cached recent activity for CardanoSharp
+🔍 GitHub updates request for Aiken (period: 4weeks)
+🔄 Using fallback data fetch for Aiken
+⏰ Aiken: Fetching commits since 2025-06-25T23:17:43.766Z (30 days, daily: false)
+🔄 Fetching recent activity for Aiken (30 days)...
+🔍 GitHub updates request for Blaze (period: 4weeks)
+🔄 Using fallback data fetch for Blaze
+⏰ Blaze: Fetching commits since 2025-06-25T23:17:43.768Z (30 days, daily: false)
+🔄 Fetching recent activity for Blaze (30 days)...
+🔍 GitHub updates request for Cardano CLI (period: 4weeks)
+🔄 Using fallback data fetch for Cardano CLI
+⏰ Cardano CLI: Fetching commits since 2025-06-25T23:17:43.769Z (30 days, daily: false)
+🔄 Fetching recent activity for Cardano CLI (30 days)...
 ✅ Using cached database data for OpShin (105 weeks)
 ✅ Using historical database data for OpShin (oldest data: 28 days old - immutable)
-✅ Using cached database data for OpShin (420 weeks)
-✅ Using historical database data for OpShin (oldest data: 91 days old - immutable)
-✅ Using cached database data for Aiken (1000 weeks)
-✅ Using historical database data for Aiken (oldest data: 364 days old - immutable)
-✅ Using cached database data for CardanoSharp (193 weeks)
-✅ Using historical database data for CardanoSharp (oldest data: 91 days old - immutable)
-✅ Using cached database data for OpShin (1000 weeks)
-✅ Using historical database data for OpShin (oldest data: 364 days old - immutable)
-✅ Using cached database data for Marlowe (108 weeks)
-✅ Using historical database data for Marlowe (oldest data: 28 days old - immutable)
-✅ Using cached database data for Aiken (1000 weeks)
-✅ Using historical database data for Aiken (oldest data: 1092 days old - immutable)
-✅ Using cached database data for MeshJS (441 weeks)
-✅ Using historical database data for MeshJS (oldest data: 91 days old - immutable)
-✅ Using cached database data for Marlowe (1000 weeks)
-✅ Using historical database data for Marlowe (oldest data: 364 days old - immutable)
-✅ Using cached database data for OpShin (1000 weeks)
-✅ Using historical database data for OpShin (oldest data: 1092 days old - immutable)
-📊 OpShin: current:0, monthly:0, 3months:24, 52weeks:541, 3years:1089
-✅ Using cached database data for MeshJS (1000 weeks)
-✅ Using historical database data for MeshJS (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Aiken (96 weeks)
-✅ Using historical database data for Aiken (oldest data: 28 days old - immutable)
-📊 Aiken: current:1, monthly:102, 3months:299, 52weeks:1084, 3years:1173
-✅ Using cached database data for CardanoSharp (817 weeks)
-✅ Using historical database data for CardanoSharp (oldest data: 364 days old - immutable)
-✅ Using cached database data for Marlowe (432 weeks)
-✅ Using historical database data for Marlowe (oldest data: 91 days old - immutable)
-✅ Using cached database data for Marlowe (1000 weeks)
-✅ Using historical database data for Marlowe (oldest data: 1092 days old - immutable)
-📊 Marlowe: current:0, monthly:0, 3months:8, 52weeks:95, 3years:432
-✅ Using cached database data for CardanoSharp (49 weeks)
-✅ Using historical database data for CardanoSharp (oldest data: 28 days old - immutable)
-✅ Using cached database data for CardanoSharp (853 weeks)
-✅ Using historical database data for CardanoSharp (oldest data: 1092 days old - immutable)
-📊 CardanoSharp: current:0, monthly:0, 3months:0, 52weeks:4, 3years:115
 ✅ Using cached database data for MeshJS (112 weeks)
 ✅ Using historical database data for MeshJS (oldest data: 28 days old - immutable)
+✅ Using cached database data for Aiken (96 weeks)
+✅ Using historical database data for Aiken (oldest data: 28 days old - immutable)
+✅ Using cached database data for Marlowe (108 weeks)
+✅ Using historical database data for Marlowe (oldest data: 28 days old - immutable)
+✅ Using cached database data for CardanoSharp (193 weeks)
+✅ Using historical database data for CardanoSharp (oldest data: 91 days old - immutable)
+✅ Using cached database data for OpShin (420 weeks)
+✅ Using historical database data for OpShin (oldest data: 91 days old - immutable)
+✅ Using cached database data for Aiken (383 weeks)
+✅ Using historical database data for Aiken (oldest data: 91 days old - immutable)
+✅ Using cached database data for CardanoSharp (49 weeks)
+✅ Using historical database data for CardanoSharp (oldest data: 28 days old - immutable)
+✅ Using cached database data for OpShin (105 weeks)
+✅ Using historical database data for OpShin (oldest data: 28 days old - immutable)
+✅ Using cached database data for Marlowe (1000 weeks)
+✅ Using historical database data for Marlowe (oldest data: 364 days old - immutable)
+✅ Using cached database data for Aiken (1000 weeks)
+✅ Using historical database data for Aiken (oldest data: 364 days old - immutable)
+✅ Using cached database data for OpShin (1000 weeks)
+✅ Using historical database data for OpShin (oldest data: 364 days old - immutable)
+✅ Using cached database data for CardanoSharp (853 weeks)
+✅ Using historical database data for CardanoSharp (oldest data: 1092 days old - immutable)
+✅ Using cached database data for CardanoSharp (817 weeks)
+✅ Using historical database data for CardanoSharp (oldest data: 364 days old - immutable)
+✅ Using cached database data for Aiken (1000 weeks)
+✅ Using historical database data for Aiken (oldest data: 364 days old - immutable)
+✅ Using cached database data for Aiken (96 weeks)
+✅ Using historical database data for Aiken (oldest data: 28 days old - immutable)
+✅ Using cached database data for Marlowe (1000 weeks)
+✅ Using historical database data for Marlowe (oldest data: 1092 days old - immutable)
+✅ Using cached database data for MeshJS (1000 weeks)
+✅ Using historical database data for MeshJS (oldest data: 1092 days old - immutable)
+✅ Using cached database data for CardanoSharp (49 weeks)
+✅ Using historical database data for CardanoSharp (oldest data: 28 days old - immutable)
+✅ Using cached database data for MeshJS (112 weeks)
+✅ Using historical database data for MeshJS (oldest data: 28 days old - immutable)
+✅ Using cached database data for Marlowe (108 weeks)
+✅ Using historical database data for Marlowe (oldest data: 28 days old - immutable)
+✅ Using cached database data for MeshJS (441 weeks)
+✅ Using historical database data for MeshJS (oldest data: 91 days old - immutable)
+✅ Using cached database data for CardanoSharp (853 weeks)
+✅ Using historical database data for CardanoSharp (oldest data: 1092 days old - immutable)
+✅ Using cached database data for OpShin (1000 weeks)
+✅ Using historical database data for OpShin (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Aiken (383 weeks)
+✅ Using historical database data for Aiken (oldest data: 91 days old - immutable)
+✅ Using cached database data for CardanoSharp (193 weeks)
+✅ Using historical database data for CardanoSharp (oldest data: 91 days old - immutable)
+📊 CardanoSharp: current:0, monthly:0, 3months:0, 52weeks:4, 3years:115
+✅ Using cached database data for OpShin (1000 weeks)
+✅ Using historical database data for OpShin (oldest data: 364 days old - immutable)
+✅ Using cached database data for Aiken (1000 weeks)
+✅ Using historical database data for Aiken (oldest data: 1092 days old - immutable)
+📊 Aiken: current:1, monthly:102, 3months:299, 52weeks:1099, 3years:1181
+✅ Using cached database data for Marlowe (1000 weeks)
+✅ Using historical database data for Marlowe (oldest data: 1092 days old - immutable)
+✅ Using cached database data for CardanoSharp (817 weeks)
+✅ Using historical database data for CardanoSharp (oldest data: 364 days old - immutable)
+📊 CardanoSharp: current:0, monthly:0, 3months:0, 52weeks:4, 3years:115
+✅ Using cached database data for MeshJS (441 weeks)
+✅ Using historical database data for MeshJS (oldest data: 91 days old - immutable)
+✅ Using cached database data for Marlowe (432 weeks)
+✅ Using historical database data for Marlowe (oldest data: 91 days old - immutable)
+📊 Marlowe: current:0, monthly:0, 3months:8, 52weeks:95, 3years:432
+✅ Using cached database data for Aiken (1000 weeks)
+✅ Using historical database data for Aiken (oldest data: 1092 days old - immutable)
+📊 Aiken: current:1, monthly:102, 3months:299, 52weeks:1099, 3years:1181
 ✅ Using cached database data for MeshJS (1000 weeks)
 ✅ Using historical database data for MeshJS (oldest data: 364 days old - immutable)
-📊 MeshJS: current:9, monthly:211, 3months:814, 52weeks:1006, 3years:1057
+✅ Using cached database data for OpShin (1000 weeks)
+✅ Using historical database data for OpShin (oldest data: 1092 days old - immutable)
+📊 OpShin: current:0, monthly:0, 3months:24, 52weeks:540, 3years:1089
+✅ Using cached database data for OpShin (420 weeks)
+✅ Using historical database data for OpShin (oldest data: 91 days old - immutable)
+📊 OpShin: current:0, monthly:0, 3months:24, 52weeks:540, 3years:1089
+✅ Using cached database data for MeshJS (1000 weeks)
+✅ Using historical database data for MeshJS (oldest data: 1092 days old - immutable)
+📊 MeshJS: current:9, monthly:211, 3months:814, 52weeks:1000, 3years:1051
 ✅ Batch 1 completed: 5 resources with all periods
+✅ Using cached database data for Marlowe (1000 weeks)
+✅ Using historical database data for Marlowe (oldest data: 364 days old - immutable)
+✅ Using cached database data for Marlowe (432 weeks)
+✅ Using historical database data for Marlowe (oldest data: 91 days old - immutable)
+📊 Marlowe: current:0, monthly:0, 3months:8, 52weeks:95, 3years:449
+✅ Using cached database data for MeshJS (1000 weeks)
+✅ Using historical database data for MeshJS (oldest data: 364 days old - immutable)
+📊 MeshJS: current:9, monthly:211, 3months:814, 52weeks:1000, 3years:1057
+✅ Batch 1 completed: 5 resources with all periods
+📈 Blaze: Found 7 raw commits, transformed to 7
+📅 Blaze: Processed 3 data points (daily: false)
+📈 Cardano CLI: Found 99 raw commits, transformed to 99
+📅 Cardano CLI: Processed 5 data points (daily: false)
 📦 Processing batch 2/5 (5 resources)
 ✅ Using cached recent activity for Koios
 ✅ Using cached recent activity for Dandelion
 ✅ Using cached recent activity for Blockfrost API
 ✅ Using cached recent activity for Maestro
 ✅ Using cached recent activity for NMKR API
+📦 Processing batch 2/5 (5 resources)
+✅ Using cached recent activity for Koios
+✅ Using cached recent activity for Dandelion
+✅ Using cached recent activity for Blockfrost API
+✅ Using cached recent activity for Maestro
+✅ Using cached recent activity for NMKR API
+✅ Using cached database data for Koios (16 weeks)
+✅ Using historical database data for Koios (oldest data: 28 days old - immutable)
+✅ Using cached database data for NMKR API (52 weeks)
+✅ Using historical database data for NMKR API (oldest data: 28 days old - immutable)
+✅ Using cached database data for Dandelion (127 weeks)
+✅ Using historical database data for Dandelion (oldest data: 28 days old - immutable)
+✅ Using cached database data for Koios (217 weeks)
+✅ Using historical database data for Koios (oldest data: 364 days old - immutable)
+✅ Using cached database data for Koios (249 weeks)
+✅ Using historical database data for Koios (oldest data: 1092 days old - immutable)
 ✅ Using cached database data for Blockfrost API (148 weeks)
 ✅ Using historical database data for Blockfrost API (oldest data: 28 days old - immutable)
-✅ Using cached database data for NMKR API (878 weeks)
-✅ Using historical database data for NMKR API (oldest data: 364 days old - immutable)
+✅ Using cached database data for Blockfrost API (1000 weeks)
+✅ Using historical database data for Blockfrost API (oldest data: 1092 days old - immutable)
+✅ Using cached database data for NMKR API (205 weeks)
+✅ Using historical database data for NMKR API (oldest data: 91 days old - immutable)
+✅ Using cached database data for Dandelion (1000 weeks)
+✅ Using historical database data for Dandelion (oldest data: 364 days old - immutable)
+✅ Using cached database data for Koios (56 weeks)
+✅ Using historical database data for Koios (oldest data: 91 days old - immutable)
+✅ Using cached database data for Blockfrost API (148 weeks)
+✅ Using historical database data for Blockfrost API (oldest data: 28 days old - immutable)
+✅ Using cached database data for NMKR API (205 weeks)
+✅ Using historical database data for NMKR API (oldest data: 91 days old - immutable)
+✅ Using cached database data for Koios (249 weeks)
+✅ Using historical database data for Koios (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Maestro (1000 weeks)
+✅ Using historical database data for Maestro (oldest data: 364 days old - immutable)
+✅ Using cached database data for Koios (16 weeks)
+✅ Using historical database data for Koios (oldest data: 28 days old - immutable)
+✅ Using cached database data for Maestro (123 weeks)
+✅ Using historical database data for Maestro (oldest data: 28 days old - immutable)
+✅ Using cached database data for Koios (217 weeks)
+✅ Using historical database data for Koios (oldest data: 364 days old - immutable)
+📊 Koios: current:0, monthly:12, 3months:28, 52weeks:38, 3years:157
+✅ Using cached database data for Blockfrost API (593 weeks)
+✅ Using historical database data for Blockfrost API (oldest data: 91 days old - immutable)
 ✅ Using cached database data for Blockfrost API (593 weeks)
 ✅ Using historical database data for Blockfrost API (oldest data: 91 days old - immutable)
 ✅ Using cached database data for Koios (56 weeks)
 ✅ Using historical database data for Koios (oldest data: 91 days old - immutable)
-✅ Using cached database data for Koios (249 weeks)
-✅ Using historical database data for Koios (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Koios (217 weeks)
-✅ Using historical database data for Koios (oldest data: 364 days old - immutable)
-✅ Using cached database data for Maestro (1000 weeks)
-✅ Using historical database data for Maestro (oldest data: 1092 days old - immutable)
-✅ Using cached database data for NMKR API (925 weeks)
-✅ Using historical database data for NMKR API (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Koios (16 weeks)
-✅ Using historical database data for Koios (oldest data: 28 days old - immutable)
 📊 Koios: current:0, monthly:12, 3months:28, 52weeks:38, 3years:157
-✅ Using cached database data for Dandelion (127 weeks)
-✅ Using historical database data for Dandelion (oldest data: 28 days old - immutable)
-✅ Using cached database data for Maestro (1000 weeks)
-✅ Using historical database data for Maestro (oldest data: 364 days old - immutable)
 ✅ Using cached database data for Maestro (123 weeks)
 ✅ Using historical database data for Maestro (oldest data: 28 days old - immutable)
-✅ Using cached database data for NMKR API (205 weeks)
-✅ Using historical database data for NMKR API (oldest data: 91 days old - immutable)
-✅ Using cached database data for Blockfrost API (1000 weeks)
-✅ Using historical database data for Blockfrost API (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Maestro (486 weeks)
+✅ Using historical database data for Maestro (oldest data: 91 days old - immutable)
 ✅ Using cached database data for NMKR API (52 weeks)
 ✅ Using historical database data for NMKR API (oldest data: 28 days old - immutable)
+✅ Using cached database data for Dandelion (127 weeks)
+✅ Using historical database data for Dandelion (oldest data: 28 days old - immutable)
+✅ Using cached database data for Dandelion (1000 weeks)
+✅ Using historical database data for Dandelion (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Dandelion (1000 weeks)
+✅ Using historical database data for Dandelion (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Maestro (486 weeks)
+✅ Using historical database data for Maestro (oldest data: 91 days old - immutable)
+✅ Using cached database data for Maestro (1000 weeks)
+✅ Using historical database data for Maestro (oldest data: 364 days old - immutable)
+✅ Using cached database data for Dandelion (505 weeks)
+✅ Using historical database data for Dandelion (oldest data: 91 days old - immutable)
+📊 Dandelion: current:0, monthly:6, 3months:95, 52weeks:70, 3years:133
+✅ Using cached database data for Dandelion (505 weeks)
+✅ Using historical database data for Dandelion (oldest data: 91 days old - immutable)
+✅ Using cached database data for Maestro (1000 weeks)
+✅ Using historical database data for Maestro (oldest data: 1092 days old - immutable)
+📊 Maestro: current:2, monthly:120, 3months:647, 52weeks:474, 3years:846
+✅ Using cached database data for NMKR API (878 weeks)
+✅ Using historical database data for NMKR API (oldest data: 364 days old - immutable)
+✅ Using cached database data for NMKR API (925 weeks)
+✅ Using historical database data for NMKR API (oldest data: 1092 days old - immutable)
 📊 NMKR API: current:0, monthly:1, 3months:13, 52weeks:151, 3years:368
 ✅ Using cached database data for Blockfrost API (1000 weeks)
 ✅ Using historical database data for Blockfrost API (oldest data: 364 days old - immutable)
 📊 Blockfrost API: current:0, monthly:40, 3months:200, 52weeks:589, 3years:698
-✅ Using cached database data for Dandelion (505 weeks)
-✅ Using historical database data for Dandelion (oldest data: 91 days old - immutable)
-✅ Using cached database data for Dandelion (1000 weeks)
-✅ Using historical database data for Dandelion (oldest data: 1092 days old - immutable)
+✅ Using cached database data for NMKR API (925 weeks)
+✅ Using historical database data for NMKR API (oldest data: 1092 days old - immutable)
 ✅ Using cached database data for Dandelion (1000 weeks)
 ✅ Using historical database data for Dandelion (oldest data: 364 days old - immutable)
 📊 Dandelion: current:0, monthly:6, 3months:95, 52weeks:70, 3years:133
-✅ Using cached database data for Maestro (486 weeks)
-✅ Using historical database data for Maestro (oldest data: 91 days old - immutable)
-📊 Maestro: current:2, monthly:120, 3months:647, 52weeks:481, 3years:848
+✅ Using cached database data for Blockfrost API (1000 weeks)
+✅ Using historical database data for Blockfrost API (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Maestro (1000 weeks)
+✅ Using historical database data for Maestro (oldest data: 1092 days old - immutable)
+📊 Maestro: current:2, monthly:120, 3months:647, 52weeks:474, 3years:846
+✅ Using cached database data for NMKR API (878 weeks)
+✅ Using historical database data for NMKR API (oldest data: 364 days old - immutable)
+📊 NMKR API: current:0, monthly:1, 3months:13, 52weeks:151, 3years:368
+✅ Batch 2 completed: 5 resources with all periods
+✅ Using cached database data for Blockfrost API (1000 weeks)
+✅ Using historical database data for Blockfrost API (oldest data: 364 days old - immutable)
+📊 Blockfrost API: current:0, monthly:40, 3months:200, 52weeks:589, 3years:698
 ✅ Batch 2 completed: 5 resources with all periods
 📦 Processing batch 3/5 (5 resources)
 ✅ Using cached recent activity for NFTcdn
-✅ Using cached recent activity for Begin Wallet
-✅ Using cached recent activity for Tokeo
+⏰ Begin Wallet: Fetching commits since 2025-07-18T23:17:46.625Z (7 days, daily: true)
+🔄 Fetching recent activity for Begin Wallet (7 days)...
+⏰ Tokeo: Fetching commits since 2025-07-18T23:17:46.625Z (7 days, daily: true)
+🔄 Fetching recent activity for Tokeo (7 days)...
 ✅ Using cached recent activity for Vault3
-✅ Using cached recent activity for Charli3
+⏰ Charli3: Fetching commits since 2025-07-18T23:17:46.626Z (7 days, daily: true)
+🔄 Fetching recent activity for Charli3 (7 days)...
+📦 Processing batch 3/5 (5 resources)
+✅ Using cached recent activity for NFTcdn
+⏰ Begin Wallet: Fetching commits since 2025-07-18T23:17:46.644Z (7 days, daily: true)
+🔄 Fetching recent activity for Begin Wallet (7 days)...
+⏰ Tokeo: Fetching commits since 2025-07-18T23:17:46.644Z (7 days, daily: true)
+🔄 Fetching recent activity for Tokeo (7 days)...
+✅ Using cached recent activity for Vault3
+⏰ Charli3: Fetching commits since 2025-07-18T23:17:46.645Z (7 days, daily: true)
+🔄 Fetching recent activity for Charli3 (7 days)...
+📈 Tokeo: Found 0 raw commits, transformed to 0
+📅 Tokeo: Processed 7 data points (daily: true)
+📊 Tokeo: current:0, monthly:2, 3months:28, 52weeks:911, 3years:1284
+📈 Begin Wallet: Found 8 raw commits, transformed to 8
+📅 Begin Wallet: Processed 7 data points (daily: true)
+📊 Begin Wallet: current:8, monthly:31, 3months:58, 52weeks:109, 3years:600
 ✅ Using cached database data for NFTcdn (73 weeks)
 ✅ Using historical database data for NFTcdn (oldest data: 91 days old - immutable)
+📈 Charli3: Found 0 raw commits, transformed to 0
+📅 Charli3: Processed 7 data points (daily: true)
+📊 Charli3: current:0, monthly:96, 3months:180, 52weeks:503, 3years:687
+✅ Batch 3 completed: 5 resources with all periods
+✅ Using cached database data for NFTcdn (358 weeks)
+✅ Using historical database data for NFTcdn (oldest data: 1092 days old - immutable)
 ✅ Using cached database data for Vault3 (7 weeks)
 ✅ Using historical database data for Vault3 (oldest data: 28 days old - immutable)
+✅ Using cached database data for Begin Wallet (127 weeks)
+✅ Using historical database data for Begin Wallet (oldest data: 91 days old - immutable)
+✅ Using cached database data for NFTcdn (309 weeks)
+✅ Using historical database data for NFTcdn (oldest data: 364 days old - immutable)
+✅ Using cached database data for Vault3 (25 weeks)
+✅ Using historical database data for Vault3 (oldest data: 91 days old - immutable)
 ✅ Using cached database data for Tokeo (58 weeks)
 ✅ Using historical database data for Tokeo (oldest data: 28 days old - immutable)
+✅ Using cached database data for Tokeo (58 weeks)
+✅ Using historical database data for Tokeo (oldest data: 28 days old - immutable)
+✅ Using cached database data for Charli3 (224 weeks)
+✅ Using historical database data for Charli3 (oldest data: 91 days old - immutable)
+✅ Using cached database data for NFTcdn (19 weeks)
+✅ Using historical database data for NFTcdn (oldest data: 28 days old - immutable)
+📊 NFTcdn: current:0, monthly:0, 3months:0, 52weeks:74, 3years:376
+✅ Using cached database data for Begin Wallet (34 weeks)
+✅ Using historical database data for Begin Wallet (oldest data: 28 days old - immutable)
+✅ Using cached database data for Vault3 (25 weeks)
+✅ Using historical database data for Vault3 (oldest data: 91 days old - immutable)
 ✅ Using cached database data for Vault3 (103 weeks)
 ✅ Using historical database data for Vault3 (oldest data: 364 days old - immutable)
 ✅ Using cached database data for Vault3 (105 weeks)
 ✅ Using historical database data for Vault3 (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Tokeo (229 weeks)
-✅ Using historical database data for Tokeo (oldest data: 91 days old - immutable)
-✅ Using cached database data for NFTcdn (19 weeks)
-✅ Using historical database data for NFTcdn (oldest data: 28 days old - immutable)
-✅ Using cached database data for Charli3 (956 weeks)
-✅ Using historical database data for Charli3 (oldest data: 364 days old - immutable)
-✅ Using cached database data for Vault3 (25 weeks)
-✅ Using historical database data for Vault3 (oldest data: 91 days old - immutable)
-📊 Vault3: current:0, monthly:0, 3months:0, 52weeks:6, 3years:6
-✅ Using cached database data for Begin Wallet (127 weeks)
-✅ Using historical database data for Begin Wallet (oldest data: 91 days old - immutable)
-✅ Using cached database data for NFTcdn (358 weeks)
-✅ Using historical database data for NFTcdn (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Charli3 (1000 weeks)
-✅ Using historical database data for Charli3 (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Tokeo (999 weeks)
-✅ Using historical database data for Tokeo (oldest data: 364 days old - immutable)
 ✅ Using cached database data for Charli3 (57 weeks)
 ✅ Using historical database data for Charli3 (oldest data: 28 days old - immutable)
+✅ Using cached database data for Charli3 (57 weeks)
+✅ Using historical database data for Charli3 (oldest data: 28 days old - immutable)
+✅ Using cached database data for Vault3 (7 weeks)
+✅ Using historical database data for Vault3 (oldest data: 28 days old - immutable)
+📊 Vault3: current:0, monthly:0, 3months:0, 52weeks:6, 3years:6
+✅ Using cached database data for Vault3 (103 weeks)
+✅ Using historical database data for Vault3 (oldest data: 364 days old - immutable)
+✅ Using cached database data for Vault3 (105 weeks)
+✅ Using historical database data for Vault3 (oldest data: 1092 days old - immutable)
+📊 Vault3: current:0, monthly:0, 3months:0, 52weeks:6, 3years:6
 ✅ Using cached database data for Begin Wallet (34 weeks)
 ✅ Using historical database data for Begin Wallet (oldest data: 28 days old - immutable)
 ✅ Using cached database data for Charli3 (224 weeks)
 ✅ Using historical database data for Charli3 (oldest data: 91 days old - immutable)
-📊 Charli3: current:0, monthly:96, 3months:180, 52weeks:503, 3years:687
+✅ Using cached database data for Tokeo (229 weeks)
+✅ Using historical database data for Tokeo (oldest data: 91 days old - immutable)
+✅ Using cached database data for NFTcdn (358 weeks)
+✅ Using historical database data for NFTcdn (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Tokeo (229 weeks)
+✅ Using historical database data for Tokeo (oldest data: 91 days old - immutable)
+✅ Using cached database data for Begin Wallet (592 weeks)
+✅ Using historical database data for Begin Wallet (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Begin Wallet (592 weeks)
+✅ Using historical database data for Begin Wallet (oldest data: 1092 days old - immutable)
+✅ Using cached database data for NFTcdn (19 weeks)
+✅ Using historical database data for NFTcdn (oldest data: 28 days old - immutable)
 ✅ Using cached database data for NFTcdn (309 weeks)
 ✅ Using historical database data for NFTcdn (oldest data: 364 days old - immutable)
+✅ Using cached database data for NFTcdn (73 weeks)
+✅ Using historical database data for NFTcdn (oldest data: 91 days old - immutable)
 📊 NFTcdn: current:0, monthly:0, 3months:0, 52weeks:74, 3years:376
 ✅ Using cached database data for Begin Wallet (524 weeks)
 ✅ Using historical database data for Begin Wallet (oldest data: 364 days old - immutable)
-✅ Using cached database data for Begin Wallet (592 weeks)
-✅ Using historical database data for Begin Wallet (oldest data: 1092 days old - immutable)
-📊 Begin Wallet: current:8, monthly:31, 3months:58, 52weeks:109, 3years:600
+✅ Using cached database data for Begin Wallet (524 weeks)
+✅ Using historical database data for Begin Wallet (oldest data: 364 days old - immutable)
+✅ Using cached database data for Tokeo (999 weeks)
+✅ Using historical database data for Tokeo (oldest data: 364 days old - immutable)
 ✅ Using cached database data for Tokeo (1000 weeks)
 ✅ Using historical database data for Tokeo (oldest data: 1092 days old - immutable)
-📊 Tokeo: current:0, monthly:2, 3months:28, 52weeks:911, 3years:1284
-✅ Batch 3 completed: 5 resources with all periods
+✅ Using cached database data for Begin Wallet (127 weeks)
+✅ Using historical database data for Begin Wallet (oldest data: 91 days old - immutable)
+✅ Using cached database data for Tokeo (1000 weeks)
+✅ Using historical database data for Tokeo (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Charli3 (1000 weeks)
+✅ Using historical database data for Charli3 (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Charli3 (1000 weeks)
+✅ Using historical database data for Charli3 (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Charli3 (956 weeks)
+✅ Using historical database data for Charli3 (oldest data: 364 days old - immutable)
+✅ Using cached database data for Charli3 (956 weeks)
+✅ Using historical database data for Charli3 (oldest data: 364 days old - immutable)
+✅ Using cached database data for Tokeo (999 weeks)
+✅ Using historical database data for Tokeo (oldest data: 364 days old - immutable)
 📦 Processing batch 4/5 (5 resources)
-✅ Using cached recent activity for Orcfax
-✅ Using cached recent activity for zkFold
-✅ Using cached recent activity for Masumi Network
-✅ Using cached recent activity for Demeter
-✅ Using cached recent activity for TxPipe Developer Tools
+⏰ Orcfax: Fetching commits since 2025-07-18T23:17:47.753Z (7 days, daily: true)
+🔄 Fetching recent activity for Orcfax (7 days)...
+⏰ zkFold: Fetching commits since 2025-07-18T23:17:47.754Z (7 days, daily: true)
+🔄 Fetching recent activity for zkFold (7 days)...
+⏰ Masumi Network: Fetching commits since 2025-07-18T23:17:47.755Z (7 days, daily: true)
+🔄 Fetching recent activity for Masumi Network (7 days)...
+⏰ Demeter: Fetching commits since 2025-07-18T23:17:47.755Z (7 days, daily: true)
+🔄 Fetching recent activity for Demeter (7 days)...
+⏰ TxPipe Developer Tools: Fetching commits since 2025-07-18T23:17:47.756Z (7 days, daily: true)
+🔄 Fetching recent activity for TxPipe Developer Tools (7 days)...
 ✅ Using cached database data for Masumi Network (7 weeks)
 ✅ Using historical database data for Masumi Network (oldest data: 28 days old - immutable)
-✅ Using cached database data for Masumi Network (25 weeks)
-✅ Using historical database data for Masumi Network (oldest data: 91 days old - immutable)
+✅ Using cached database data for Masumi Network (77 weeks)
+✅ Using historical database data for Masumi Network (oldest data: 364 days old - immutable)
+✅ Using cached database data for TxPipe Developer Tools (146 weeks)
+✅ Using historical database data for TxPipe Developer Tools (oldest data: 28 days old - immutable)
+✅ Using cached database data for zkFold (44 weeks)
+✅ Using historical database data for zkFold (oldest data: 28 days old - immutable)
 ✅ Using cached database data for Demeter (94 weeks)
 ✅ Using historical database data for Demeter (oldest data: 28 days old - immutable)
 ✅ Using cached database data for zkFold (170 weeks)
 ✅ Using historical database data for zkFold (oldest data: 91 days old - immutable)
-✅ Using cached database data for Orcfax (123 weeks)
-✅ Using historical database data for Orcfax (oldest data: 28 days old - immutable)
-✅ Using cached database data for Demeter (1000 weeks)
-✅ Using historical database data for Demeter (oldest data: 364 days old - immutable)
-✅ Using cached database data for zkFold (705 weeks)
-✅ Using historical database data for zkFold (oldest data: 364 days old - immutable)
-✅ Using cached database data for Masumi Network (77 weeks)
-✅ Using historical database data for Masumi Network (oldest data: 364 days old - immutable)
-✅ Using cached database data for zkFold (44 weeks)
-✅ Using historical database data for zkFold (oldest data: 28 days old - immutable)
-✅ Using cached database data for Orcfax (1000 weeks)
-✅ Using historical database data for Orcfax (oldest data: 1092 days old - immutable)
-✅ Using cached database data for TxPipe Developer Tools (146 weeks)
-✅ Using historical database data for TxPipe Developer Tools (oldest data: 28 days old - immutable)
 ✅ Using cached database data for Demeter (1000 weeks)
 ✅ Using historical database data for Demeter (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Masumi Network (78 weeks)
+✅ Using historical database data for Masumi Network (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Orcfax (123 weeks)
+✅ Using historical database data for Orcfax (oldest data: 28 days old - immutable)
+✅ Using cached database data for zkFold (705 weeks)
+✅ Using historical database data for zkFold (oldest data: 364 days old - immutable)
+✅ Using cached database data for Masumi Network (25 weeks)
+✅ Using historical database data for Masumi Network (oldest data: 91 days old - immutable)
+✅ Using cached database data for Orcfax (489 weeks)
+✅ Using historical database data for Orcfax (oldest data: 91 days old - immutable)
+✅ Using cached database data for TxPipe Developer Tools (574 weeks)
+✅ Using historical database data for TxPipe Developer Tools (oldest data: 91 days old - immutable)
+✅ Using cached database data for Demeter (1000 weeks)
+✅ Using historical database data for Demeter (oldest data: 364 days old - immutable)
+✅ Using cached database data for Demeter (366 weeks)
+✅ Using historical database data for Demeter (oldest data: 91 days old - immutable)
+✅ Using cached database data for TxPipe Developer Tools (1000 weeks)
+✅ Using historical database data for TxPipe Developer Tools (oldest data: 364 days old - immutable)
 ✅ Using cached database data for Orcfax (1000 weeks)
 ✅ Using historical database data for Orcfax (oldest data: 364 days old - immutable)
+✅ Using cached database data for Orcfax (1000 weeks)
+✅ Using historical database data for Orcfax (oldest data: 1092 days old - immutable)
+✅ Using cached database data for zkFold (730 weeks)
+✅ Using historical database data for zkFold (oldest data: 1092 days old - immutable)
+✅ Using cached database data for TxPipe Developer Tools (1000 weeks)
+✅ Using historical database data for TxPipe Developer Tools (oldest data: 1092 days old - immutable)
+Organization masumi-network/masumi-network not found or not accessible
+No repositories found for organization: masumi-network/masumi-network
+📈 Masumi Network: Found 0 raw commits, transformed to 0
+📅 Masumi Network: Processed 7 data points (daily: true)
+📊 Masumi Network: current:0, monthly:209, 3months:519, 52weeks:745, 3years:745
+📈 Aiken: Found 48 raw commits, transformed to 48
+📅 Aiken: Processed 7 data points (daily: false)
+Repository aiken-lang not found or not accessible
+🔍 GitHub updates request for OpShin (period: 4weeks)
+🔄 Using fallback data fetch for OpShin
+⏰ OpShin: Fetching commits since 2025-06-25T23:17:53.713Z (30 days, daily: false)
+🔄 Fetching recent activity for OpShin (30 days)...
+📈 Aiken: Found 48 raw commits, transformed to 48
+📅 Aiken: Processed 7 data points (daily: false)
+Repository aiken-lang not found or not accessible
+🔍 GitHub updates request for Cardano Delegation (period: 4weeks)
+🔄 Using fallback data fetch for Cardano Delegation
+⏰ Cardano Delegation: Fetching commits since 2025-06-25T23:17:55.243Z (30 days, daily: false)
+🔄 Fetching recent activity for Cardano Delegation (30 days)...
+Skipping Cardano Delegation - no valid GitHub URL found
+🔍 GitHub updates request for Cardano Serialization Lib (period: 4weeks)
+🔄 Using fallback data fetch for Cardano Serialization Lib
+⏰ Cardano Serialization Lib: Fetching commits since 2025-06-25T23:17:55.244Z (30 days, daily: false)
+🔄 Fetching recent activity for Cardano Serialization Lib (30 days)...
+🔍 GitHub updates request for CardanoSharp (period: 4weeks)
+🔄 Using fallback data fetch for CardanoSharp
+⏰ CardanoSharp: Fetching commits since 2025-06-25T23:17:55.245Z (30 days, daily: false)
+🔄 Fetching recent activity for CardanoSharp (30 days)...
+Repository n/a not found or not accessible
+📈 Cardano Serialization Lib: Found 10 raw commits, transformed to 10
+📅 Cardano Serialization Lib: Processed 2 data points (daily: false)
+📈 Charli3: Found 0 raw commits, transformed to 0
+📅 Charli3: Processed 7 data points (daily: true)
+📊 Charli3: current:0, monthly:96, 3months:180, 52weeks:503, 3years:687
+📈 Begin Wallet: Found 8 raw commits, transformed to 8
+📅 Begin Wallet: Processed 7 data points (daily: true)
+📊 Begin Wallet: current:8, monthly:31, 3months:58, 52weeks:109, 3years:600
+📈 Charli3: Found 0 raw commits, transformed to 0
+📅 Charli3: Processed 7 data points (daily: true)
+📊 Charli3: current:0, monthly:96, 3months:180, 52weeks:503, 3years:687
+📈 Tokeo: Found 0 raw commits, transformed to 0
+📅 Tokeo: Processed 7 data points (daily: true)
+📊 Tokeo: current:0, monthly:2, 3months:28, 52weeks:911, 3years:1284
+📈 Begin Wallet: Found 8 raw commits, transformed to 8
+📅 Begin Wallet: Processed 7 data points (daily: true)
+📊 Begin Wallet: current:8, monthly:31, 3months:58, 52weeks:109, 3years:600
+✅ Batch 3 completed: 5 resources with all periods
+📈 Tokeo: Found 0 raw commits, transformed to 0
+📅 Tokeo: Processed 7 data points (daily: true)
+📊 Tokeo: current:0, monthly:2, 3months:28, 52weeks:911, 3years:1284
+✅ Batch 3 completed: 5 resources with all periods
+📦 Processing batch 4/5 (5 resources)
+⏰ Orcfax: Fetching commits since 2025-07-18T23:17:57.800Z (7 days, daily: true)
+🔄 Fetching recent activity for Orcfax (7 days)...
+⏰ zkFold: Fetching commits since 2025-07-18T23:17:57.801Z (7 days, daily: true)
+🔄 Fetching recent activity for zkFold (7 days)...
+✅ Using cached recent activity for Masumi Network
+⏰ Demeter: Fetching commits since 2025-07-18T23:17:57.802Z (7 days, daily: true)
+🔄 Fetching recent activity for Demeter (7 days)...
+⏰ TxPipe Developer Tools: Fetching commits since 2025-07-18T23:17:57.802Z (7 days, daily: true)
+🔄 Fetching recent activity for TxPipe Developer Tools (7 days)...
+📦 Processing batch 4/5 (5 resources)
+⏰ Orcfax: Fetching commits since 2025-07-18T23:17:57.830Z (7 days, daily: true)
+🔄 Fetching recent activity for Orcfax (7 days)...
+⏰ zkFold: Fetching commits since 2025-07-18T23:17:57.830Z (7 days, daily: true)
+🔄 Fetching recent activity for zkFold (7 days)...
+✅ Using cached recent activity for Masumi Network
+⏰ Demeter: Fetching commits since 2025-07-18T23:17:57.831Z (7 days, daily: true)
+🔄 Fetching recent activity for Demeter (7 days)...
+⏰ TxPipe Developer Tools: Fetching commits since 2025-07-18T23:17:57.831Z (7 days, daily: true)
+🔄 Fetching recent activity for TxPipe Developer Tools (7 days)...
+✅ Using cached database data for Masumi Network (78 weeks)
+✅ Using historical database data for Masumi Network (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Masumi Network (77 weeks)
+✅ Using historical database data for Masumi Network (oldest data: 364 days old - immutable)
+✅ Using cached database data for Orcfax (489 weeks)
+✅ Using historical database data for Orcfax (oldest data: 91 days old - immutable)
+✅ Using cached database data for Orcfax (1000 weeks)
+✅ Using historical database data for Orcfax (oldest data: 364 days old - immutable)
+✅ Using cached database data for Masumi Network (25 weeks)
+✅ Using historical database data for Masumi Network (oldest data: 91 days old - immutable)
+✅ Using cached database data for Masumi Network (25 weeks)
+✅ Using historical database data for Masumi Network (oldest data: 91 days old - immutable)
+✅ Using cached database data for zkFold (44 weeks)
+✅ Using historical database data for zkFold (oldest data: 28 days old - immutable)
+✅ Using cached database data for TxPipe Developer Tools (146 weeks)
+✅ Using historical database data for TxPipe Developer Tools (oldest data: 28 days old - immutable)
+✅ Using cached database data for zkFold (170 weeks)
+✅ Using historical database data for zkFold (oldest data: 91 days old - immutable)
+✅ Using cached database data for zkFold (705 weeks)
+✅ Using historical database data for zkFold (oldest data: 364 days old - immutable)
 ✅ Using cached database data for TxPipe Developer Tools (574 weeks)
 ✅ Using historical database data for TxPipe Developer Tools (oldest data: 91 days old - immutable)
 ✅ Using cached database data for zkFold (730 weeks)
 ✅ Using historical database data for zkFold (oldest data: 1092 days old - immutable)
-📊 zkFold: current:9, monthly:175, 3months:554, 52weeks:862, 3years:916
+✅ Using cached database data for Demeter (1000 weeks)
+✅ Using historical database data for Demeter (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Masumi Network (7 weeks)
+✅ Using historical database data for Masumi Network (oldest data: 28 days old - immutable)
+📊 Masumi Network: current:0, monthly:209, 3months:519, 52weeks:745, 3years:745
+✅ Using cached database data for Masumi Network (7 weeks)
+✅ Using historical database data for Masumi Network (oldest data: 28 days old - immutable)
+✅ Using cached database data for TxPipe Developer Tools (146 weeks)
+✅ Using historical database data for TxPipe Developer Tools (oldest data: 28 days old - immutable)
+✅ Using cached database data for Orcfax (123 weeks)
+✅ Using historical database data for Orcfax (oldest data: 28 days old - immutable)
+✅ Using cached database data for Demeter (94 weeks)
+✅ Using historical database data for Demeter (oldest data: 28 days old - immutable)
+✅ Using cached database data for Orcfax (1000 weeks)
+✅ Using historical database data for Orcfax (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Orcfax (1000 weeks)
+✅ Using historical database data for Orcfax (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Orcfax (123 weeks)
+✅ Using historical database data for Orcfax (oldest data: 28 days old - immutable)
 ✅ Using cached database data for Orcfax (489 weeks)
 ✅ Using historical database data for Orcfax (oldest data: 91 days old - immutable)
-📊 Orcfax: current:4, monthly:37, 3months:148, 52weeks:397, 3years:756
+✅ Using cached database data for zkFold (730 weeks)
+✅ Using historical database data for zkFold (oldest data: 1092 days old - immutable)
+✅ Using cached database data for zkFold (170 weeks)
+✅ Using historical database data for zkFold (oldest data: 91 days old - immutable)
+✅ Using cached database data for zkFold (44 weeks)
+✅ Using historical database data for zkFold (oldest data: 28 days old - immutable)
+✅ Using cached database data for TxPipe Developer Tools (1000 weeks)
+✅ Using historical database data for TxPipe Developer Tools (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Demeter (1000 weeks)
+✅ Using historical database data for Demeter (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Masumi Network (77 weeks)
+✅ Using historical database data for Masumi Network (oldest data: 364 days old - immutable)
+✅ Using cached database data for Demeter (366 weeks)
+✅ Using historical database data for Demeter (oldest data: 91 days old - immutable)
+✅ Using cached database data for Demeter (366 weeks)
+✅ Using historical database data for Demeter (oldest data: 91 days old - immutable)
 ✅ Using cached database data for TxPipe Developer Tools (1000 weeks)
 ✅ Using historical database data for TxPipe Developer Tools (oldest data: 1092 days old - immutable)
 ✅ Using cached database data for Masumi Network (78 weeks)
 ✅ Using historical database data for Masumi Network (oldest data: 1092 days old - immutable)
 📊 Masumi Network: current:0, monthly:209, 3months:519, 52weeks:745, 3years:745
-✅ Using cached database data for Demeter (366 weeks)
-✅ Using historical database data for Demeter (oldest data: 91 days old - immutable)
-📊 Demeter: current:0, monthly:25, 3months:93, 52weeks:482, 3years:664
 ✅ Using cached database data for TxPipe Developer Tools (1000 weeks)
 ✅ Using historical database data for TxPipe Developer Tools (oldest data: 364 days old - immutable)
-📊 TxPipe Developer Tools: current:4, monthly:72, 3months:191, 52weeks:577, 3years:743
+✅ Using cached database data for TxPipe Developer Tools (574 weeks)
+✅ Using historical database data for TxPipe Developer Tools (oldest data: 91 days old - immutable)
+✅ Using cached database data for Demeter (94 weeks)
+✅ Using historical database data for Demeter (oldest data: 28 days old - immutable)
+✅ Using cached database data for Demeter (1000 weeks)
+✅ Using historical database data for Demeter (oldest data: 364 days old - immutable)
+✅ Using cached database data for Demeter (1000 weeks)
+✅ Using historical database data for Demeter (oldest data: 364 days old - immutable)
+✅ Using cached database data for TxPipe Developer Tools (1000 weeks)
+✅ Using historical database data for TxPipe Developer Tools (oldest data: 364 days old - immutable)
+✅ Using cached database data for zkFold (705 weeks)
+✅ Using historical database data for zkFold (oldest data: 364 days old - immutable)
+✅ Using cached database data for Orcfax (1000 weeks)
+✅ Using historical database data for Orcfax (oldest data: 364 days old - immutable)
+Repository demeter-run/ext-cardano-dolos is empty or has no commits
+📈 Demeter: Found 0 raw commits, transformed to 0
+📅 Demeter: Processed 7 data points (daily: true)
+📊 Demeter: current:0, monthly:25, 3months:93, 52weeks:482, 3years:664
+📈 TxPipe Developer Tools: Found 5 raw commits, transformed to 5
+📅 TxPipe Developer Tools: Processed 7 data points (daily: true)
+📊 TxPipe Developer Tools: current:5, monthly:72, 3months:191, 52weeks:577, 3years:743
+📈 zkFold: Found 9 raw commits, transformed to 9
+📅 zkFold: Processed 7 data points (daily: true)
+📊 zkFold: current:9, monthly:175, 3months:554, 52weeks:862, 3years:916
+📈 Orcfax: Found 4 raw commits, transformed to 4
+📅 Orcfax: Processed 7 data points (daily: true)
+📊 Orcfax: current:4, monthly:37, 3months:148, 52weeks:397, 3years:756
 ✅ Batch 4 completed: 5 resources with all periods
 📦 Processing batch 5/5 (1 resources)
-✅ Using cached recent activity for Midgard
+⏰ Midgard: Fetching commits since 2025-07-18T23:18:00.825Z (7 days, daily: true)
+🔄 Fetching recent activity for Midgard (7 days)...
+✅ Using cached database data for Midgard (169 weeks)
+✅ Using historical database data for Midgard (oldest data: 28 days old - immutable)
 ✅ Using cached database data for Midgard (674 weeks)
 ✅ Using historical database data for Midgard (oldest data: 91 days old - immutable)
 ✅ Using cached database data for Midgard (1000 weeks)
-✅ Using historical database data for Midgard (oldest data: 1092 days old - immutable)
-✅ Using cached database data for Midgard (1000 weeks)
 ✅ Using historical database data for Midgard (oldest data: 364 days old - immutable)
-✅ Using cached database data for Midgard (169 weeks)
-✅ Using historical database data for Midgard (oldest data: 28 days old - immutable)
-📊 Midgard: current:0, monthly:49, 3months:280, 52weeks:541, 3years:1190
-✅ Batch 5 completed: 1 resources with all periods
-🔍 Extracted 21 resources for current period
-Successfully processed 7 organizations with activity for current period
-⚡ Using server cache for repository view (172s old)
-⚡ Using server cache for organization view (5s old)
-🌍 Global GitHub request for 44 resources
-✅ Using cached recent activity for Aiken
-✅ Using cached recent activity for OpShin
-✅ Using cached recent activity for Helios
-✅ Using cached recent activity for MeshJS
-✅ Using cached recent activity for Lucid
-✅ Using cached recent activity for PyCardano
-✅ Using cached recent activity for Marlowe
-✅ Using cached recent activity for Cardano Serialization Lib
-✅ Using cached recent activity for Blaze
-✅ Using cached recent activity for CardanoSharp
-✅ Using cached recent activity for Cardano CLI
-✅ Using cached recent activity for Kupo
-✅ Using cached recent activity for NMKR Godot Plugin
-✅ Using cached recent activity for NMKR Unity SDK
-✅ Using cached recent activity for Koios
-✅ Using cached recent activity for Dandelion
-✅ Using cached recent activity for Blockfrost API
-✅ Using cached recent activity for Maestro
-✅ Using cached recent activity for Cardano GraphQL API
-✅ Using cached recent activity for Carp
-⚡ Using server cache for repository view (195s old)
-✅ Using cached recent activity for NMKR API
-✅ Using cached recent activity for NFTcdn
-✅ Using cached recent activity for Cardano DB Sync
-✅ Using cached recent activity for Plutus Pioneer Program
-✅ Using cached recent activity for Cardano CIPs
-✅ Using cached recent activity for OpShin Pioneer Program
-✅ Using cached recent activity for Cardano Foundation Docs
-✅ Using cached recent activity for Lace Wallet
-✅ Using cached recent activity for Begin Wallet
-✅ Using cached recent activity for Tokeo
-✅ Using cached recent activity for Vault3
-✅ Using cached recent activity for Charli3
-✅ Using cached recent activity for Orcfax
-✅ Using cached recent activity for zkFold
-✅ Using cached recent activity for Masumi Network
-✅ Using cached recent activity for Sokosumi
-✅ Using cached recent activity for Kodosumi
-✅ Using cached recent activity for Demeter
-✅ Using cached recent activity for TxPipe Developer Tools
-✅ Using cached recent activity for Vibrant
-🌍 Global GitHub request for 44 resources
-✅ Using cached recent activity for Aiken
-✅ Using cached recent activity for OpShin
-✅ Using cached recent activity for Helios
-✅ Using cached recent activity for MeshJS
-✅ Using cached recent activity for Lucid
-✅ Using cached recent activity for Cardano Node
-✅ Using cached recent activity for Ogmios
-✅ Using cached recent activity for Hydra
-✅ Using cached recent activity for Midgard
-✅ Global GitHub request completed: 44/44 successful
-✅ Using cached recent activity for PyCardano
-✅ Using cached recent activity for Marlowe
-✅ Using cached recent activity for Cardano Serialization Lib
-✅ Using cached recent activity for Blaze
-✅ Using cached recent activity for CardanoSharp
-✅ Using cached recent activity for Cardano CLI
-✅ Using cached recent activity for Kupo
-✅ Using cached recent activity for NMKR Godot Plugin
-✅ Using cached recent activity for NMKR Unity SDK
-✅ Using cached recent activity for Koios
-✅ Using cached recent activity for Dandelion
-✅ Using cached recent activity for Blockfrost API
-✅ Using cached recent activity for Maestro
-✅ Using cached recent activity for Cardano GraphQL API
-✅ Using cached recent activity for Carp
-✅ Using cached recent activity for NMKR API
-✅ Using cached recent activity for NFTcdn
-✅ Using cached recent activity for Cardano DB Sync
-✅ Using cached recent activity for Plutus Pioneer Program
-✅ Using cached recent activity for Cardano CIPs
-✅ Using cached recent activity for OpShin Pioneer Program
-✅ Using cached recent activity for Cardano Foundation Docs
-✅ Using cached recent activity for Lace Wallet
-✅ Using cached recent activity for Begin Wallet
-✅ Using cached recent activity for Tokeo
-✅ Using cached recent activity for Vault3
-✅ Using cached recent activity for Charli3
-✅ Using cached recent activity for Orcfax
-✅ Using cached recent activity for zkFold
-✅ Using cached recent activity for Masumi Network
-✅ Using cached recent activity for Sokosumi
-✅ Using cached recent activity for Kodosumi
-✅ Using cached recent activity for Demeter
-✅ Using cached recent activity for TxPipe Developer Tools
-✅ Using cached recent activity for Vibrant
-✅ Using cached recent activity for Cardano Node
-✅ Using cached recent activity for Ogmios
-✅ Using cached recent activity for Hydra
-✅ Using cached recent activity for Midgard
-✅ Global GitHub request completed: 44/44 successful
-🔍 GitHub updates request for Aiken (period: 4weeks)
-🔄 Using fallback data fetch for Aiken
-✅ Using cached recent activity for Aiken
-⚡ Using server cache for repository view (236s old)
-Repository aiken-lang not found or not accessible
-🔍 GitHub updates request for OpShin (period: 4weeks)
-🔄 Using fallback data fetch for OpShin
-✅ Using cached recent activity for OpShin
-🔍 GitHub updates request for Aiken (period: 4weeks)
-🔄 Using fallback data fetch for Aiken
-✅ Using cached recent activity for Aiken
-🔍 GitHub updates request for Blaze (period: 4weeks)
-🔄 Using fallback data fetch for Blaze
-✅ Using cached recent activity for Blaze
-🔍 GitHub updates request for Cardano CLI (period: 4weeks)
-🔄 Using fallback data fetch for Cardano CLI
-✅ Using cached recent activity for Cardano CLI
-Repository aiken-lang not found or not accessible
+✅ Using cached database data for Midgard (1000 weeks)
+✅ Using historical database data for Midgard (oldest data: 1092 days old - immutable)
+📈 OpShin: Found 0 raw commits, transformed to 0
+📅 OpShin: Processed 0 data points (daily: false)
 Repository OpShin not found or not accessible
-🔍 GitHub updates request for Cardano Delegation (period: 4weeks)
-🔄 Using fallback data fetch for Cardano Delegation
-✅ Using cached recent activity for Cardano Delegation
-🔍 GitHub updates request for Cardano Serialization Lib (period: 4weeks)
-🔄 Using fallback data fetch for Cardano Serialization Lib
-✅ Using cached recent activity for Cardano Serialization Lib
-🔍 GitHub updates request for CardanoSharp (period: 4weeks)
-🔄 Using fallback data fetch for CardanoSharp
-✅ Using cached recent activity for CardanoSharp
+📈 CardanoSharp: Found 0 raw commits, transformed to 0
+📅 CardanoSharp: Processed 0 data points (daily: false)
+Repository CardanoSharp not found or not accessible
 🔍 GitHub updates request for Helios (period: 4weeks)
 🔄 Using fallback data fetch for Helios
-✅ Using cached recent activity for Helios
-⚡ Using server cache for repository view (247s old)
-🔍 GitHub updates request for Aiken (period: 4weeks)
-🔄 Using fallback data fetch for Aiken
-✅ Using cached recent activity for Aiken
-🔍 GitHub updates request for Aiken (period: 4weeks)
-🔄 Using fallback data fetch for Aiken
-✅ Using cached recent activity for Aiken
-🔍 GitHub updates request for Blaze (period: 4weeks)
-🔄 Using fallback data fetch for Blaze
-✅ Using cached recent activity for Blaze
-🔍 GitHub updates request for Cardano CLI (period: 4weeks)
-🔄 Using fallback data fetch for Cardano CLI
-✅ Using cached recent activity for Cardano CLI
-⚡ Using server cache for repository view (262s old)
-⚡ Using server cache for repository view (262s old)
-⚡ Using server cache for organization view (95s old)
-Repository CardanoSharp not found or not accessible
-Repository n/a not found or not accessible
-Repository aiken-lang not found or not accessible
-Repository aiken-lang not found or not accessible
-🔍 GitHub updates request for Cardano Delegation (period: 4weeks)
-🔄 Using fallback data fetch for Cardano Delegation
-✅ Using cached recent activity for Cardano Delegation
-🔍 GitHub updates request for Cardano Serialization Lib (period: 4weeks)
-🔄 Using fallback data fetch for Cardano Serialization Lib
-✅ Using cached recent activity for Cardano Serialization Lib
-🔍 GitHub updates request for CardanoSharp (period: 4weeks)
-🔄 Using fallback data fetch for CardanoSharp
-✅ Using cached recent activity for CardanoSharp
-🔍 GitHub updates request for OpShin (period: 4weeks)
-🔄 Using fallback data fetch for OpShin
-✅ Using cached recent activity for OpShin
-Repository n/a not found or not accessible
-Repository CardanoSharp not found or not accessible
-Repository OpShin not found or not accessible
+⏰ Helios: Fetching commits since 2025-06-25T23:18:06.247Z (30 days, daily: false)
+🔄 Fetching recent activity for Helios (30 days)...
+📈 Helios: Found 0 raw commits, transformed to 0
+📅 Helios: Processed 0 data points (daily: false)
 🔍 GitHub updates request for Helios (period: 4weeks)
 🔄 Using fallback data fetch for Helios
 ✅ Using cached recent activity for Helios
 🔍 GitHub updates request for Kupo (period: 4weeks)
 🔄 Using fallback data fetch for Kupo
-✅ Using cached recent activity for Kupo
+⏰ Kupo: Fetching commits since 2025-06-25T23:18:07.242Z (30 days, daily: false)
+🔄 Fetching recent activity for Kupo (30 days)...
 🔍 GitHub updates request for Lucid (period: 4weeks)
 🔄 Using fallback data fetch for Lucid
-✅ Using cached recent activity for Lucid
-🔍 GitHub updates request for Helios (period: 4weeks)
-🔄 Using fallback data fetch for Helios
-✅ Using cached recent activity for Helios
+⏰ Lucid: Fetching commits since 2025-06-25T23:18:07.243Z (30 days, daily: false)
+🔄 Fetching recent activity for Lucid (30 days)...
+📈 zkFold: Found 9 raw commits, transformed to 9
+📅 zkFold: Processed 7 data points (daily: true)
+📊 zkFold: current:9, monthly:175, 3months:554, 52weeks:862, 3years:916
+Repository demeter-run/ext-cardano-dolos is empty or has no commits
+📈 Demeter: Found 0 raw commits, transformed to 0
+📅 Demeter: Processed 7 data points (daily: true)
+📊 Demeter: current:0, monthly:25, 3months:93, 52weeks:482, 3years:664
+📈 Kupo: Found 0 raw commits, transformed to 0
+📅 Kupo: Processed 0 data points (daily: false)
+📈 TxPipe Developer Tools: Found 5 raw commits, transformed to 5
+📅 TxPipe Developer Tools: Processed 7 data points (daily: true)
+📊 TxPipe Developer Tools: current:5, monthly:72, 3months:191, 52weeks:577, 3years:743
+Repository demeter-run/ext-cardano-dolos is empty or has no commits
+📈 Demeter: Found 0 raw commits, transformed to 0
+📅 Demeter: Processed 7 data points (daily: true)
+📊 Demeter: current:0, monthly:25, 3months:93, 52weeks:482, 3years:664
+📈 Orcfax: Found 4 raw commits, transformed to 4
+📅 Orcfax: Processed 7 data points (daily: true)
+📊 Orcfax: current:4, monthly:37, 3months:148, 52weeks:397, 3years:756
+📈 TxPipe Developer Tools: Found 5 raw commits, transformed to 5
+📅 TxPipe Developer Tools: Processed 7 data points (daily: true)
+📊 TxPipe Developer Tools: current:5, monthly:72, 3months:191, 52weeks:577, 3years:743
+📈 Lucid: Found 2 raw commits, transformed to 2
+📅 Lucid: Processed 2 data points (daily: false)
+📈 Orcfax: Found 4 raw commits, transformed to 4
+📅 Orcfax: Processed 7 data points (daily: true)
+📊 Orcfax: current:4, monthly:37, 3months:148, 52weeks:397, 3years:756
+✅ Batch 4 completed: 5 resources with all periods
+📈 zkFold: Found 9 raw commits, transformed to 9
+📅 zkFold: Processed 7 data points (daily: true)
+📊 zkFold: current:9, monthly:175, 3months:554, 52weeks:862, 3years:916
+✅ Batch 4 completed: 5 resources with all periods
+📦 Processing batch 5/5 (1 resources)
+⏰ Midgard: Fetching commits since 2025-07-18T23:18:08.867Z (7 days, daily: true)
+🔄 Fetching recent activity for Midgard (7 days)...
+📦 Processing batch 5/5 (1 resources)
+⏰ Midgard: Fetching commits since 2025-07-18T23:18:08.928Z (7 days, daily: true)
+🔄 Fetching recent activity for Midgard (7 days)...
+✅ Using cached database data for Midgard (674 weeks)
+✅ Using historical database data for Midgard (oldest data: 91 days old - immutable)
+✅ Using cached database data for Midgard (1000 weeks)
+✅ Using historical database data for Midgard (oldest data: 364 days old - immutable)
+✅ Using cached database data for Midgard (169 weeks)
+✅ Using historical database data for Midgard (oldest data: 28 days old - immutable)
+✅ Using cached database data for Midgard (169 weeks)
+✅ Using historical database data for Midgard (oldest data: 28 days old - immutable)
+✅ Using cached database data for Midgard (674 weeks)
+✅ Using historical database data for Midgard (oldest data: 91 days old - immutable)
+✅ Using cached database data for Midgard (1000 weeks)
+✅ Using historical database data for Midgard (oldest data: 364 days old - immutable)
+✅ Using cached database data for Midgard (1000 weeks)
+✅ Using historical database data for Midgard (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Midgard (1000 weeks)
+✅ Using historical database data for Midgard (oldest data: 1092 days old - immutable)
 🔍 GitHub updates request for Marlowe (period: 4weeks)
 🔄 Using fallback data fetch for Marlowe
-✅ Using cached recent activity for Marlowe
+⏰ Marlowe: Fetching commits since 2025-06-25T23:18:10.243Z (30 days, daily: false)
+🔄 Fetching recent activity for Marlowe (30 days)...
 🔍 GitHub updates request for MeshJS (period: 4weeks)
 🔄 Using fallback data fetch for MeshJS
-✅ Using cached recent activity for MeshJS
+⏰ MeshJS: Fetching commits since 2025-06-25T23:18:10.244Z (30 days, daily: false)
+🔄 Fetching recent activity for MeshJS (30 days)...
 🔍 GitHub updates request for NMKR Godot Plugin (period: 4weeks)
 🔄 Using fallback data fetch for NMKR Godot Plugin
-✅ Using cached recent activity for NMKR Godot Plugin
+⏰ NMKR Godot Plugin: Fetching commits since 2025-06-25T23:18:10.244Z (30 days, daily: false)
+🔄 Fetching recent activity for NMKR Godot Plugin (30 days)...
+📈 NMKR Godot Plugin: Found 0 raw commits, transformed to 0
+📅 NMKR Godot Plugin: Processed 0 data points (daily: false)
+📈 Midgard: Found 0 raw commits, transformed to 0
+📅 Midgard: Processed 7 data points (daily: true)
+📊 Midgard: current:0, monthly:49, 3months:280, 52weeks:541, 3years:1190
+✅ Batch 5 completed: 1 resources with all periods
+🔍 Extracted 21 resources for current period
+Successfully processed 7 organizations with activity for current period
+✅ Organization view cache preloaded
+🚀 Startup cache preloading completed - both views ready for instant load!
+📈 Midgard: Found 0 raw commits, transformed to 0
+📅 Midgard: Processed 7 data points (daily: true)
+📊 Midgard: current:0, monthly:49, 3months:280, 52weeks:541, 3years:1190
+✅ Batch 5 completed: 1 resources with all periods
+🔍 Extracted 21 resources for monthly period
+Successfully processed 16 organizations with activity for monthly period
+📈 Midgard: Found 0 raw commits, transformed to 0
+📅 Midgard: Processed 7 data points (daily: true)
+📊 Midgard: current:0, monthly:49, 3months:280, 52weeks:541, 3years:1190
+✅ Batch 5 completed: 1 resources with all periods
+🔍 Extracted 21 resources for monthly period
+Successfully processed 16 organizations with activity for monthly period
+📈 MeshJS: Found 52 raw commits, transformed to 52
+📅 MeshJS: Processed 5 data points (daily: false)
+📈 Marlowe: Found 0 raw commits, transformed to 0
+📅 Marlowe: Processed 0 data points (daily: false)
 Repository marlowe-lang not found or not accessible
 Repository meshjs not found or not accessible
 🔍 GitHub updates request for NMKR Unity SDK (period: 4weeks)
 🔄 Using fallback data fetch for NMKR Unity SDK
-✅ Using cached recent activity for NMKR Unity SDK
+⏰ NMKR Unity SDK: Fetching commits since 2025-06-25T23:18:22.244Z (30 days, daily: false)
+🔄 Fetching recent activity for NMKR Unity SDK (30 days)...
 🔍 GitHub updates request for OpShin (period: 4weeks)
 🔄 Using fallback data fetch for OpShin
 ✅ Using cached recent activity for OpShin
 🔍 GitHub updates request for PyCardano (period: 4weeks)
 🔄 Using fallback data fetch for PyCardano
-✅ Using cached recent activity for PyCardano
+⏰ PyCardano: Fetching commits since 2025-06-25T23:18:22.246Z (30 days, daily: false)
+🔄 Fetching recent activity for PyCardano (30 days)...
 Repository OpShin not found or not accessible
+📈 PyCardano: Found 1 raw commits, transformed to 1
+📅 PyCardano: Processed 1 data points (daily: false)
+📈 NMKR Unity SDK: Found 0 raw commits, transformed to 0
+📅 NMKR Unity SDK: Processed 0 data points (daily: false)
 🔍 GitHub updates request for Blockfrost API (period: 4weeks)
 🔄 Using fallback data fetch for Blockfrost API
-✅ Using cached recent activity for Blockfrost API
+⏰ Blockfrost API: Fetching commits since 2025-06-25T23:18:39.242Z (30 days, daily: false)
+🔄 Fetching recent activity for Blockfrost API (30 days)...
 🔍 GitHub updates request for Cardano GraphQL API (period: 4weeks)
 🔄 Using fallback data fetch for Cardano GraphQL API
-✅ Using cached recent activity for Cardano GraphQL API
+⏰ Cardano GraphQL API: Fetching commits since 2025-06-25T23:18:39.243Z (30 days, daily: false)
+🔄 Fetching recent activity for Cardano GraphQL API (30 days)...
 🔍 GitHub updates request for Carp (period: 4weeks)
 🔄 Using fallback data fetch for Carp
-✅ Using cached recent activity for Carp
+⏰ Carp: Fetching commits since 2025-06-25T23:18:39.245Z (30 days, daily: false)
+🔄 Fetching recent activity for Carp (30 days)...
+📈 Cardano GraphQL API: Found 0 raw commits, transformed to 0
+📅 Cardano GraphQL API: Processed 0 data points (daily: false)
+📈 Carp: Found 0 raw commits, transformed to 0
+📅 Carp: Processed 0 data points (daily: false)
+📈 Blockfrost API: Found 0 raw commits, transformed to 0
+📅 Blockfrost API: Processed 0 data points (daily: false)
 Repository blockfrost not found or not accessible
 🔍 GitHub updates request for Dandelion (period: 4weeks)
 🔄 Using fallback data fetch for Dandelion
-✅ Using cached recent activity for Dandelion
+⏰ Dandelion: Fetching commits since 2025-06-25T23:18:50.243Z (30 days, daily: false)
+🔄 Fetching recent activity for Dandelion (30 days)...
 🔍 GitHub updates request for Koios (period: 4weeks)
 🔄 Using fallback data fetch for Koios
-✅ Using cached recent activity for Koios
+⏰ Koios: Fetching commits since 2025-06-25T23:18:50.244Z (30 days, daily: false)
+🔄 Fetching recent activity for Koios (30 days)...
+Repository koios-official/.github is empty or has no commits
+📈 Dandelion: Found 0 raw commits, transformed to 0
+📅 Dandelion: Processed 0 data points (daily: false)
 Repository gimbalabs not found or not accessible
+📈 Koios: Found 8 raw commits, transformed to 8
+📅 Koios: Processed 4 data points (daily: false)
 Repository koios-official not found or not accessible
+⚡ Using server cache for repository view (142s old)
+⚡ Using server cache for repository view (142s old)
+⚡ Using server cache for organization view (77s old)
+🔍 GitHub updates request for Sokosumi (period: 4weeks)
+🔄 Using fallback data fetch for Sokosumi
+⏰ Sokosumi: Fetching commits since 2025-06-25T23:19:44.291Z (30 days, daily: false)
+🔄 Fetching recent activity for Sokosumi (30 days)...
+🔍 GitHub updates request for Sokosumi (period: 3months)
+🔄 Using fallback data fetch for Sokosumi
+⏰ Sokosumi: Fetching commits since 2025-06-25T23:19:44.303Z (30 days, daily: false)
+🔄 Fetching recent activity for Sokosumi (30 days)...
+🔍 GitHub updates request for Sokosumi (period: 52weeks)
+🔄 Using fallback data fetch for Sokosumi
+⏰ Sokosumi: Fetching commits since 2025-06-25T23:19:44.304Z (30 days, daily: false)
+🔄 Fetching recent activity for Sokosumi (30 days)...
+📈 Sokosumi: Found 100 raw commits, transformed to 100
+📅 Sokosumi: Processed 3 data points (daily: false)
+📈 Sokosumi: Found 100 raw commits, transformed to 100
+📅 Sokosumi: Processed 3 data points (daily: false)
+📈 Sokosumi: Found 100 raw commits, transformed to 100
+📅 Sokosumi: Processed 3 data points (daily: false)
+🔍 GitHub updates request for Demeter (period: 4weeks)
+🔄 Using fallback data fetch for Demeter
+⏰ Demeter: Fetching commits since 2025-06-25T23:20:24.722Z (30 days, daily: false)
+🔄 Fetching recent activity for Demeter (30 days)...
+🔍 GitHub updates request for Demeter (period: 3months)
+🔄 Using fallback data fetch for Demeter
+⏰ Demeter: Fetching commits since 2025-06-25T23:20:24.754Z (30 days, daily: false)
+🔄 Fetching recent activity for Demeter (30 days)...
+🔍 GitHub updates request for Demeter (period: 52weeks)
+🔄 Using fallback data fetch for Demeter
+⏰ Demeter: Fetching commits since 2025-06-25T23:20:24.754Z (30 days, daily: false)
+🔄 Fetching recent activity for Demeter (30 days)...
+Repository demeter-run/ext-cardano-dolos is empty or has no commits
+📈 Demeter: Found 18 raw commits, transformed to 18
+📅 Demeter: Processed 4 data points (daily: false)
+Repository demeter-run/ext-cardano-dolos is empty or has no commits
+📈 Demeter: Found 18 raw commits, transformed to 18
+📅 Demeter: Processed 4 data points (daily: false)
+Repository demeter-run/ext-cardano-dolos is empty or has no commits
+📈 Demeter: Found 18 raw commits, transformed to 18
+📅 Demeter: Processed 4 data points (daily: false)
+Repository demeter-run not found or not accessible
+Repository demeter-run not found or not accessible
+Repository demeter-run not found or not accessible
+🔍 GitHub updates request for Vault3 (period: 4weeks)
+🔄 Using fallback data fetch for Vault3
+⏰ Vault3: Fetching commits since 2025-06-25T23:20:53.860Z (30 days, daily: false)
+🔄 Fetching recent activity for Vault3 (30 days)...
+🔍 GitHub updates request for Vault3 (period: 3months)
+🔄 Using fallback data fetch for Vault3
+⏰ Vault3: Fetching commits since 2025-06-25T23:20:53.876Z (30 days, daily: false)
+🔄 Fetching recent activity for Vault3 (30 days)...
+🔍 GitHub updates request for Vault3 (period: 52weeks)
+🔄 Using fallback data fetch for Vault3
+⏰ Vault3: Fetching commits since 2025-06-25T23:20:53.877Z (30 days, daily: false)
+🔄 Fetching recent activity for Vault3 (30 days)...
+🔍 GitHub updates request for Cardano GraphQL API (period: 4weeks)
+🔄 Using fallback data fetch for Cardano GraphQL API
+✅ Using cached recent activity for Cardano GraphQL API
+🔍 GitHub updates request for Cardano GraphQL API (period: 3months)
+🔄 Using fallback data fetch for Cardano GraphQL API
+⏰ Cardano GraphQL API: Fetching commits since 2025-06-25T23:21:01.656Z (30 days, daily: false)
+🔄 Fetching recent activity for Cardano GraphQL API (30 days)...
+🔍 GitHub updates request for Cardano GraphQL API (period: 52weeks)
+🔄 Using fallback data fetch for Cardano GraphQL API
+⏰ Cardano GraphQL API: Fetching commits since 2025-06-25T23:21:01.678Z (30 days, daily: false)
+🔄 Fetching recent activity for Cardano GraphQL API (30 days)...
+📈 Cardano GraphQL API: Found 0 raw commits, transformed to 0
+📅 Cardano GraphQL API: Processed 0 data points (daily: false)
+📈 Cardano GraphQL API: Found 0 raw commits, transformed to 0
+📅 Cardano GraphQL API: Processed 0 data points (daily: false)
+📈 Vault3: Found 0 raw commits, transformed to 0
+📅 Vault3: Processed 0 data points (daily: false)
+📈 Vault3: Found 0 raw commits, transformed to 0
+📅 Vault3: Processed 0 data points (daily: false)
+📈 Vault3: Found 0 raw commits, transformed to 0
+📅 Vault3: Processed 0 data points (daily: false)
+Repository vault3-io/ not found or not accessible
+Repository vault3-io/ not found or not accessible
+Repository vault3-io/ not found or not accessible
 🔍 GitHub updates request for Aiken (period: 4weeks)
 🔄 Using fallback data fetch for Aiken
 ✅ Using cached recent activity for Aiken
-Repository aiken-lang not found or not accessible
-🔍 GitHub updates request for OpShin (period: 4weeks)
-🔄 Using fallback data fetch for OpShin
-✅ Using cached recent activity for OpShin
-🔍 GitHub updates request for Aiken (period: 4weeks)
+🔍 GitHub updates request for Aiken (period: 3months)
 🔄 Using fallback data fetch for Aiken
-✅ Using cached recent activity for Aiken
-🔍 GitHub updates request for Blaze (period: 4weeks)
-🔄 Using fallback data fetch for Blaze
-✅ Using cached recent activity for Blaze
-🔍 GitHub updates request for Cardano CLI (period: 4weeks)
-🔄 Using fallback data fetch for Cardano CLI
-✅ Using cached recent activity for Cardano CLI
-🔍 GitHub updates request for Aiken (period: 4weeks)
+⏰ Aiken: Fetching commits since 2025-06-25T23:21:40.080Z (30 days, daily: false)
+🔄 Fetching recent activity for Aiken (30 days)...
+🔍 GitHub updates request for Aiken (period: 52weeks)
 🔄 Using fallback data fetch for Aiken
-✅ Using cached recent activity for Aiken
-🔍 GitHub updates request for Aiken (period: 4weeks)
-🔄 Using fallback data fetch for Aiken
-✅ Using cached recent activity for Aiken
-🔍 GitHub updates request for Blaze (period: 4weeks)
-🔄 Using fallback data fetch for Blaze
-✅ Using cached recent activity for Blaze
-🔍 GitHub updates request for Cardano CLI (period: 4weeks)
-🔄 Using fallback data fetch for Cardano CLI
-✅ Using cached recent activity for Cardano CLI
+⏰ Aiken: Fetching commits since 2025-06-25T23:21:40.082Z (30 days, daily: false)
+🔄 Fetching recent activity for Aiken (30 days)...
+🔍 GitHub updates request for Kodosumi (period: 4weeks)
+🔄 Using fallback data fetch for Kodosumi
+⏰ Kodosumi: Fetching commits since 2025-06-25T23:21:50.860Z (30 days, daily: false)
+🔄 Fetching recent activity for Kodosumi (30 days)...
+🔍 GitHub updates request for Kodosumi (period: 3months)
+🔄 Using fallback data fetch for Kodosumi
+⏰ Kodosumi: Fetching commits since 2025-06-25T23:21:50.862Z (30 days, daily: false)
+🔄 Fetching recent activity for Kodosumi (30 days)...
+🔍 GitHub updates request for Kodosumi (period: 52weeks)
+🔄 Using fallback data fetch for Kodosumi
+⏰ Kodosumi: Fetching commits since 2025-06-25T23:21:50.862Z (30 days, daily: false)
+🔄 Fetching recent activity for Kodosumi (30 days)...
+Repository aiken-lang not found or not accessible
+📈 Kodosumi: Found 1 raw commits, transformed to 1
+📅 Kodosumi: Processed 1 data points (daily: false)
+📈 Kodosumi: Found 1 raw commits, transformed to 1
+📅 Kodosumi: Processed 1 data points (daily: false)
+📈 Kodosumi: Found 1 raw commits, transformed to 1
+📅 Kodosumi: Processed 1 data points (daily: false)
+📈 Aiken: Found 48 raw commits, transformed to 48
+📅 Aiken: Processed 7 data points (daily: false)
+📈 Aiken: Found 48 raw commits, transformed to 48
+📅 Aiken: Processed 7 data points (daily: false)
 Repository aiken-lang not found or not accessible
 Repository aiken-lang not found or not accessible
-Repository OpShin not found or not accessible
-Repository aiken-lang not found or not accessible
-🔍 GitHub updates request for Cardano Delegation (period: 4weeks)
-🔄 Using fallback data fetch for Cardano Delegation
-✅ Using cached recent activity for Cardano Delegation
-🔍 GitHub updates request for Cardano Serialization Lib (period: 4weeks)
-🔄 Using fallback data fetch for Cardano Serialization Lib
-✅ Using cached recent activity for Cardano Serialization Lib
-🔍 GitHub updates request for CardanoSharp (period: 4weeks)
-🔄 Using fallback data fetch for CardanoSharp
-✅ Using cached recent activity for CardanoSharp
-🔍 GitHub updates request for OpShin (period: 4weeks)
-🔄 Using fallback data fetch for OpShin
-✅ Using cached recent activity for OpShin
-🔍 GitHub updates request for Aiken (period: 4weeks)
-🔄 Using fallback data fetch for Aiken
-✅ Using cached recent activity for Aiken
-⚡ Using server cache for repository view (533s old)
-🔍 GitHub updates request for Aiken (period: 4weeks)
-🔄 Using fallback data fetch for Aiken
-✅ Using cached recent activity for Aiken
-🔍 GitHub updates request for Blaze (period: 4weeks)
-🔄 Using fallback data fetch for Blaze
-✅ Using cached recent activity for Blaze
-🔍 GitHub updates request for Cardano CLI (period: 4weeks)
-🔄 Using fallback data fetch for Cardano CLI
-✅ Using cached recent activity for Cardano CLI
-Repository aiken-lang not found or not accessible
-Repository n/a not found or not accessible
-Repository aiken-lang not found or not accessible
-Repository CardanoSharp not found or not accessible
-Repository OpShin not found or not accessible
-🔍 GitHub updates request for Cardano Delegation (period: 4weeks)
-🔄 Using fallback data fetch for Cardano Delegation
-✅ Using cached recent activity for Cardano Delegation
-🔍 GitHub updates request for Cardano Serialization Lib (period: 4weeks)
-🔄 Using fallback data fetch for Cardano Serialization Lib
-✅ Using cached recent activity for Cardano Serialization Lib
-🔍 GitHub updates request for CardanoSharp (period: 4weeks)
-🔄 Using fallback data fetch for CardanoSharp
-✅ Using cached recent activity for CardanoSharp
-🔍 GitHub updates request for OpShin (period: 4weeks)
-🔄 Using fallback data fetch for OpShin
-✅ Using cached recent activity for OpShin
-Repository n/a not found or not accessible
-Repository OpShin not found or not accessible
-Repository CardanoSharp not found or not accessible
-🔍 GitHub updates request for Helios (period: 4weeks)
-🔄 Using fallback data fetch for Helios
-✅ Using cached recent activity for Helios
-🔍 GitHub updates request for Kupo (period: 4weeks)
-🔄 Using fallback data fetch for Kupo
-✅ Using cached recent activity for Kupo
-🔍 GitHub updates request for Lucid (period: 4weeks)
-🔄 Using fallback data fetch for Lucid
-✅ Using cached recent activity for Lucid
-🔍 GitHub updates request for Helios (period: 4weeks)
-🔄 Using fallback data fetch for Helios
-✅ Using cached recent activity for Helios
-🔍 GitHub updates request for Marlowe (period: 4weeks)
-🔄 Using fallback data fetch for Marlowe
-✅ Using cached recent activity for Marlowe
-🔍 GitHub updates request for MeshJS (period: 4weeks)
-🔄 Using fallback data fetch for MeshJS
-✅ Using cached recent activity for MeshJS
-🔍 GitHub updates request for NMKR Godot Plugin (period: 4weeks)
-🔄 Using fallback data fetch for NMKR Godot Plugin
-✅ Using cached recent activity for NMKR Godot Plugin
