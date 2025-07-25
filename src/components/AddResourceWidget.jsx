@@ -15,7 +15,8 @@ const initialForm = {
   docs: '',
   category: '',
   customTabTitle: '',
-  customTabContent: ''
+  customTabContent: '',
+  resourceType: 'organization' // 'organization' or 'repository'
 }
 
 const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => {
@@ -43,11 +44,30 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) 
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isExpanded, collapseTimeout, onCollapse])
 
+  // Parse GitHub URL to extract organization and repository
+  const parseGitHubUrl = (url) => {
+    if (!url || !url.includes('github.com/')) return null
+    
+    const match = url.match(/github\.com\/([^\/]+)(?:\/([^\/]+))?/)
+    if (!match) return null
+    
+    const organization = match[1]
+    const repository = match[2] || null
+    
+    return { organization, repository }
+  }
+
   // Generate code snippet
   const generateSnippet = () => {
     const {
-      name, logo, description, fullDescription, keySolutions, website, github, discord, x, docs, category, customTabTitle, customTabContent
+      name, logo, description, fullDescription, keySolutions, website, github, discord, x, docs, category, customTabTitle, customTabContent, resourceType
     } = form
+    
+    // Parse GitHub URL to determine organization and repository
+    const githubInfo = parseGitHubUrl(github)
+    const isOrganization = resourceType === 'organization' || (githubInfo && !githubInfo.repository)
+    const isRepository = resourceType === 'repository' || (githubInfo && githubInfo.repository)
+    
     let obj = {
       id: '[next available id]',
       name,
@@ -59,6 +79,21 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) 
       social: {},
       category: customCategory || category
     }
+    
+    // Add GitHub metadata
+    if (githubInfo) {
+      obj.type = isRepository ? 'repository' : 'organization'
+      obj.organization = githubInfo.organization
+      obj.repository = isRepository ? githubInfo.repository : null
+      obj.repo_path = isRepository ? `${githubInfo.organization}/${githubInfo.repository}` : githubInfo.organization
+    } else {
+      // Fallback if no GitHub URL
+      obj.type = resourceType
+      obj.organization = null
+      obj.repository = null
+      obj.repo_path = null
+    }
+    
     if (github) obj.social.github = github
     if (discord) obj.social.discord = discord
     if (x) obj.social.x = x
@@ -76,7 +111,7 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) 
 
   // Generate PR template
   const generatePRTemplate = (snippet) => {
-    return `## New Resource Submission\n\nPlease review and copy the code snippet below into resources.js.\n\n\`\`\`javascript\n${snippet}\`\`\`\n\n---\n\n### Guidelines:\n- Ensure the resource is Cardano-related\n- Provide accurate and up-to-date information\n- Key Solutions should be a comma-separated list of keywords that describe the resource\n- Include all available social links\n- Use appropriate category\n- Ensure logo URL is accessible\n\nThank you for contributing to the Cardano developer ecosystem!`
+    return `## New Resource Submission\n\nPlease review and copy the code snippet below into resources.js.\n\n\`\`\`javascript\n${snippet}\`\`\`\n\n---\n\n### Guidelines:\n- Ensure the resource is Cardano-related\n- Provide accurate and up-to-date information\n- Key Solutions should be a comma-separated list of keywords that describe the resource\n- Include all available social links\n- Use appropriate category\n- Ensure logo URL is accessible\n- GitHub metadata (type, organization, repository, repo_path) is auto-generated from the GitHub URL\n\nThank you for contributing to the Cardano developer ecosystem!`
   }
 
   // Handle form change
@@ -91,6 +126,17 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) 
     const snippet = generateSnippet()
     setCodeSnippet(snippet)
     setShowInstructions(true)
+    
+    // Scroll to the PR snippet after a short delay to ensure it's rendered
+    setTimeout(() => {
+      const snippetElement = document.querySelector('[data-widget="add-resource"] pre')
+      if (snippetElement) {
+        snippetElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        })
+      }
+    }, 100)
   }
 
   // Copy PR template to clipboard
@@ -161,6 +207,10 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) 
                   <input name="keySolutions" value={form.keySolutions} onChange={handleChange} placeholder="Key Solutions (comma separated)" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
                   <input name="website" value={form.website} onChange={handleChange} placeholder="Website" className="w-full bg-gray-800 text-white rounded p-2 text-xs" required />
                   <input name="github" value={form.github} onChange={handleChange} placeholder="GitHub URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
+                  <select name="resourceType" value={form.resourceType} onChange={handleChange} className="w-full bg-gray-800 text-white rounded p-2 text-xs">
+                    <option value="organization">Organization (e.g., github.com/org-name)</option>
+                    <option value="repository">Repository (e.g., github.com/org-name/repo-name)</option>
+                  </select>
                   <input name="discord" value={form.discord} onChange={handleChange} placeholder="Discord URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
                   <input name="x" value={form.x} onChange={handleChange} placeholder="X (Twitter) URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
                   <input name="docs" value={form.docs} onChange={handleChange} placeholder="Docs URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />

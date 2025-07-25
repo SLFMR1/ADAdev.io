@@ -559,9 +559,6 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           placeholder="Select view mode..."
                           className="w-52 flex-shrink-0"
                         />
-                        <div className="text-xs text-gray-400 flex-shrink-0">
-                          {viewMode === 'organization' ? '📊 Org View' : '📁 Repo View'}
-                        </div>
                         <div className="relative">
                           <button
                             className={`share-button text-cyan-400 hover:text-white bg-gray-800/30 backdrop-blur-sm border border-cyan-400/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)] hover:border-cyan-400 hover:bg-cyan-400/10 ${
@@ -853,7 +850,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
                       {/* Scrollable List */}
                     <div 
-                      className="overflow-y-auto space-y-3 pr-2 relative" 
+                      className="overflow-y-auto space-y-3 pr-2 relative scrollbar-hide" 
                       style={{ 
                           height: '280px',
                         transform: 'translateZ(0)', 
