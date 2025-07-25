@@ -295,6 +295,8 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
 function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [sortBy, setSortBy] = useState('name');
+  const [filterBy, setFilterBy] = useState('all');
   const [aiResults, setAiResults] = useState(null);
   const [showAIWidget, setShowAIWidget] = useState(false);
   const [isAILoading, setIsAILoading] = useState(false);
@@ -676,6 +678,43 @@ function App() {
         <SidebarWidgetsContainer expanded={expanded} setExpanded={setExpanded} handleWidgetExpand={handleWidgetExpand} isResourcesSectionActive={isResourcesSectionActive} />
       </div>
 
+      {/* Desktop Logos - always visible and static */}
+      <div className="hidden lg:block fixed top-6 left-0 z-[9998]">
+        <div className="flex flex-col items-center gap-2">
+          {/* Main ADAdev logo - clipped on left side */}
+          <a href="/" tabIndex={-1} aria-label="ADAdev Home" className="group">
+            <div className="flex items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 hover:border-white/30 hover:shadow-[0_0_15px_rgba(255,255,255,0.3),0_0_30px_rgba(255,255,255,0.15)]">
+              <img 
+                src="/ADAdev_logo.svg" 
+                alt="ADAdev Cardano Developer Resources Logo" 
+                className="h-10 w-auto object-contain transition-all duration-300 group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]"
+                width="40" height="40"
+                loading="eager"
+              />
+            </div>
+          </a>
+        </div>
+      </div>
+      
+      {/* Cardano logo in top right - always visible and static */}
+      <div className="hidden lg:block fixed top-6 right-6 z-[9998]">
+        <a 
+          href="https://cardano.org/" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          aria-label="Visit Cardano Official Website"
+          className="group"
+        >
+          <img 
+            src="https://developers.cardano.org/img/cardano-black.svg" 
+            alt="Cardano Logo" 
+            className="h-9 w-auto object-contain opacity-70 filter brightness-0 invert transition-all duration-300 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
+            width="36" height="36"
+            loading="eager"
+          />
+        </a>
+      </div>
+
       {/* Expanded Widgets (Desktop) */}
       <div className="hidden lg:block z-45">
         <ExpandedWidgetRenderer expanded={expanded} setExpanded={setExpanded} />
@@ -688,7 +727,7 @@ function App() {
         }`}
       >
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-card-bg/50 border-b border-gray-800">
+          <div className="lg:hidden fixed top-0 left-0 right-0 z-[9998] bg-card-bg/95 backdrop-blur-md border-b border-gray-800">
             <div className="flex items-center justify-between px-4 py-3">
               <div className="flex items-center space-x-3">
                 <button
@@ -699,7 +738,6 @@ function App() {
                 </button>
                 <img src="/ADAdev_logo.svg" alt="ADAdev" className="h-8 w-auto object-contain" />
               </div>
-              <div className="text-white font-semibold text-sm">Cardano Hub</div>
             </div>
           </div>
 

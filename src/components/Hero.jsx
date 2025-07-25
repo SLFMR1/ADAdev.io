@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { ArrowRight, Sparkles, TrendingUp, Activity, Bot, RotateCcw } from 'lucide-react'
 import BlockAnimation from './BlockAnimation'
-import ADAdevLogoSvg from '../../ADAdev_logo.svg'
 
 const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
   const scrollToResources = () => {
@@ -13,43 +12,6 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16 lg:pt-0" role="banner">
-      {/* Logo in top left - clipped like widget bar */}
-      <div className="hidden lg:block fixed top-6 left-0 z-20">
-        <div className="flex flex-col items-center gap-2">
-          {/* Main ADAdev logo - clipped on left side */}
-          <a href="/" tabIndex={-1} aria-label="ADAdev Home" className="group">
-            <div className="flex items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 hover:border-white/30 hover:shadow-[0_0_15px_rgba(255,255,255,0.3),0_0_30px_rgba(255,255,255,0.15)]">
-              <img 
-                src={ADAdevLogoSvg} 
-                alt="ADAdev Cardano Developer Resources Logo" 
-                className="h-10 w-auto object-contain transition-all duration-300 group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]"
-                width="40" height="40"
-                loading="eager"
-              />
-            </div>
-          </a>
-        </div>
-      </div>
-      
-      {/* Cardano logo in top right */}
-      <div className="hidden lg:block fixed top-6 right-6 z-20">
-        <a 
-          href="https://cardano.org/" 
-          target="_blank" 
-          rel="noopener noreferrer" 
-          aria-label="Visit Cardano Official Website"
-          className="group"
-        >
-          <img 
-            src="https://developers.cardano.org/img/cardano-black.svg" 
-            alt="Cardano Logo" 
-            className="h-9 w-auto object-contain opacity-70 filter brightness-0 invert transition-all duration-300 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
-            width="36" height="36"
-            loading="eager"
-          />
-        </a>
-      </div>
-      
       <BlockAnimation />
       <div className="relative z-10 max-w-6xl mx-auto px-4">
         <div className="max-w-4xl mx-auto text-center">
@@ -70,7 +32,7 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
             
             {/* Subheadline */}
             <div className="mb-4 lg:mb-6">
-              <p className="text-lg sm:text-xl md:text-2xl text-gray-200 mb-6 max-w-4xl mx-auto leading-relaxed">
+              <p className="text-base sm:text-lg md:text-xl text-gray-200 mb-8 lg:mb-10 max-w-4xl mx-auto leading-relaxed">
                 Your essential destination to stay ahead in Cardano development. 
                 <span className="text-cyan-400 font-thin">
                   {' '}Track ecosystem growth
