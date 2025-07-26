@@ -132,7 +132,7 @@ class GitHubService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: resource.name, social: resource.social })
+        body: JSON.stringify({ name: resource.name, social: resource.social, type: resource.type })
       })
       
       if (!response.ok) {
@@ -184,8 +184,11 @@ class GitHubService {
       
       const mappedPeriod = periodMap[period] || 'monthly'
       
+      // Detect resource type to use correct viewMode (same as DevelopmentActivityWidget)
+      const viewMode = resource.type === 'organization' ? 'organization' : 'repository'
+      
       // Get historical data from the same endpoint as DevelopmentActivityWidget
-      const response = await fetch(`/api/development-activity?viewMode=repository&period=${mappedPeriod}`, {
+      const response = await fetch(`/api/development-activity?viewMode=${viewMode}&period=${mappedPeriod}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

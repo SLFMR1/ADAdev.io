@@ -425,10 +425,10 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       
       const label = `Week ${weekNumber} (${week.weekStart}–${endOfWeek.toISOString().slice(0, 10)}, ${month})`;
       
-      // Get viewport-relative position
+      // Get viewport-relative position (don't add scroll offset since tooltip is fixed)
       const rect = e.target.getBoundingClientRect();
-      const viewportX = rect.left + window.scrollX;
-      const viewportY = rect.top + window.scrollY;
+      const viewportX = rect.left;
+      const viewportY = rect.top;
       
       setTooltip({
         show: true,

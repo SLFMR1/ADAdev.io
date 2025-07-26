@@ -998,15 +998,15 @@ app.post('/api/github/global', async (req, res) => {
 // Get recent commits and releases for Updates tab
 app.post('/api/github/recent', async (req, res) => {
   try {
-    const { name, social } = req.body
+    const { name, social, type } = req.body
     if (!name || !social?.github) {
       return res.status(400).json({ error: 'Invalid resource data' })
     }
     
-    console.log(`🔍 Recent GitHub data request for ${name}`)
+    console.log(`🔍 Recent GitHub data request for ${name} (type: ${type || 'repository'})`)
     
     // Use existing getRecentActivity function to get fresh data
-    const resource = { name, social, type: 'repository' }
+    const resource = { name, social, type: type || 'repository' }
     const activityData = await getRecentActivity(resource)
     
     // Get releases if it's a repository
