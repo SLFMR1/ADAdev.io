@@ -1009,10 +1009,43 @@ app.post('/api/github/recent', async (req, res) => {
     const resource = { name, social, type: type || 'repository' }
     const activityData = await getRecentActivity(resource)
     
-    // Get releases if it's a repository
+    // Get releases based on resource type
     let releases = []
     try {
-      if (social.github) {
+      if (resource.type === 'organization') {
+        // For organizations, get releases from all repositories
+        let orgName;
+        if (resource.repo_path) {
+          orgName = resource.repo_path;
+        } else if (resource.organization) {
+          orgName = resource.organization;
+        } else if (social.github) {
+          orgName = social.github.replace('https://github.com/', '');
+        }
+        
+        if (orgName) {
+          const repos = await fetchOrgRepos(orgName)
+          const releasePromises = repos.slice(0, 10).map(async repo => {
+            try {
+              const repoReleases = await fetchRepoReleases(repo.full_name, 2)
+              return repoReleases.map(release => ({
+                ...release,
+                repositoryName: repo.name,
+                organizationName: orgName
+              }))
+            } catch (error) {
+              console.warn(`⚠️ Error fetching releases for ${repo.full_name}:`, error.message)
+              return []
+            }
+          })
+          
+          const allReleases = await Promise.all(releasePromises)
+          releases = allReleases.flat().sort((a, b) => 
+            new Date(b.published_at) - new Date(a.published_at)
+          ).slice(0, 10)
+        }
+      } else if (social.github) {
+        // For repositories, get releases from single repo
         const repoPath = social.github.replace('https://github.com/', '')
         releases = await fetchRepoReleases(repoPath, 5)
       }
@@ -1021,9 +1054,15 @@ app.post('/api/github/recent', async (req, res) => {
       releases = []
     }
     
+    // Add repository names to commits for organizations
+    const commits = (activityData.commits || []).map(commit => ({
+      ...commit,
+      repositoryName: commit.repo || null  // Use the repo field added by fetchOrgCommits
+    }))
+    
     const result = {
       releases: releases || [],
-      commits: activityData.commits || [],
+      commits: commits,
       commitsPerWeek: activityData.commitsPerWeek || 0,
       repoInfo: activityData.repoInfo || {
         name: name,

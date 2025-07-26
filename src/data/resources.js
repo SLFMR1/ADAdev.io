@@ -961,14 +961,14 @@ export const cardanoResources = {
       ],
       "website": "https://vault3.io/",
       "social": {
-        "github": "https://github.com/vault3-io/",
+        "github": "https://github.com/vault3-io",
         "discord": "https://discord.gg/drHsXRgqfS",
         "x": "https://x.com/vault3_io"
       },
       "category": "Identity & Authentication",
       "type": "organization",
       "organization": "vault3-io",
-      "repository": "",
+      "repository": null,
       "repo_path": "vault3-io"
     }
   ],
@@ -1105,7 +1105,7 @@ export const cardanoResources = {
       "type": "organization",
       "organization": "masumi-network",
       "repository": null,
-      "repo_path": "masumi-network/masumi-network"
+      "repo_path": "masumi-network"
     },
     {
       "id": 63,

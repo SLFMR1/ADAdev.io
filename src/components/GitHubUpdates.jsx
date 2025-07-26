@@ -160,15 +160,22 @@ const GitHubUpdates = ({ resource }) => {
             ) : (
               releases.slice(0, 5).map((release) => (
                 <div key={release.id} className="flex items-center justify-between">
-                  <a
-                    href={release.htmlUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-cyan-400 hover:text-cyan-300 text-xs font-medium truncate flex-1"
-                  >
-                    {release.name}
-                  </a>
-                  <span className="text-gray-500 text-xs flex items-center ml-2">
+                  <div className="flex-1 min-w-0">
+                    <a
+                      href={release.htmlUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-cyan-400 hover:text-cyan-300 text-xs font-medium truncate block"
+                    >
+                      {release.name}
+                    </a>
+                    {resource.type === 'organization' && release.repositoryName && (
+                      <div className="text-gray-500 text-xs truncate">
+                        {release.repositoryName}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-gray-500 text-xs flex items-center ml-2 flex-shrink-0">
                     <Calendar size={8} className="mr-1" />
                     {formatRelativeTime(release.publishedAt)}
                   </span>
@@ -185,15 +192,22 @@ const GitHubUpdates = ({ resource }) => {
             ) : (
               commits.slice(0, 8).map((commit) => (
                 <div key={commit.sha} className="flex items-center justify-between">
-                  <a
-                    href={commit.htmlUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-300 hover:text-white text-xs line-clamp-1 flex-1"
-                  >
-                    {commit.message.split('\n')[0]}
-                  </a>
-                  <span className="text-gray-500 text-xs flex items-center ml-2">
+                  <div className="flex-1 min-w-0">
+                    <a
+                      href={commit.htmlUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-300 hover:text-white text-xs line-clamp-1 block"
+                    >
+                      {commit.message.split('\n')[0]}
+                    </a>
+                    {resource.type === 'organization' && commit.repositoryName && (
+                      <div className="text-gray-500 text-xs truncate">
+                        {commit.repositoryName}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-gray-500 text-xs flex items-center ml-2 flex-shrink-0">
                     <Calendar size={8} className="mr-1" />
                     {formatRelativeTime(commit.date)}
                   </span>
