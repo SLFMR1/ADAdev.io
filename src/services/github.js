@@ -112,6 +112,54 @@ class GitHubService {
   }
 
   /**
+   * Fetch recent GitHub updates (commits/releases) for the Updates tab
+   * @param {Object} resource - Resource object with social.github URL
+   * @returns {Promise<Object>} - Recent commits and releases data
+   */
+  async fetchRecentGitHubUpdates(resource) {
+    const githubUrl = resource.social?.github
+    if (!githubUrl) {
+      logger.log(`❌ No GitHub URL for ${resource.name}`)
+      return { releases: [], commits: [], repoInfo: null, commitsPerWeek: 0 }
+    }
+    
+    logger.log(`🔍 Client requesting recent GitHub updates for ${resource.name}`)
+    
+    try {
+      // Use the dedicated endpoint for recent commits and releases
+      const response = await fetch(`/api/github/recent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: resource.name, social: resource.social })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Server API error: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      logger.log(`📊 Client received recent updates for ${resource.name}:`, {
+        releases: data.releases?.length || 0,
+        commits: data.commits?.length || 0,
+        commitsPerWeek: data.commitsPerWeek || 0
+      })
+      
+      return data
+    } catch (error) {
+      logger.error(`Client error fetching recent GitHub updates for ${resource.name}:`, error)
+      return { 
+        releases: [], 
+        commits: [], 
+        repoInfo: null, 
+        commitsPerWeek: 0
+      }
+    }
+  }
+
+  /**
    * Fetch GitHub updates for a resource using historical database data like DevelopmentActivityWidget
    * @param {Object} resource - Resource object with social.github URL
    * @param {String} period - Time period for data (4weeks, 3months, 52weeks)
@@ -203,11 +251,17 @@ class GitHubService {
           }
         }) : []
       
+      // Calculate total commits from weekly data if totalCommits is not available
+      let totalCommits = resourceData.totalCommits || 0
+      if (totalCommits === 0 && resourceData.weeklyCounts) {
+        totalCommits = resourceData.weeklyCounts.reduce((sum, count) => sum + count, 0)
+      }
+      
       const result = {
         resource: resource.name,
         releases: [], // Historical data doesn't include detailed releases
         commits: [], // Historical data doesn't include detailed commits
-        commitsPerWeek: resourceData.totalCommits || 0,
+        commitsPerWeek: totalCommits,
         commitsPerWeekDetailed: commitsPerWeekDetailed,
         weeklyData: commitsPerWeekDetailed, // Legacy compatibility
         repoInfo: {
@@ -370,6 +424,7 @@ const githubService = new GitHubService()
 
 // Export functions that use the server API
 export const fetchGitHubUpdates = (resource, period) => githubService.fetchGitHubUpdates(resource, period)
+export const fetchRecentGitHubUpdates = (resource) => githubService.fetchRecentGitHubUpdates(resource)
 export const fetchGlobalGitHubUpdates = (resources) => githubService.fetchGlobalGitHubUpdates(resources)
 export const getCacheStatus = () => githubService.getCacheStatus()
 export const clearGitHubCache = () => githubService.clearCache()

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { GitCommit } from 'lucide-react'
-import githubDataStore from '../services/githubDataStore'
+import { fetchGitHubUpdates } from '../services/github'
 
 const WeeklyCommitCount = ({ resource }) => {
-  const [commitsPerWeek, setCommitsPerWeek] = useState(null)
+  const [commitsPerMonth, setCommitsPerMonth] = useState(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -13,20 +13,20 @@ const WeeklyCommitCount = ({ resource }) => {
       try {
         setLoading(true)
         
-        // Get data from shared store
-        const data = githubDataStore.getResourceData(resource.id);
+        // Use the same historical data approach as ResourceCard
+        // Fetch monthly data (4weeks period maps to 'monthly' in the API)
+        const data = await fetchGitHubUpdates(resource, '4weeks')
         
-        if (data) {
-          setCommitsPerWeek(data.commitsPerWeek || 0);
+        if (data && data.commitsPerWeek !== undefined) {
+          // commitsPerWeek from monthly period represents total commits in ~28 days
+          // This is effectively commits per month since monthly period = 28 days
+          setCommitsPerMonth(data.commitsPerWeek || 0)
         } else {
-          // If no data in store, trigger a fetch
-          await githubDataStore.fetchAllData();
-          const freshData = githubDataStore.getResourceData(resource.id);
-          setCommitsPerWeek(freshData?.commitsPerWeek || 0);
+          setCommitsPerMonth(0)
         }
       } catch (error) {
         console.error('Error fetching commit count:', error)
-        setCommitsPerWeek(0)
+        setCommitsPerMonth(0)
       } finally {
         setLoading(false)
       }
@@ -37,12 +37,12 @@ const WeeklyCommitCount = ({ resource }) => {
 
   if (!resource.social?.github) return null
   if (loading) return null
-  if (commitsPerWeek === null) return null
+  if (commitsPerMonth === null) return null
 
   return (
     <div className="flex items-center space-x-1 text-xs text-gray-500">
       <GitCommit size={12} />
-      <span>{commitsPerWeek}/week</span>
+      <span>{commitsPerMonth}/month</span>
       {resource.social?.github && !resource.social.github.includes('/') && (
         <span className="text-gray-400">(org)</span>
       )}

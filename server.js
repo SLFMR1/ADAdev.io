@@ -995,6 +995,56 @@ app.post('/api/github/global', async (req, res) => {
   }
 })
 
+// Get recent commits and releases for Updates tab
+app.post('/api/github/recent', async (req, res) => {
+  try {
+    const { name, social } = req.body
+    if (!name || !social?.github) {
+      return res.status(400).json({ error: 'Invalid resource data' })
+    }
+    
+    console.log(`🔍 Recent GitHub data request for ${name}`)
+    
+    // Use existing getRecentActivity function to get fresh data
+    const resource = { name, social, type: 'repository' }
+    const activityData = await getRecentActivity(resource)
+    
+    // Get releases if it's a repository
+    let releases = []
+    try {
+      if (social.github) {
+        const repoPath = social.github.replace('https://github.com/', '')
+        releases = await fetchRepoReleases(repoPath, 5)
+      }
+    } catch (error) {
+      console.warn(`⚠️ Error fetching releases for ${name}:`, error.message)
+      releases = []
+    }
+    
+    const result = {
+      releases: releases || [],
+      commits: activityData.commits || [],
+      commitsPerWeek: activityData.commitsPerWeek || 0,
+      repoInfo: activityData.repoInfo || {
+        name: name,
+        htmlUrl: social.github,
+        stargazersCount: 0,
+        forksCount: 0,
+        language: null
+      }
+    }
+    
+    console.log(`✅ Recent data for ${name}: ${result.commits.length} commits, ${result.releases.length} releases`)
+    res.json(result)
+  } catch (error) {
+    console.error(`❌ Recent GitHub API error for ${req.body?.name}:`, error)
+    res.status(500).json({ 
+      error: 'Failed to fetch recent GitHub data',
+      message: error.message
+    })
+  }
+})
+
 // Get historical activity
 app.get('/api/github/activity/:resourceId', async (req, res) => {
   try {

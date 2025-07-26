@@ -9,7 +9,8 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react'
-import { fetchGitHubUpdates, formatRelativeTime } from '../services/github'
+import { fetchRecentGitHubUpdates, formatRelativeTime } from '../services/github'
+import logger from '../utils/logger-frontend'
 
 const GitHubUpdates = ({ resource }) => {
   const [githubData, setGithubData] = useState(null)
@@ -30,7 +31,7 @@ const GitHubUpdates = ({ resource }) => {
         setError(null)
         
         // Fetch fresh data from server
-        const data = await fetchGitHubUpdates(resource)
+        const data = await fetchRecentGitHubUpdates(resource)
         
         // Check if we got valid data
         if (data && (data.releases.length > 0 || data.commits.length > 0)) {
