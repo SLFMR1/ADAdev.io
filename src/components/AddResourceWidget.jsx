@@ -236,7 +236,7 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) 
                   )}
                   <input name="customTabTitle" value={form.customTabTitle} onChange={handleChange} placeholder="Custom Tab Title (optional)" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
                   <textarea name="customTabContent" value={form.customTabContent} onChange={handleChange} placeholder="Custom Tab Content (optional)" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
-                  <button type="submit" className="w-full flex items-center justify-center space-x-2 group mt-4 mb-2 bg-transparent border border-cyan-400/50 text-cyan-400 px-6 py-3 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-custom-bg hover:border-cyan-400 hover:bg-cyan-400/10 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]"> <Github size={16} />
+                  <button type="submit" className="w-full flex items-center justify-center space-x-2 group mt-4 mb-2 bg-transparent border border-white/50 text-white px-6 py-3 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-custom-bg hover:border-white hover:bg-white/10 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]"> <Github size={16} />
                     <span className="text-sm">Create Pull Request</span>
                   </button>
                 </form>

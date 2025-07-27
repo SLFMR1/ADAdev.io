@@ -15,6 +15,17 @@ import { createIsolatedScreenshot, shareToX, generateTweetText } from '../utils/
 import { fetchGitHubUpdates } from '../services/github'
 import logger from '../utils/logger-frontend'
 
+// Accent color system matching widget sidebar colors
+const accentColors = [
+  { name: 'white', hex: '#FFFFFF', rgb: '255, 255, 255' },
+  { name: 'amber', hex: '#FBB036', rgb: '251, 191, 54' },
+  { name: 'purple', hex: '#A855F7', rgb: '168, 85, 247' },
+  { name: 'teal', hex: '#14B8A6', rgb: '20, 184, 166' },
+  { name: 'red', hex: '#F87171', rgb: '248, 113, 113' },
+  { name: 'emerald', hex: '#34D399', rgb: '52, 211, 153' },
+  { name: 'blue', hex: '#3B82F6', rgb: '59, 130, 246' }
+];
+
 const XIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="currentColor"/>
@@ -68,6 +79,15 @@ const ResourceCard = ({ resource, onViewResource }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('4weeks')
   const [shareMessage, setShareMessage] = useState('')
   const [shareMessageType, setShareMessageType] = useState('success')
+  
+  // Accent color state
+  const [accentColorIndex, setAccentColorIndex] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('resourceCard.accentColor') || '0');
+    } catch {
+      return 0;
+    }
+  });
   
   // Activity chart data preloading (separate from GitHubUpdates)
   const [activityChartData, setActivityChartData] = useState({})
@@ -378,6 +398,19 @@ const ResourceCard = ({ resource, onViewResource }) => {
     }
   }
 
+  // Current and next accent colors
+  const currentAccentColor = accentColors[accentColorIndex];
+  const nextAccentColor = accentColors[(accentColorIndex + 1) % accentColors.length];
+
+  // Handle accent color change
+  const handleAccentColorChange = () => {
+    const newIndex = (accentColorIndex + 1) % accentColors.length;
+    setAccentColorIndex(newIndex);
+    try {
+      localStorage.setItem('resourceCard.accentColor', newIndex.toString());
+    } catch {}
+  };
+
   return (
     <div 
       ref={cardRef}
@@ -483,12 +516,12 @@ const ResourceCard = ({ resource, onViewResource }) => {
             {activeTab === 'links' && (
               <div className="flex flex-col space-y-2" onClick={(e) => e.stopPropagation()}>
                 {resource.website && (
-                   <a href={resource.website} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 hover:text-cyan-300">
+                   <a href={resource.website} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 hover:text-gray-300">
                      <ExternalLink size={14} /> <span>Website</span>
                    </a>
                 )}
                 {resource.social && Object.entries(resource.social).map(([platform, url]) => (
-                  <a key={platform} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 hover:text-cyan-300 capitalize">
+                  <a key={platform} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 hover:text-gray-300 capitalize">
                     {getSocialIcon(platform)} <span>{platform}</span>
                   </a>
                 ))}
@@ -500,7 +533,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
             {activeTab === 'activity' && resource.social?.github && (
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <TrendingUp size={16} className="text-cyan-400" />
+                  <TrendingUp size={16} className="text-white" />
                   <h4 className="text-white font-medium text-sm">
                     Weekly Activity
                   </h4>
@@ -547,7 +580,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                   <div className="flex items-center space-x-3">
                     <button
                       onClick={handleShareActivityChart}
-                      className={`share-button text-cyan-400 hover:text-white bg-gray-800/30 backdrop-blur-sm border border-cyan-400/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)] hover:border-cyan-400 hover:bg-cyan-400/10 ${isSharing ? 'opacity-50 cursor-not-allowed' : ''} ${screenshotMode ? 'hidden' : ''}`}
+                      className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-white/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] hover:border-white hover:bg-white/10 ${isSharing ? 'opacity-50 cursor-not-allowed' : ''} ${screenshotMode ? 'hidden' : ''}`}
                       title="Share Activity Chart"
                       disabled={isSharing}
                     >
@@ -557,10 +590,26 @@ const ResourceCard = ({ resource, onViewResource }) => {
                         <Share2 className="w-4 h-4" />
                       )}
                     </button>
+                    {/* Accent Color Picker Dot */}
+                    <button
+                      onClick={handleAccentColorChange}
+                      className="w-3 h-3 rounded-full border border-gray-600/50 transition-all duration-200 hover:border-gray-400 hover:scale-85"
+                      style={{
+                        backgroundColor: currentAccentColor.hex,
+                        boxShadow: `0 0 8px rgba(${currentAccentColor.rgb}, 0.5), 0 0 16px rgba(${currentAccentColor.rgb}, 0.2)`
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.boxShadow = `0 0 16px rgba(${currentAccentColor.rgb}, 0.8), 0 0 32px rgba(${currentAccentColor.rgb}, 0.5)`;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.boxShadow = `0 0 8px rgba(${currentAccentColor.rgb}, 0.5), 0 0 16px rgba(${currentAccentColor.rgb}, 0.2)`;
+                      }}
+                      title={`Current accent color: ${currentAccentColor.name}`}
+                    />
                     {shareMessage && (
                       <div className={`text-sm font-medium transition-all duration-300 ${
                         shareMessageType === 'success' 
-                          ? 'bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent' 
+                          ? 'bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent' 
                           : 'bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent'
                       }`}>
                         {shareMessage}
@@ -574,7 +623,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
               <div ref={chartContainerRef}>
                 {isLoadingActivityChart ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-400"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
                     <span className="ml-2 text-gray-400/30 text-sm">Loading chart data...</span>
                   </div>
                 ) : activityChartError ? (
@@ -583,7 +632,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                     <div className="text-gray-400 text-xs mb-4">{activityChartError}</div>
                     <button 
                       onClick={preloadActivityChartData}
-                      className="px-3 py-1 bg-cyan-500 hover:bg-cyan-600 text-white rounded text-xs transition-colors"
+                      className="px-3 py-1 bg-white hover:bg-gray-200 text-black rounded text-xs transition-colors"
                     >
                       Retry
                     </button>
@@ -597,6 +646,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                     selectedPeriod={selectedPeriod}
                     onPeriodChange={setSelectedPeriod}
                     preloadedData={activityChartData[selectedPeriod]}
+                    accentColor={currentAccentColor}
                   />
                 )}
               </div>

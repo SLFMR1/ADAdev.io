@@ -275,8 +275,8 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
                 className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center">
-                    <TrendingUp size={16} className="text-cyan-400" />
+                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                    <TrendingUp size={16} className="text-white" />
                   </div>
                   <div>
                     <div className="text-white font-medium">Browse Resources</div>
@@ -682,7 +682,7 @@ function App() {
       <div className="hidden lg:block fixed top-6 left-0 z-[9998]">
         <div className="flex flex-col items-center gap-2">
           {/* Main ADAdev logo - clipped on left side */}
-          <a href="/" tabIndex={-1} aria-label="ADAdev Home" className="group">
+          <a href="#top" tabIndex={-1} aria-label="ADAdev Home" className="group">
             <div className="flex items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 hover:border-white/30 hover:shadow-[0_0_15px_rgba(255,255,255,0.3),0_0_30px_rgba(255,255,255,0.15)]">
               <img 
                 src="/ADAdev_logo.svg" 

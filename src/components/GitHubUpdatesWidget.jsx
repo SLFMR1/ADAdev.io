@@ -502,8 +502,8 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
                   onClick={() => setActiveTab('releases')}
                   className={`flex items-center space-x-1 px-2 py-1 text-xs rounded transition-all duration-200 border ${
                     activeTab === 'releases' 
-                      ? 'border-cyan-400/50 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]' 
-                      : 'border-gray-600/50 text-gray-400 hover:border-cyan-400 hover:text-gray-300 hover:bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]'
+                      ? 'border-white/50 text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]' 
+                      : 'border-gray-600/50 text-gray-400 hover:border-white hover:text-gray-300 hover:bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
                   }`}
                 >
                   <Tag size={12} />
@@ -513,8 +513,8 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
                   onClick={() => setActiveTab('commits')}
                   className={`flex items-center space-x-1 px-2 py-1 text-xs rounded transition-all duration-200 border ${
                     activeTab === 'commits' 
-                      ? 'border-cyan-400/50 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]' 
-                      : 'border-gray-600/50 text-gray-400 hover:border-cyan-400 hover:text-gray-300 hover:bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)]'
+                      ? 'border-white/50 text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]' 
+                      : 'border-gray-600/50 text-gray-400 hover:border-white hover:text-gray-300 hover:bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
                   }`}
                 >
                   <GitCommit size={12} />
@@ -525,7 +525,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
               <div className="space-y-2 max-h-[500px] overflow-y-auto">
                 {isLoading ? (
                   <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-400 mx-auto mb-2"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
                     <p className="text-gray-400/30 text-xs">Loading updates...</p>
                   </div>
                 ) : (
@@ -538,13 +538,13 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
                             href={update.resource.social?.github || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-medium text-xs text-cyan-400 hover:text-cyan-300 truncate max-w-[100px] flex-shrink-0 transition-colors"
+                            className="font-medium text-xs text-white hover:text-gray-300 truncate max-w-[100px] flex-shrink-0 transition-colors"
                             title={`View ${update.resource.name} on GitHub`}
                           >
                             {update.resource.name}
                           </a>
                           {update.type === 'release' ? (
-                            <Tag size={12} className="text-cyan-400 flex-shrink-0" />
+                            <Tag size={12} className="text-white flex-shrink-0" />
                           ) : (
                             <GitCommit size={12} className="text-green-400 flex-shrink-0" />
                           )}

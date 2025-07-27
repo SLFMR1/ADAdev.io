@@ -84,7 +84,7 @@ const getMonthLabels = (commitsPerMonth, weeks) => {
   return labels.slice(-weeks)
 }
 
-const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false, selectedPeriod = '4weeks', onPeriodChange, preloadedData = null }) => {
+const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false, selectedPeriod = '4weeks', onPeriodChange, preloadedData = null, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' } }) => {
   const [activityData, setActivityData] = useState(null)
   const [weeklyData, setWeeklyData] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -274,7 +274,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-400"></div>
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
         <span className="ml-2 text-gray-400/30 text-sm">Loading activity...</span>
       </div>
     )
@@ -454,8 +454,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'}
           </span>
           <div className="flex items-center space-x-1">
-            <GitCommit size={12} className="text-cyan-400" />
-            <span className="text-white font-bold text-lg">{currentWeekCommits}</span>
+            <GitCommit size={12} style={{ color: accentColor.hex }} />
+            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>{currentWeekCommits}</span>
             <span className="text-gray-400 text-xs">this week</span>
           </div>
         </div>
@@ -468,10 +468,10 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
                 <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#374151" strokeWidth="0.5" opacity="0.3"/>
               </pattern>
-              <linearGradient id="teal-gradient" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#06b6d4" />
-                <stop offset="50%" stopColor="#22d3ee" />
-                <stop offset="100%" stopColor="#67e8f9" />
+              <linearGradient id="accent-gradient" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor={accentColor.hex} />
+                <stop offset="50%" stopColor={accentColor.hex} />
+                <stop offset="100%" stopColor={accentColor.hex} />
               </linearGradient>
               <filter id="glow">
                 <feGaussianBlur stdDeviation="2" result="coloredBlur" />
@@ -502,7 +502,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   y1={chartPadding}
                   x2={safeX}
                   y2={chartHeight - bottomPadding}
-                  stroke="#22d3ee"
+                  stroke={accentColor.hex}
                   strokeDasharray="4 2"
                   strokeWidth="1"
                   opacity="0.25"
@@ -525,7 +525,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   y1={chartHeight - bottomPadding}
                   x2={safeX}
                   y2={chartHeight - bottomPadding + 8}
-                  stroke="#67e8f9"
+                  stroke={accentColor.hex}
                   strokeWidth="1"
                   opacity="0.3"
                 />
@@ -536,7 +536,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             <polyline
               points={chartPoints}
               fill="none"
-              stroke="#22d3ee"
+              stroke={accentColor.hex}
               strokeWidth="4"
               opacity="0.35"
               filter="url(#glow)"
@@ -546,9 +546,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             <polyline
               points={chartPoints}
               fill="none"
-              stroke="url(#teal-gradient)"
+              stroke="url(#accent-gradient)"
               strokeWidth="1"
-              style={{ filter: 'drop-shadow(0 0 3px rgba(34,211,238,0.5))' }}
+                                style={{ filter: `drop-shadow(0 0 3px rgba(${accentColor.rgb},0.5))` }}
             />
             
             {/* Data points (nodes) with tooltips */}
@@ -583,10 +583,10 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                     cy={safeY}
                     r={w.count > 0 ? "4" : "2.5"}
                     fill="none"
-                    stroke={w.count > 0 ? "#22d3ee" : "#334155"}
+                    stroke={w.count > 0 ? accentColor.hex : "#334155"}
                     strokeWidth="1.5"
                     opacity={w.count > 0 ? 1 : 0.5}
-                    style={{ filter: w.count > 0 ? 'drop-shadow(0 0 6px rgba(34,211,238,0.6))' : 'none' }}
+                    style={{ filter: w.count > 0 ? `drop-shadow(0 0 6px rgba(${accentColor.rgb},0.6))` : 'none' }}
                     pointerEvents="none"
                   />
                   {/* Larger invisible hover area */}
@@ -624,7 +624,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                       x={safeX}
                       y={chartHeight - bottomPadding / 2 + 32}
                       fontSize={window.innerWidth < 1024 ? "14" : "16"}
-                      fill="#67e8f9"
+                      fill={accentColor.hex}
                       textAnchor="middle"
                       fontWeight="bold"
                     >{date.getFullYear()}</text>
@@ -636,7 +636,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                       x={safeX}
                       y={chartHeight - bottomPadding / 2 + 18}
                       fontSize={window.innerWidth < 1024 ? "11" : "13"}
-                      fill="#67e8f9"
+                      fill={accentColor.hex}
                       textAnchor="middle"
                       fontWeight="bold"
                     >{date.toLocaleString('default', { month: 'short' })}</text>
@@ -656,7 +656,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           {tooltip.show && (
             <Portal>
               <div
-                className="fixed z-[9999] px-2 py-1 rounded bg-gray-900 text-cyan-200 text-xs border border-cyan-400 shadow-lg pointer-events-none max-w-xs"
+                className="fixed z-[9999] px-2 py-1 rounded bg-gray-900 text-white text-xs border border-white shadow-lg pointer-events-none max-w-xs"
                 style={{ 
                   left: Math.min(tooltip.x + 10, window.innerWidth - 250), 
                   top: Math.max(tooltip.y - 50, 10)
@@ -681,8 +681,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         <div className="flex items-center justify-between mb-2">
           <span className="text-gray-400 text-xs">This Week</span>
           <div className="flex items-center space-x-1">
-            <GitCommit size={12} className="text-cyan-400" />
-            <span className="text-white font-bold text-lg">{activityData.currentWeek}</span>
+            <GitCommit size={12} style={{ color: accentColor.hex }} />
+            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>{activityData.currentWeek}</span>
             <span className="text-gray-400 text-xs">commits</span>
           </div>
         </div>
@@ -691,10 +691,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         <div className="relative">
           <div className="w-full bg-gray-700 rounded-full h-2">
             <div 
-              className="bg-gradient-to-r from-cyan-400 to-cyan-500 h-2 rounded-full transition-all duration-500 ease-out"
+              className="h-2 rounded-full transition-all duration-500 ease-out"
               style={{ 
                 width: `${((activityData.currentWeek - minCommits) / (maxCommits - minCommits || 1)) * 100}%`,
-                boxShadow: '0 0 8px rgba(34, 211, 238, 0.3)'
+                background: `linear-gradient(to right, ${accentColor.hex}, ${accentColor.hex}dd)`,
+                boxShadow: `0 0 8px rgba(${accentColor.rgb}, 0.3)`
               }}
             ></div>
           </div>

@@ -237,11 +237,7 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
   return (
     <div className="w-full max-w-2xl mx-auto mb-8">
       <form onSubmit={handleSubmit} className="relative">
-        <div className={`relative w-full rounded-full border border-gray-700 bg-card-bg/50 backdrop-blur-md pl-10 pr-8 py-4 transition-all duration-300 ${
-          isGlowing 
-            ? 'shadow-[0_0_20px_rgba(20,184,166,0.9),0_0_40px_rgba(20,184,166,0.6),0_0_60px_rgba(20,184,166,0.3)] border-teal-400' 
-            : 'shadow-[0_0_8px_rgba(20,184,166,0.8)]'
-        }`}>
+        <div className={`relative w-full rounded-full border border-gray-700 bg-card-bg/50 backdrop-blur-md pl-10 pr-8 py-4 transition-all duration-300`}>
           {/* Matrix Overlay */}
           {isTyping && (
             <div className="absolute inset-0 flex items-center z-50 pointer-events-none">
@@ -255,7 +251,7 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
           {isAnalyzing && (
             <div className="absolute inset-0 z-0 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 transition-all duration-500 shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)]"
+                className="h-full rounded-full bg-gradient-to-r from-white/40 via-white/80 to-white transition-all duration-500 shadow-[0_0_30px_rgba(255,255,255,1.0),0_0_60px_rgba(255,255,255,0.4)]"
                 style={{ width: `${progress}%`, minWidth: progress > 0 ? '8px' : 0 }}
               />
             </div>

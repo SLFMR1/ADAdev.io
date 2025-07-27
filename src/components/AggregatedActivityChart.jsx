@@ -19,7 +19,7 @@ const getLineChartPoints = (data, width, height, padding, rightPadding) => {
   }).join(' ')
 }
 
-const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 200, padding = 30, rightPadding, period, screenshotMode = false }, svgRef) => {
+const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 200, padding = 30, rightPadding, period, screenshotMode = false, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' } }, svgRef) => {
   // Use more left padding in screenshot mode
   const effectivePadding = screenshotMode ? 64 : 32;
   const effectiveRightPadding = 24;
@@ -153,9 +153,9 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
             <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#374151" strokeWidth="0.5" opacity="0.3"/>
           </pattern>
-          <linearGradient id="teal-gradient" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#06b6d4" />
-            <stop offset="100%" stopColor="#67e8f9" />
+          <linearGradient id="accent-gradient" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={accentColor.hex} />
+            <stop offset="100%" stopColor={accentColor.hex} />
           </linearGradient>
           <filter id="glow">
             <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
@@ -179,7 +179,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
               y1={y}
               x2={effectiveWidth - effectiveRightPadding}
               y2={y}
-              stroke="#22d3ee"
+              stroke={accentColor.hex}
               strokeDasharray="4 2"
               strokeWidth="1"
               opacity="0.25"
@@ -196,7 +196,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
               y1={effectivePadding}
               x2={effectivePadding + (i / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
               y2={height - effectivePadding}
-              stroke="#22d3ee"
+              stroke={accentColor.hex}
               strokeDasharray="4 2"
               strokeWidth="1"
               opacity="0.25"
@@ -211,7 +211,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
             y1={height - effectivePadding}
             x2={effectivePadding + (i / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
             y2={height - effectivePadding + 8}
-            stroke="#67e8f9"
+            stroke="#FFFFFF"
             strokeWidth="1"
             opacity="0.3"
           />
@@ -221,7 +221,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         <polyline
           points={chartPoints}
           fill="none"
-          stroke="#22d3ee"
+          stroke="#FFFFFF"
           strokeWidth="4"
           opacity="0.4"
           filter="url(#glow)"
@@ -230,9 +230,9 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         <polyline
           points={chartPoints}
           fill="none"
-          stroke="url(#teal-gradient)"
+          stroke="url(#accent-gradient)"
           strokeWidth="1"
-          style={{ filter: 'drop-shadow(0 0 3px rgba(34,211,238,0.5))' }}
+                            style={{ filter: `drop-shadow(0 0 3px rgba(${accentColor.rgb},0.5))` }}
         />
         {/* Invisible larger hover areas for tooltips */}
         {weeklyData.map((w, i) => {
@@ -247,10 +247,10 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
                 cy={y}
                 r={w.count > 0 ? "4" : "2.5"}
                 fill="none"
-                stroke={w.count > 0 ? "#22d3ee" : "#64748b"}
+                stroke={w.count > 0 ? accentColor.hex : "#64748b"}
                 strokeWidth="1.5"
                 style={{ 
-                  filter: w.count > 0 ? 'drop-shadow(0 0 6px rgba(34,211,238,0.6))' : 'none'
+                  filter: w.count > 0 ? `drop-shadow(0 0 6px rgba(${accentColor.rgb},0.6))` : 'none'
                 }}
                 pointerEvents="none"
               />
@@ -279,7 +279,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
               x={effectivePadding - labelSpacing - leftPadding}
               y={y + 4}
               fontSize="12"
-              fill="#67e8f9"
+              fill={accentColor.hex}
               textAnchor="end"
               dominantBaseline="middle"
               style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
@@ -298,7 +298,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
               y={height - effectivePadding + (screenshotMode ? 8 : 12)}
               fontSize={label.type === 'year' ? '14' : '12'}
               fontWeight={label.type === 'year' ? 'bold' : 'normal'}
-              fill="#67e8f9"
+              fill={accentColor.hex}
               textAnchor="middle"
               style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
             >
@@ -311,7 +311,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
       {tooltip.show && !screenshotMode && (
         <Portal>
           <div
-            className="fixed z-[10000] px-3 py-2 bg-gray-900 text-cyan-200 text-sm rounded-lg shadow-lg pointer-events-none border border-gray-700 max-w-xs"
+                            className="fixed z-[10000] px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg pointer-events-none border border-gray-700 max-w-xs"
             style={{ 
               left: Math.min(tooltip.x + 10, window.innerWidth - 200), 
               top: Math.max(tooltip.y - 60, 10)

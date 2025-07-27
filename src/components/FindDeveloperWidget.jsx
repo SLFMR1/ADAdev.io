@@ -122,8 +122,8 @@ const FindDeveloperWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
           className="relative z-50 w-16 h-16"
           onClick={onExpand}
         >
-          <div className="flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 hover:border-blue-400/30 hover:shadow-[0_0_15px_rgba(59,130,246,0.3),0_0_30px_rgba(59,130,246,0.15)]">
-            <Users size={24} className="text-blue-400" />
+          <div className="flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 hover:border-white/30 hover:shadow-[0_0_15px_rgba(255,255,255,0.3),0_0_30px_rgba(255,255,255,0.15)]">
+            <Users size={24} className="text-white" />
           </div>
         </div>
       ) : (
@@ -142,7 +142,7 @@ const FindDeveloperWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-2">
-                    <Users size={20} className="text-blue-400" />
+                    <Users size={20} className="text-white" />
                     <h3 className="text-white font-semibold text-sm">Find a Developer</h3>
                   </div>
                 </div>
@@ -220,7 +220,7 @@ const FindDeveloperWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
                   <button 
                     type="submit" 
                     disabled={isSubmitting}
-                    className="w-full flex items-center justify-center space-x-2 group mt-4 mb-2 bg-transparent border border-blue-400/50 text-blue-400 px-6 py-3 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-custom-bg hover:border-blue-400 hover:bg-blue-400/10 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(59,130,246,0.03)] hover:shadow-[0_0_30px_rgba(59,130,246,0.05)]"
+                    className="w-full flex items-center justify-center space-x-2 group mt-4 mb-2 bg-transparent border border-white/50 text-white px-6 py-3 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-custom-bg hover:border-white hover:bg-white/10 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]"
                   >
                     {isSubmitting ? (
                       <Loader2 size={16} className="animate-spin" />

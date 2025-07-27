@@ -35,7 +35,7 @@ const SkeletonLoader = ({ className = "" }) => (
 // Skeleton leaderboard item
 const SkeletonLeaderboardItem = ({ rank }) => (
   <div className="flex items-center space-x-4 p-3 rounded-lg bg-gray-800/30 animate-pulse">
-    <div className="text-cyan-400 text-sm font-bold flex-shrink-0 w-6 text-center">
+    <div className="text-white text-sm font-bold flex-shrink-0 w-6 text-center">
       {rank}
     </div>
     <div className="flex-1 min-w-0">
@@ -49,11 +49,31 @@ const SkeletonLeaderboardItem = ({ rank }) => (
   </div>
 );
 
+// Accent color system matching widget sidebar colors
+const accentColors = [
+  { name: 'white', hex: '#FFFFFF', rgb: '255, 255, 255' },
+  { name: 'amber', hex: '#FBB036', rgb: '251, 191, 54' },
+  { name: 'purple', hex: '#A855F7', rgb: '168, 85, 247' },
+  { name: 'teal', hex: '#14B8A6', rgb: '20, 184, 166' },
+  { name: 'red', hex: '#F87171', rgb: '248, 113, 113' },
+  { name: 'emerald', hex: '#34D399', rgb: '52, 211, 153' },
+  { name: 'blue', hex: '#3B82F6', rgb: '59, 130, 246' }
+];
+
 const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onCollapse, onNavigateToResource }) => {
   const [activityData, setActivityData] = useState(null);
   const [preloadedData, setPreloadedData] = useState({}); // Store preloaded data by view mode
   const [isLoading, setIsLoading] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
+  
+  // Accent color state
+  const [accentColorIndex, setAccentColorIndex] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('developmentActivityWidget.accentColor') || '0');
+    } catch {
+      return 0;
+    }
+  });
   
   // Load persisted settings from localStorage with fallbacks
   const [selectedPeriod, setSelectedPeriod] = useState(() => {
@@ -505,6 +525,19 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
   const { leaderboard, chartData, metrics, periodLabel, isDaily } = currentPeriodData || {};
 
+  // Current and next accent colors
+  const currentAccentColor = accentColors[accentColorIndex];
+  const nextAccentColor = accentColors[(accentColorIndex + 1) % accentColors.length];
+
+  // Handle accent color change
+  const handleAccentColorChange = () => {
+    const newIndex = (accentColorIndex + 1) % accentColors.length;
+    setAccentColorIndex(newIndex);
+    try {
+      localStorage.setItem('developmentActivityWidget.accentColor', newIndex.toString());
+    } catch {}
+  };
+
   return (
     <>
       {!isExpanded ? (
@@ -596,7 +629,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                         />
                         <div className="relative">
                           <button
-                            className={`share-button text-cyan-400 hover:text-white bg-gray-800/30 backdrop-blur-sm border border-cyan-400/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target shadow-[0_0_20px_rgba(34,211,238,0.03)] hover:shadow-[0_0_30px_rgba(34,211,238,0.05)] hover:border-cyan-400 hover:bg-cyan-400/10 ${
+                            className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-white/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] hover:border-white hover:bg-white/10 ${
                               isSharing ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                             onClick={() => {
@@ -656,10 +689,28 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             </div>
                           )}
                         </div>
+                        {/* Accent Color Picker Dot */}
+                        <div className="relative">
+                          <button
+                            onClick={handleAccentColorChange}
+                            className="w-3 h-3 rounded-full border border-gray-600/50 transition-all duration-200 hover:border-gray-400 hover:scale-85"
+                            style={{
+                              backgroundColor: currentAccentColor.hex,
+                              boxShadow: `0 0 8px rgba(${currentAccentColor.rgb}, 0.5), 0 0 16px rgba(${currentAccentColor.rgb}, 0.2)`
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.boxShadow = `0 0 16px rgba(${currentAccentColor.rgb}, 0.8), 0 0 32px rgba(${currentAccentColor.rgb}, 0.5)`;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.boxShadow = `0 0 8px rgba(${currentAccentColor.rgb}, 0.5), 0 0 16px rgba(${currentAccentColor.rgb}, 0.2)`;
+                            }}
+                            title={`Current accent color: ${currentAccentColor.name}`}
+                          />
+                        </div>
                         {shareMessage && (
                           <div className={`text-sm font-medium transition-all duration-300 truncate max-w-32 ${
                             shareMessageType === 'success' 
-                              ? 'bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent' 
+                              ? 'bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent' 
                               : 'bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent'
                           }`}>
                             {shareMessage}
@@ -669,7 +720,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     )}
                     {screenshotMode && (
                       <span
-                        className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-700 text-cyan-300 flex-shrink-0"
+                        className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-700 text-white flex-shrink-0"
                         style={{ display: 'inline-block', cursor: 'default' }}
                       >
                         {periodLabel || 'Period'}
@@ -688,7 +739,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                       <div className="text-gray-400 text-sm mb-4">{error}</div>
                       <button 
                         onClick={loadActivityData}
-                        className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+                        className="px-4 py-2 bg-white hover:bg-gray-200 text-black rounded-lg transition-colors"
                       >
                         Retry
                       </button>
@@ -752,7 +803,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                       }`}>
                           {isLoading ? (
                           <div className="flex items-center justify-center h-full">
-                            <div className="flex items-center space-x-3 text-cyan-400">
+                            <div className="flex items-center space-x-3 text-white">
                               <Loader2 className="w-6 h-6 animate-spin" />
                               <span className="text-sm font-medium text-gray-400/30">
                                   Loading from server cache...
@@ -782,6 +833,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 padding={30}
                                 period={selectedPeriod}
                                 screenshotMode={screenshotMode}
+                                accentColor={currentAccentColor}
                                 ref={chartSvgRef}
                               />
                             </div>
@@ -820,21 +872,21 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
                           if (index === 0) {
                             containerStyle = {
-                              boxShadow: '0 0 20px rgba(34, 211, 238, 0.3), 0 0 30px rgba(34, 211, 238, 0.5)',
-                              border: '1px solid rgba(34, 211, 238, 0.5)',
+                              boxShadow: `0 0 20px rgba(${currentAccentColor.rgb}, 0.3), 0 0 30px rgba(${currentAccentColor.rgb}, 0.5)`,
+                              border: `1px solid rgba(${currentAccentColor.rgb}, 0.5)`,
                               zIndex: 13
                             };
                             isWinner = true;
                           } else if (index === 1) {
                             containerStyle = {
-                              boxShadow: '0 0 15px rgba(34, 211, 238, 0.25), 0 0 25px rgba(34, 211, 238, 0.4)',
-                              border: '1px solid rgba(34, 211, 238, 0.4)',
+                              boxShadow: `0 0 15px rgba(${currentAccentColor.rgb}, 0.25), 0 0 25px rgba(${currentAccentColor.rgb}, 0.4)`,
+                              border: `1px solid rgba(${currentAccentColor.rgb}, 0.4)`,
                               zIndex: 12
                             };
                           } else if (index === 2) {
                             containerStyle = {
-                              boxShadow: '0 0 10px rgba(34, 211, 238, 0.2), 0 0 20px rgba(34, 211, 238, 0.3)',
-                              border: '1px solid rgba(34, 211, 238, 0.3)',
+                              boxShadow: `0 0 10px rgba(${currentAccentColor.rgb}, 0.2), 0 0 20px rgba(${currentAccentColor.rgb}, 0.3)`,
+                              border: `1px solid rgba(${currentAccentColor.rgb}, 0.3)`,
                               zIndex: 11
                             };
                           }
@@ -858,7 +910,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 }
                               }}
                             >
-                              <div className="text-cyan-400 text-sm font-bold flex-shrink-0 w-6 text-center">
+                              <div className="text-white text-sm font-bold flex-shrink-0 w-6 text-center">
                                 {index + 1}
                               </div>
                               <div className="flex-1 min-w-0 overflow-hidden">
@@ -921,7 +973,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 }
                               }}
                             >
-                              <div className="text-cyan-400 text-sm font-bold flex-shrink-0 w-6 text-center">
+                              <div className="text-white text-sm font-bold flex-shrink-0 w-6 text-center">
                                 {adjustedIndex + 1}
                               </div>
                               <div className="flex-1 min-w-0 overflow-hidden">
