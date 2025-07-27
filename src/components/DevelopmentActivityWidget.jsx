@@ -49,6 +49,46 @@ const SkeletonLeaderboardItem = ({ rank }) => (
   </div>
 );
 
+// Error boundary for chart rendering
+class ChartErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('🚨 Chart Error Boundary caught an error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="text-red-400 text-lg mb-2">Chart rendering failed</div>
+            <div className="text-gray-500 text-sm mb-4">An error occurred while displaying the chart</div>
+            <button 
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                if (this.props.onRetry) this.props.onRetry();
+              }}
+              className="px-4 py-2 bg-white hover:bg-gray-200 text-black rounded-lg transition-colors text-sm"
+            >
+              Retry Chart
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 // Accent color system matching widget sidebar colors
 const accentColors = [
   { name: 'white', hex: '#FFFFFF', rgb: '255, 255, 255' },
@@ -57,7 +97,12 @@ const accentColors = [
   { name: 'teal', hex: '#14B8A6', rgb: '20, 184, 166' },
   { name: 'red', hex: '#F87171', rgb: '248, 113, 113' },
   { name: 'emerald', hex: '#34D399', rgb: '52, 211, 153' },
-  { name: 'blue', hex: '#3B82F6', rgb: '59, 130, 246' }
+  { name: 'blue', hex: '#3B82F6', rgb: '59, 130, 246' },
+  { name: 'NMKR green', hex: '#11F250', rgb: '17, 242, 80' },
+  { name: 'Cyber Lime', hex: '#C8F560', rgb: '200, 245, 96' },
+  { name: 'Electric Purple', hex: '#A259FF', rgb: '162, 89, 255' },
+  { name: 'Hot Coral', hex: '#FF6B6B', rgb: '255, 107, 107' },
+  { name: 'Dawn Blue', hex: '#4C6FFF', rgb: '76, 111, 255' }
 ];
 
 const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onCollapse, onNavigateToResource }) => {
@@ -65,13 +110,15 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   const [preloadedData, setPreloadedData] = useState({}); // Store preloaded data by view mode
   const [isLoading, setIsLoading] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
+  const [hasDataLoadError, setHasDataLoadError] = useState(false);
   
-  // Accent color state
+  // Accent color state - defaults to white (index 0)
   const [accentColorIndex, setAccentColorIndex] = useState(() => {
     try {
-      return parseInt(localStorage.getItem('developmentActivityWidget.accentColor') || '0');
+      const saved = localStorage.getItem('developmentActivityWidget.accentColor');
+      return saved !== null ? parseInt(saved) : 0; // Always default to 0 (white)
     } catch {
-      return 0;
+      return 0; // Default to white
     }
   });
   
@@ -125,14 +172,19 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       const currentViewMode = viewMode || 'repository';
       const currentPeriod = selectedPeriod || 'current';
       
+      console.log(`🔍 DEBUG: loadActivityData called - viewMode: ${currentViewMode}, period: ${currentPeriod}, forceRefresh: ${forceRefresh}`);
+      
       // Check if we have preloaded data for instant switching
       const viewModeCache = preloadedData[currentViewMode];
       const lastFetch = lastFetchTime[currentViewMode];
+      
+      console.log(`🔍 DEBUG: Cache check - viewModeCache exists: ${!!viewModeCache}, lastFetch: ${lastFetch}, cacheValid: ${lastFetch && (Date.now() - lastFetch < CACHE_TIMEOUT)}`);
       
       if (!forceRefresh && viewModeCache && lastFetch && (Date.now() - lastFetch < CACHE_TIMEOUT)) {
         console.log('⚡ INSTANT SWITCH: Using preloaded data!');
         if (viewModeCache.preloadedPeriods && viewModeCache.preloadedPeriods[currentPeriod]) {
           const periodData = { ...viewModeCache.preloadedPeriods[currentPeriod], period: currentPeriod, viewMode: currentViewMode };
+          console.log(`🔍 DEBUG: Setting cached data - dailyLeaderboard: ${periodData.dailyLeaderboard?.length || 0}, weeklyLeaderboard: ${periodData.weeklyLeaderboard?.length || 0}`);
           setActivityData(periodData);
           
           // Dispatch event for other components
@@ -142,12 +194,19 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
           document.dispatchEvent(event);
           
           setIsLoading(false);
+          setError(null); // Clear any previous errors
           return;
+        } else {
+          console.log(`🔍 DEBUG: No preloaded period data for ${currentPeriod}`);
         }
       }
 
-      setIsLoading(true);
+      // Only set loading if we don't have any existing data to prevent flickering
+      if (!activityData) {
+        setIsLoading(true);
+      }
       setError(null);
+      setHasDataLoadError(false);
       
       console.log(`🚀 Loading ${currentViewMode} data from server (server-side cache optimized)...`);
       
@@ -162,6 +221,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       }
       
       const data = await response.json();
+      
+      console.log(`🔍 DEBUG: API response received - hasDaily: ${!!data.dailyLeaderboard}, hasWeekly: ${!!data.weeklyLeaderboard}, hasPreloaded: ${!!data.preloadedPeriods}`);
       
       if (data && (data.dailyLeaderboard || data.weeklyLeaderboard || data.preloadedPeriods)) {
         // Store preloaded data by view mode
@@ -183,7 +244,18 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
           currentData = { ...data, period: currentPeriod, viewMode: currentViewMode };
         }
         
-        setActivityData(currentData);
+        console.log(`🔍 DEBUG: Setting API data - currentData dailyLeaderboard: ${currentData.dailyLeaderboard?.length || 0}, weeklyLeaderboard: ${currentData.weeklyLeaderboard?.length || 0}`);
+        
+        // Use functional update to ensure we don't lose data during rapid switches
+        setActivityData(prevData => {
+          // If we have existing data for a different view mode, preserve it temporarily
+          if (prevData && prevData.viewMode !== currentViewMode) {
+            console.log(`🔍 DEBUG: View mode changed from ${prevData.viewMode} to ${currentViewMode}, updating data`);
+          }
+          return currentData;
+        });
+        setError(null); // Clear any previous errors
+        setHasDataLoadError(false);
         
         // Dispatch event for other components
         const event = new CustomEvent('activityDataUpdated', {
@@ -193,6 +265,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         
         console.log(`✅ LOADED ${Object.keys(data.preloadedPeriods || {}).length} periods from server: ${currentData.dailyLeaderboard?.length || 0} resources with activity`);
       } else {
+        console.log('🔍 DEBUG: Invalid data format received:', data);
         throw new Error('Invalid data format received');
       }
     } catch (error) {
@@ -204,6 +277,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       
       console.error('❌ Failed to load activity data:', error);
       setError(error.message);
+      setHasDataLoadError(true);
     } finally {
       setIsLoading(false);
       // Clear the controller reference
@@ -216,12 +290,23 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   // Load data on mount or when first expanded - optimized for server cache
   useEffect(() => {
     const lastFetch = lastFetchTime[viewMode];
-    if (isExpanded && (!activityData || !lastFetch || (Date.now() - lastFetch >= CACHE_TIMEOUT))) {
-      // Server has preloaded all periods data in cache, so this should be very fast
-      console.log('📦 Widget expanded - loading from server cache (all periods preloaded)')
-      loadActivityData();
+    const needsData = !activityData || !lastFetch || (Date.now() - lastFetch >= CACHE_TIMEOUT);
+    
+    if (isExpanded && needsData) {
+      // Check if we have any cached data for this view mode first
+      const cachedData = preloadedData[viewMode];
+      if (cachedData && cachedData.preloadedPeriods && cachedData.preloadedPeriods[selectedPeriod]) {
+        console.log('📦 Widget expanded - using existing cached data');
+        const periodData = { ...cachedData.preloadedPeriods[selectedPeriod], period: selectedPeriod, viewMode: viewMode };
+        setActivityData(periodData);
+        setIsLoading(false);
+      } else {
+        // Server has preloaded all periods data in cache, so this should be very fast
+        console.log('📦 Widget expanded - loading from server cache (all periods preloaded)');
+        loadActivityData();
+      }
     }
-  }, [isExpanded, loadActivityData, viewMode, lastFetchTime]);
+  }, [isExpanded, viewMode, selectedPeriod, preloadedData]);
 
   // Cleanup: Cancel any pending requests when component unmounts
   useEffect(() => {
@@ -233,21 +318,43 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     };
   }, []);
 
-  // Reload data when view mode changes (with stable ref to prevent loops)
+  // Handle view mode changes more gracefully
   const viewModeRef = useRef(viewMode);
-  const isExpandedRef = useRef(isExpanded);
   
   useEffect(() => {
     // Only trigger if viewMode actually changed (not on initial mount)
     if (isExpanded && viewMode && viewModeRef.current && viewModeRef.current !== viewMode) {
-      console.log(`🔄 View mode changed from ${viewModeRef.current} to ${viewMode}, reloading data...`);
-      loadActivityData(true); // Force refresh
+      console.log(`🔄 View mode changed from ${viewModeRef.current} to ${viewMode}`);
+      
+      // Check if we have cached data for the new view mode
+      const cachedData = preloadedData[viewMode];
+      if (cachedData && cachedData.preloadedPeriods && cachedData.preloadedPeriods[selectedPeriod]) {
+        console.log('⚡ Using cached data for view mode switch');
+        const periodData = { ...cachedData.preloadedPeriods[selectedPeriod], period: selectedPeriod, viewMode: viewMode };
+        setActivityData(periodData);
+        setIsLoading(false);
+      } else {
+        console.log('🔄 Loading fresh data for new view mode...');
+        loadActivityData(true); // Force refresh
+      }
     }
     
-    // Update refs
+    // Update ref
     viewModeRef.current = viewMode;
-    isExpandedRef.current = isExpanded;
-  }, [viewMode, isExpanded]); // Remove loadActivityData from dependencies
+  }, [viewMode, isExpanded, selectedPeriod, preloadedData]);
+
+  // Listen for accent color changes from other components
+  useEffect(() => {
+    const handleAccentColorChange = (event) => {
+      const { colorIndex, source } = event.detail;
+      if (source !== 'developmentActivityWidget') {
+        setAccentColorIndex(colorIndex);
+      }
+    };
+    
+    document.addEventListener('accentColorChanged', handleAccentColorChange);
+    return () => document.removeEventListener('accentColorChanged', handleAccentColorChange);
+  }, []);
 
   // Period changes are now handled instantly via preloaded data in the dropdown onChange handler
 
@@ -347,13 +454,18 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
   // Get current period data based on selection
   const currentPeriodData = useMemo(() => {
-    if (!activityData) return null;
+    if (!activityData) {
+      console.log('🔍 DEBUG: currentPeriodData - no activityData');
+      return null;
+    }
     
     // Handle different data structures for organization vs repository view
     const dailyLeaderboard = activityData.dailyLeaderboard || [];
     const weeklyLeaderboard = activityData.weeklyLeaderboard || [];
     const dailyChartData = activityData.dailyChartData || [];
     const weeklyChartData = activityData.weeklyChartData || [];
+    
+    console.log(`🔍 DEBUG: currentPeriodData - period: ${selectedPeriod}, dailyLeaderboard: ${dailyLeaderboard.length}, weeklyLeaderboard: ${weeklyLeaderboard.length}, dailyChartData: ${dailyChartData.length}, weeklyChartData: ${weeklyChartData.length}`);
     
     // Get period configuration
     const getPeriodConfig = (period) => {
@@ -379,9 +491,12 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     const chartData = isDaily ? dailyChartData : weeklyChartData;
     const leaderboard = isDaily ? dailyLeaderboard : weeklyLeaderboard;
     
+    const transformedChartData = transformChartData(chartData, isDaily);
+    console.log(`🔍 DEBUG: currentPeriodData result - leaderboard: ${leaderboard.length}, transformedChartData: ${transformedChartData.length}, isDaily: ${isDaily}`);
+    
     return {
       leaderboard,
-      chartData: transformChartData(chartData, isDaily),
+      chartData: transformedChartData,
       metrics: isDaily ? activityData.metrics?.daily : activityData.metrics?.weekly,
       periodLabel,
       isDaily
@@ -525,9 +640,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
   const { leaderboard, chartData, metrics, periodLabel, isDaily } = currentPeriodData || {};
 
-  // Current and next accent colors
+  // Current accent color
   const currentAccentColor = accentColors[accentColorIndex];
-  const nextAccentColor = accentColors[(accentColorIndex + 1) % accentColors.length];
 
   // Handle accent color change
   const handleAccentColorChange = () => {
@@ -535,7 +649,14 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     setAccentColorIndex(newIndex);
     try {
       localStorage.setItem('developmentActivityWidget.accentColor', newIndex.toString());
+      localStorage.setItem('resourceCard.accentColor', newIndex.toString());
     } catch {}
+    
+    // Dispatch global event to sync other components
+    const event = new CustomEvent('accentColorChanged', {
+      detail: { colorIndex: newIndex, source: 'developmentActivityWidget' }
+    });
+    document.dispatchEvent(event);
   };
 
   return (
@@ -580,20 +701,25 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           onChange={(newPeriod) => {
                             console.log(`⚡ INSTANT PERIOD SWITCH: ${selectedPeriod} → ${newPeriod}`);
                             
+                            // Always set the new period first
+                            setSelectedPeriod(newPeriod);
+                            try {
+                              localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
+                            } catch {}
+                            
                             // Check if we have preloaded data for instant switching
                             const viewModeCache = preloadedData[viewMode];
                             if (viewModeCache && viewModeCache.preloadedPeriods && viewModeCache.preloadedPeriods[newPeriod]) {
                               console.log('✅ Using preloaded data for instant period switch!');
                               
-                              // Set the new period immediately and persist to localStorage
-                              setSelectedPeriod(newPeriod);
-                              try {
-                                localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
-                              } catch {}
-                              
                               // Update activity data with preloaded data
                               const periodData = { ...viewModeCache.preloadedPeriods[newPeriod], period: newPeriod, viewMode: viewMode };
-                              setActivityData(periodData);
+                              
+                              // Use functional update to prevent race conditions
+                              setActivityData(prevData => {
+                                console.log(`🔍 DEBUG: Period switch - updating from ${prevData?.period || 'none'} to ${newPeriod}`);
+                                return periodData;
+                              });
                               
                               // Dispatch event for other components
                               const event = new CustomEvent('activityDataUpdated', {
@@ -603,11 +729,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               
                               console.log(`⚡ INSTANT SWITCH COMPLETE: Now showing ${newPeriod} with ${periodData.dailyLeaderboard?.length || periodData.weeklyLeaderboard?.length || 0} resources`);
                             } else {
-                              console.log('⏳ No preloaded data available, falling back to API call...');
-                              setSelectedPeriod(newPeriod);
-                              try {
-                                localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
-                              } catch {}
+                              console.log('⏳ No preloaded data available, will load from cache or API...');
+                              // Don't force reload here, let the effect handle it
                             }
                           }}
                           options={periodOptions}
@@ -693,19 +816,23 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                         <div className="relative">
                           <button
                             onClick={handleAccentColorChange}
-                            className="w-3 h-3 rounded-full border border-gray-600/50 transition-all duration-200 hover:border-gray-400 hover:scale-85"
-                            style={{
-                              backgroundColor: currentAccentColor.hex,
-                              boxShadow: `0 0 8px rgba(${currentAccentColor.rgb}, 0.5), 0 0 16px rgba(${currentAccentColor.rgb}, 0.2)`
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.boxShadow = `0 0 16px rgba(${currentAccentColor.rgb}, 0.8), 0 0 32px rgba(${currentAccentColor.rgb}, 0.5)`;
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.boxShadow = `0 0 8px rgba(${currentAccentColor.rgb}, 0.5), 0 0 16px rgba(${currentAccentColor.rgb}, 0.2)`;
-                            }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-gray-800/30"
                             title={`Current accent color: ${currentAccentColor.name}`}
-                          />
+                          >
+                            <div 
+                              className="w-2 h-2 rounded-full border border-gray-600/50 transition-all duration-200 hover:scale-85"
+                              style={{
+                                backgroundColor: currentAccentColor.hex,
+                                boxShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`
+                              }}
+                              onMouseEnter={(e) => {
+                                e.target.style.boxShadow = `0 0 12px rgba(${currentAccentColor.rgb}, 0.8), 0 0 24px rgba(${currentAccentColor.rgb}, 0.5)`;
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.boxShadow = `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`;
+                              }}
+                            />
+                          </button>
                         </div>
                         {shareMessage && (
                           <div className={`text-sm font-medium transition-all duration-300 truncate max-w-32 ${
@@ -797,7 +924,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     </div>
 
                       {/* Chart Container */}
-                    <div ref={chartRef} className="overflow-hidden" style={{ height: '420px' }}>
+                    <div ref={chartRef} className="flex-1 overflow-hidden min-h-0">
                       <div className={`rounded-lg pt-6 pb-6 px-6 h-full overflow-hidden ${
                         screenshotMode ? 'border border-gray-700/30' : 'bg-gray-800/50'
                       }`}>
@@ -813,30 +940,47 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           ) : !chartData || chartData.length === 0 ? (
                             <div className="flex items-center justify-center h-full">
                               <div className="text-center">
-                                <div className="text-gray-400 text-lg mb-2">No activity data available</div>
-                                <div className="text-gray-500 text-sm">Try refreshing the page</div>
+                                {hasDataLoadError ? (
+                                  <>
+                                    <div className="text-red-400 text-lg mb-2">Failed to load chart data</div>
+                                    <div className="text-gray-500 text-sm mb-4">Please try switching view modes or refreshing</div>
+                                    <button 
+                                      onClick={() => loadActivityData(true)}
+                                      className="px-4 py-2 bg-white hover:bg-gray-200 text-black rounded-lg transition-colors text-sm"
+                                    >
+                                      Retry Load
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="text-gray-400 text-lg mb-2">No activity data available</div>
+                                    <div className="text-gray-500 text-sm">Try switching to a different time period</div>
+                                  </>
+                                )}
                               </div>
                             </div>
                           ) : (
-                            <div 
-                              className={`w-full h-full flex items-center justify-center overflow-hidden${screenshotMode ? ' pl-4 pr-4' : ''}`} 
-                              style={{
-                                ...(screenshotMode ? { marginLeft: '24px', paddingLeft: '16px', paddingRight: '16px' } : {}),
-                                pointerEvents: 'auto'
-                              }} 
-                              data-screenshot-mode={screenshotMode}
-                            >
-                              <AggregatedActivityChart
-                                weeklyData={chartData}
-                                width={700}
-                                height={200}
-                                padding={30}
-                                period={selectedPeriod}
-                                screenshotMode={screenshotMode}
-                                accentColor={currentAccentColor}
-                                ref={chartSvgRef}
-                              />
-                            </div>
+                            <ChartErrorBoundary onRetry={() => loadActivityData(true)}>
+                              <div 
+                                className={`w-full h-full flex items-center justify-center overflow-hidden${screenshotMode ? ' pl-4 pr-4' : ''}`} 
+                                style={{
+                                  ...(screenshotMode ? { marginLeft: '24px', paddingLeft: '16px', paddingRight: '16px' } : {}),
+                                  pointerEvents: 'auto'
+                                }} 
+                                data-screenshot-mode={screenshotMode}
+                              >
+                                <AggregatedActivityChart
+                                  weeklyData={chartData}
+                                  width={700}
+                                  height={380}
+                                  padding={40}
+                                  period={selectedPeriod}
+                                  screenshotMode={screenshotMode}
+                                  accentColor={currentAccentColor}
+                                  ref={chartSvgRef}
+                                />
+                              </div>
+                            </ChartErrorBoundary>
                         )}
                       </div>
                     </div>

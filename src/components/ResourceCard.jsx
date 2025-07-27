@@ -23,7 +23,12 @@ const accentColors = [
   { name: 'teal', hex: '#14B8A6', rgb: '20, 184, 166' },
   { name: 'red', hex: '#F87171', rgb: '248, 113, 113' },
   { name: 'emerald', hex: '#34D399', rgb: '52, 211, 153' },
-  { name: 'blue', hex: '#3B82F6', rgb: '59, 130, 246' }
+  { name: 'blue', hex: '#3B82F6', rgb: '59, 130, 246' },
+  { name: 'NMKR green', hex: '#11F250', rgb: '17, 242, 80' },
+  { name: 'Cyber Lime', hex: '#C8F560', rgb: '200, 245, 96' },
+  { name: 'Electric Purple', hex: '#A259FF', rgb: '162, 89, 255' },
+  { name: 'Hot Coral', hex: '#FF6B6B', rgb: '255, 107, 107' },
+  { name: 'Dawn Blue', hex: '#4C6FFF', rgb: '76, 111, 255' }
 ];
 
 const XIcon = () => (
@@ -80,12 +85,13 @@ const ResourceCard = ({ resource, onViewResource }) => {
   const [shareMessage, setShareMessage] = useState('')
   const [shareMessageType, setShareMessageType] = useState('success')
   
-  // Accent color state
+  // Accent color state - defaults to white (index 0)
   const [accentColorIndex, setAccentColorIndex] = useState(() => {
     try {
-      return parseInt(localStorage.getItem('resourceCard.accentColor') || '0');
+      const saved = localStorage.getItem('resourceCard.accentColor');
+      return saved !== null ? parseInt(saved) : 0; // Always default to 0 (white)
     } catch {
-      return 0;
+      return 0; // Default to white
     }
   });
   
@@ -304,6 +310,19 @@ const ResourceCard = ({ resource, onViewResource }) => {
     };
   }, [isExpanded, resource.id, resource.name]);
 
+  // Listen for accent color changes from other components
+  useEffect(() => {
+    const handleAccentColorChange = (event) => {
+      const { colorIndex, source } = event.detail;
+      if (source !== 'resourceCard') {
+        setAccentColorIndex(colorIndex);
+      }
+    };
+    
+    document.addEventListener('accentColorChanged', handleAccentColorChange);
+    return () => document.removeEventListener('accentColorChanged', handleAccentColorChange);
+  }, []);
+
   const handleCardClick = () => {
     // Don't trigger expand if currently scrolling
     if (isScrolling) return
@@ -398,9 +417,8 @@ const ResourceCard = ({ resource, onViewResource }) => {
     }
   }
 
-  // Current and next accent colors
+  // Current accent color
   const currentAccentColor = accentColors[accentColorIndex];
-  const nextAccentColor = accentColors[(accentColorIndex + 1) % accentColors.length];
 
   // Handle accent color change
   const handleAccentColorChange = () => {
@@ -408,7 +426,14 @@ const ResourceCard = ({ resource, onViewResource }) => {
     setAccentColorIndex(newIndex);
     try {
       localStorage.setItem('resourceCard.accentColor', newIndex.toString());
+      localStorage.setItem('developmentActivityWidget.accentColor', newIndex.toString());
     } catch {}
+    
+    // Dispatch global event to sync other components
+    const event = new CustomEvent('accentColorChanged', {
+      detail: { colorIndex: newIndex, source: 'resourceCard' }
+    });
+    document.dispatchEvent(event);
   };
 
   return (
@@ -422,7 +447,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       }`}
       style={{
         height: isExpanded ? 'auto' : '6rem',
-        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '22.5rem' : '25rem') : (screenshotMode ? '35.5rem' : '38rem')) : isExpanded ? (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) : undefined,
+        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '28rem' : '32rem') : (screenshotMode ? '42rem' : '46rem')) : isExpanded ? (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) : undefined,
         transform: isExpanded ? (window.innerWidth < 1024 ? 'scale(1)' : 'scale(1.03)') : 'scale(1)',
         marginBottom: isExpanded && activeTab === 'activity' ? '2rem' : undefined,
         marginTop: isExpanded && activeTab === 'activity' ? '2rem' : undefined,
@@ -446,7 +471,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
 
       {/* Expanded View */}
       <div className={`absolute top-0 left-0 w-full p-4 transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ 
-        minHeight: activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '22rem' : '23rem') : (screenshotMode ? '35.5rem' : '38rem')) : (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem'))
+        minHeight: activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '27rem' : '31rem') : (screenshotMode ? '41rem' : '45rem')) : (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem'))
       }}>
         <div className="flex flex-col min-h-full">
           {/* Header */}
@@ -593,19 +618,23 @@ const ResourceCard = ({ resource, onViewResource }) => {
                     {/* Accent Color Picker Dot */}
                     <button
                       onClick={handleAccentColorChange}
-                      className="w-3 h-3 rounded-full border border-gray-600/50 transition-all duration-200 hover:border-gray-400 hover:scale-85"
-                      style={{
-                        backgroundColor: currentAccentColor.hex,
-                        boxShadow: `0 0 8px rgba(${currentAccentColor.rgb}, 0.5), 0 0 16px rgba(${currentAccentColor.rgb}, 0.2)`
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.boxShadow = `0 0 16px rgba(${currentAccentColor.rgb}, 0.8), 0 0 32px rgba(${currentAccentColor.rgb}, 0.5)`;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.boxShadow = `0 0 8px rgba(${currentAccentColor.rgb}, 0.5), 0 0 16px rgba(${currentAccentColor.rgb}, 0.2)`;
-                      }}
+                      className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-gray-800/30"
                       title={`Current accent color: ${currentAccentColor.name}`}
-                    />
+                    >
+                      <div 
+                        className="w-2 h-2 rounded-full border border-gray-600/50 transition-all duration-200 hover:scale-85"
+                        style={{
+                          backgroundColor: currentAccentColor.hex,
+                          boxShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.boxShadow = `0 0 12px rgba(${currentAccentColor.rgb}, 0.8), 0 0 24px rgba(${currentAccentColor.rgb}, 0.5)`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.boxShadow = `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`;
+                        }}
+                      />
+                    </button>
                     {shareMessage && (
                       <div className={`text-sm font-medium transition-all duration-300 ${
                         shareMessageType === 'success' 

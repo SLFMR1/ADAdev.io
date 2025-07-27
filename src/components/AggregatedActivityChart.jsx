@@ -19,12 +19,12 @@ const getLineChartPoints = (data, width, height, padding, rightPadding) => {
   }).join(' ')
 }
 
-const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 200, padding = 30, rightPadding, period, screenshotMode = false, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' } }, svgRef) => {
+const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 300, padding = 40, rightPadding, period, screenshotMode = false, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' } }, svgRef) => {
   // Use more left padding in screenshot mode
-  const effectivePadding = screenshotMode ? 64 : 32;
-  const effectiveRightPadding = 24;
-  // Always use tight SVG height (enough for chart and axis labels)
-  const svgHeight = height + 12;
+  const effectivePadding = screenshotMode ? 80 : 50;
+  const effectiveRightPadding = 30;
+  // Increased SVG height for better chart visibility
+  const svgHeight = height + 60;
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
   
   if (!weeklyData || weeklyData.length === 0) {
@@ -136,14 +136,19 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
     setTooltip({ show: false, x: 0, y: 0, value: 0, label: '' })
   }
   
-  // Calculate Y-axis labels
+  // Calculate Y-axis labels - ensure we always show meaningful scale
   const yAxisLabels = []
-  const maxLabel = Math.ceil(maxCommits / 10) * 10 // Round up to nearest 10
-  const step = Math.max(1, Math.floor(maxLabel / 5)) // 5 labels max
+  const maxLabel = Math.max(Math.ceil(maxCommits / 10) * 10, 10) // Minimum scale of 10
+  const step = Math.max(1, Math.floor(maxLabel / 6)) // 6-7 labels for better granularity
   
-  for (let i = 0; i <= maxLabel; i += step) {
+  // Always include 0 and ensure we have good distribution
+  yAxisLabels.push(0)
+  for (let i = step; i <= maxLabel; i += step) {
     yAxisLabels.push(i)
   }
+  
+  // Ensure we don't have duplicate 0
+  const uniqueLabels = [...new Set(yAxisLabels)].sort((a, b) => a - b)
   
   return (
     <div className="relative">
@@ -170,7 +175,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         <rect width="100%" height="100%" fill="url(#grid)" opacity="0.3" />
         
         {/* Horizontal grid lines for Y-axis labels */}
-        {yAxisLabels.map((label, i) => {
+        {uniqueLabels.map((label, i) => {
           const y = height - effectivePadding - (label / maxCommits) * (height - 2 * effectivePadding)
           return (
             <line
@@ -180,9 +185,9 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
               x2={effectiveWidth - effectiveRightPadding}
               y2={y}
               stroke={accentColor.hex}
-              strokeDasharray="4 2"
-              strokeWidth="1"
-              opacity="0.25"
+              strokeDasharray="3 3"
+              strokeWidth="0.8"
+              opacity="0.3"
             />
           )
         })}
@@ -211,7 +216,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
             y1={height - effectivePadding}
             x2={effectivePadding + (i / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
             y2={height - effectivePadding + 8}
-            stroke="#FFFFFF"
+            stroke={accentColor.hex}
             strokeWidth="1"
             opacity="0.3"
           />
@@ -221,7 +226,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         <polyline
           points={chartPoints}
           fill="none"
-          stroke="#FFFFFF"
+          stroke={accentColor.hex}
           strokeWidth="4"
           opacity="0.4"
           filter="url(#glow)"
@@ -269,19 +274,20 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         })}
         
         {/* Y-axis labels */}
-        {yAxisLabels.map((label, i) => {
+        {uniqueLabels.map((label, i) => {
           const y = height - effectivePadding - (label / maxCommits) * (height - 2 * effectivePadding)
-          const labelSpacing = 8; // reduced space between y-axis and label (always)
-          const leftPadding = 8; // always use 8px for left padding
+          const labelSpacing = 12; // increased space for better readability
+          const leftPadding = 8;
           return (
             <text
               key={i}
               x={effectivePadding - labelSpacing - leftPadding}
               y={y + 4}
-              fontSize="12"
+              fontSize="13"
               fill={accentColor.hex}
               textAnchor="end"
               dominantBaseline="middle"
+              fontWeight="500"
               style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
             >
               {label}
@@ -295,9 +301,9 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
             <text
               key={i}
               x={effectivePadding + (i / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
-              y={height - effectivePadding + (screenshotMode ? 8 : 12)}
-              fontSize={label.type === 'year' ? '14' : '12'}
-              fontWeight={label.type === 'year' ? 'bold' : 'normal'}
+              y={height - effectivePadding + (screenshotMode ? 12 : 16)}
+              fontSize={label.type === 'year' ? '15' : '13'}
+              fontWeight={label.type === 'year' ? 'bold' : '500'}
               fill={accentColor.hex}
               textAnchor="middle"
               style={{ fontFamily: "Outfit, system-ui, sans-serif" }}

@@ -297,12 +297,13 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       </div>
     )
   }
+  
 
-  // Chart configuration
-  const chartWidth = window.innerWidth < 1024 ? 350 : 700 // Responsive width
-  const chartHeight = window.innerWidth < 1024 ? 150 : 200 // Responsive height
-  const chartPadding = window.innerWidth < 1024 ? 20 : 30 // Responsive padding
-  const bottomPadding = window.innerWidth < 1024 ? 30 : 40 // Responsive bottom padding
+  // Chart configuration - just made a bit wider
+  const chartWidth = window.innerWidth < 1024 ? 300 : 850 
+  const chartHeight = window.innerWidth < 1024 ? 180 : 320
+  const chartPadding = window.innerWidth < 1024 ? 30 : 50
+  const bottomPadding = window.innerWidth < 1024 ? 50 : 70
   
   // Validate and sanitize weekly data with enhanced error handling
   const validWeeklyData = weeklyData
@@ -448,7 +449,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   return (
     <div className="w-full">
       {/* Line Chart */}
-      <div className="bg-gray-800/50 rounded-lg p-4 sm:p-6" style={{ minHeight: window.innerWidth < 1024 ? 180 : 220 }}>
+      <div className="bg-gray-800/50 rounded-lg p-4 sm:p-6" style={{ minHeight: window.innerWidth < 1024 ? 280 : 400 }}>
         <div className="flex items-center justify-between mb-3">
           <span className="text-gray-400 text-xs">
             {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'}
@@ -483,7 +484,34 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             </defs>
             
             {/* Background grid - transparent to show global gradient */}
-            <rect width="100%" height="100%" fill="url(#grid)" opacity="0.3" />
+            <rect width="100%" height="100%" fill="url(#grid)" opacity="0.2" />
+            
+            {/* Horizontal grid lines for better readability */}
+            {(() => {
+              const lines = []
+              const maxLabel = Math.max(Math.ceil(maxCommits / 10) * 10, 10)
+              const step = Math.max(1, Math.floor(maxLabel / 5))
+              
+              for (let i = 0; i <= maxLabel; i += step) {
+                if (i <= maxCommits) {
+                  const y = chartHeight - chartPadding - (i / maxCommits) * (chartHeight - 2 * chartPadding)
+                  lines.push(
+                    <line 
+                      key={`grid-${i}`}
+                      x1={chartPadding} 
+                      y1={y} 
+                      x2={chartWidth - chartPadding} 
+                      y2={y}
+                      stroke={accentColor.hex}
+                      strokeDasharray="3 3"
+                      strokeWidth="0.8"
+                      opacity="0.25"
+                    />
+                  )
+                }
+              }
+              return lines
+            })()}
 
             {/* Month boundary grid lines */}
             {monthLabels.map((label, i) => {
@@ -648,9 +676,34 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 return null
               }
             })}
-            {/* Y-axis labels */}
-            <text x={chartPadding - 8} y={chartPadding + 8} fontSize="10" fill="#64748b" textAnchor="end">{maxCommits}</text>
-            <text x={chartPadding - 8} y={chartHeight - chartPadding + 8} fontSize="10" fill="#64748b" textAnchor="end">{minCommits}</text>
+            {/* Y-axis labels - improved visibility and more labels */}
+            {(() => {
+              const labels = []
+              const maxLabel = Math.max(Math.ceil(maxCommits / 10) * 10, 10)
+              const step = Math.max(1, Math.floor(maxLabel / 5))
+              
+              // Generate Y-axis labels
+              for (let i = 0; i <= maxLabel; i += step) {
+                if (i <= maxCommits) {
+                  const y = chartHeight - chartPadding - (i / maxCommits) * (chartHeight - 2 * chartPadding)
+                  labels.push(
+                    <text 
+                      key={`y-label-${i}`}
+                      x={chartPadding - 12} 
+                      y={y + 4} 
+                      fontSize="12" 
+                      fill={accentColor.hex} 
+                      textAnchor="end"
+                      fontWeight="500"
+                      style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
+                    >
+                      {i}
+                    </text>
+                  )
+                }
+              }
+              return labels
+            })()}
           </svg>
           {/* Tooltip using Portal for proper overflow */}
           {tooltip.show && (
