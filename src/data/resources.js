@@ -589,7 +589,7 @@ export const cardanoResources = {
     {
       "id": 19,
       "name": "Cardanoscan Explorer",
-      "logo": "https://cardanoscan.io/public/assets/images/logo-dark2x.png",
+      "logo": "https://c-ipfs-gw.nmkr.io/ipfs/QmSNwP9m4T6v9yaxf4XdbcgTp66KqvAkEVRrA8VfH5Bss6",
       "description": "Block explorer for Cardano displaying transactions, addresses, stake pools, and token metadata.",
       "fullDescription": "Cardanoscan is a comprehensive block explorer for the Cardano blockchain. It allows users to view transactions, explore addresses, monitor stake pools, and inspect token metadata in detail.",
       "keySolutions": [

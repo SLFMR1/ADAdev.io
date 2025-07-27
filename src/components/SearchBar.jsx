@@ -19,7 +19,7 @@ const SearchBar = ({
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         {/* Search Input */}
         <div className="flex-1 relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
             <Search className="h-4 w-4 text-gray-500" />
           </div>
           <input
