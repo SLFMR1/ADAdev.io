@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { GitCommit } from 'lucide-react'
 import { fetchGitHubUpdates } from '../services/github'
+import { useCommitData } from '../contexts/CommitDataContext'
 
 const WeeklyCommitCount = ({ resource }) => {
   const [commitsPerMonth, setCommitsPerMonth] = useState(null)
   const [loading, setLoading] = useState(false)
+  const { updateCommitData } = useCommitData()
 
   useEffect(() => {
     const fetchCommitCount = async () => {
@@ -20,20 +22,37 @@ const WeeklyCommitCount = ({ resource }) => {
         if (data && data.commitsPerWeek !== undefined) {
           // commitsPerWeek from monthly period represents total commits in ~28 days
           // This is effectively commits per month since monthly period = 28 days
-          setCommitsPerMonth(data.commitsPerWeek || 0)
+          const commits = data.commitsPerWeek || 0
+          setCommitsPerMonth(commits)
+          // Register this data with the global context for sorting (with error handling)
+          try {
+            updateCommitData(resource.name, commits)
+          } catch (error) {
+            console.warn('Failed to update commit data context:', error)
+          }
         } else {
           setCommitsPerMonth(0)
+          try {
+            updateCommitData(resource.name, 0)
+          } catch (error) {
+            console.warn('Failed to update commit data context:', error)
+          }
         }
       } catch (error) {
         console.error('Error fetching commit count:', error)
         setCommitsPerMonth(0)
+        try {
+          updateCommitData(resource.name, 0)
+        } catch (contextError) {
+          console.warn('Failed to update commit data context on error:', contextError)
+        }
       } finally {
         setLoading(false)
       }
     }
 
     fetchCommitCount()
-  }, [resource])
+  }, [resource, updateCommitData])
 
   if (!resource.social?.github) return null
   if (loading) return null

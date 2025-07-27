@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 import logger from './utils/logger-frontend'
+import { CommitDataProvider } from './contexts/CommitDataContext'
 
 // Register Service Worker
 if ('serviceWorker' in navigator) {
@@ -19,6 +20,8 @@ if ('serviceWorker' in navigator) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <CommitDataProvider>
+      <App />
+    </CommitDataProvider>
   </React.StrictMode>,
 ) 

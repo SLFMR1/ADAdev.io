@@ -15,6 +15,7 @@ import { cardanoResources } from './data/resources';
 import { preloadCache, initializeRateLimit } from './services/github';
 import cacheManager from './services/cacheManager';
 import { Activity, Menu, X, Brain, Bot, TrendingUp, Plus, Users } from 'lucide-react';
+import { useCommitData } from './contexts/CommitDataContext';
 
 // Unified Background Overlay Component
 const WidgetOverlay = ({ isOpen, onClose, children }) => {
@@ -305,6 +306,9 @@ function App() {
   const [viewingResourceCard, setViewingResourceCard] = useState(false);
   const [navigationSource, setNavigationSource] = useState(null); // 'leaderboard', 'widget', or null
   const [isResourcesSectionActive, setIsResourcesSectionActive] = useState(false);
+  
+  // Access commit data from context for sorting
+  const { getCommitCount } = useCommitData();
 
   const categories = ['All', ...Object.keys(cardanoResources).sort()];
 
@@ -597,6 +601,7 @@ function App() {
     initializeGitHub();
   }, [allResources]);
 
+
   useEffect(() => {
     const handleActivityDataUpdate = (event) => {
       const { totalActiveRepos, avgCommitsPerRepo, totalCommits } = event.detail;
@@ -666,16 +671,25 @@ function App() {
       // For name sorting, return as single group
       return { 'All Resources': sorted };
     } else if (sortBy === 'activity') {
-      // Sort by activity (high to low)
-      // For now, prioritize resources with GitHub repos
+      // Sort by activity (high to low) using real commit data from WeeklyCommitCount components
       sorted.sort((a, b) => {
-        const aHasGitHub = a.social?.github ? 1 : 0;
-        const bHasGitHub = b.social?.github ? 1 : 0;
-        if (aHasGitHub !== bHasGitHub) {
-          return bHasGitHub - aHasGitHub; // GitHub repos first
+        const aCommits = getCommitCount(a.name);
+        const bCommits = getCommitCount(b.name);
+        
+        // If both have the same commit count, check GitHub presence as secondary sort
+        if (aCommits === bCommits) {
+          const aHasGitHub = a.social?.github ? 1 : 0;
+          const bHasGitHub = b.social?.github ? 1 : 0;
+          if (aHasGitHub !== bHasGitHub) {
+            return bHasGitHub - aHasGitHub; // GitHub repos first if commits are equal
+          }
+          return a.name.localeCompare(b.name); // Then alphabetical
         }
-        return a.name.localeCompare(b.name); // Then alphabetical
+        
+        // Sort by commit count (descending - high to low)
+        return bCommits - aCommits;
       });
+      
       // For activity sorting, return as single group
       return { 'Active Projects': sorted };
     } else {
