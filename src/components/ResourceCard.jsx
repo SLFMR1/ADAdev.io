@@ -313,10 +313,8 @@ const ResourceCard = ({ resource, onViewResource }) => {
   // Listen for accent color changes from other components
   useEffect(() => {
     const handleAccentColorChange = (event) => {
-      const { colorIndex, source } = event.detail;
-      if (source !== 'resourceCard') {
-        setAccentColorIndex(colorIndex);
-      }
+      const { colorIndex } = event.detail;
+      setAccentColorIndex(colorIndex);
     };
     
     document.addEventListener('accentColorChanged', handleAccentColorChange);
