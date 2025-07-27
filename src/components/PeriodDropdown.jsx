@@ -49,8 +49,8 @@ const PeriodDropdown = ({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`w-full flex items-center justify-between px-3 py-1.5 bg-gray-800/30 backdrop-blur-sm border border-white/50 rounded-md text-gray-300 focus:outline-none focus:border-white transition-all duration-200 text-sm touch-target shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] ${
-          disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-white hover:bg-white/10'
+        className={`w-full flex items-center justify-between px-3 py-1.5 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md text-gray-300 focus:outline-none focus:border-gray-500 transition-all duration-200 text-sm touch-target ${
+          disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-gray-500 hover:bg-white/10'
         }`}
       >
         <span className={`truncate ${!selectedOption ? 'text-gray-400/30' : ''}`}>{displayValue}</span>

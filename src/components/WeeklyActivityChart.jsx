@@ -84,7 +84,7 @@ const getMonthLabels = (commitsPerMonth, weeks) => {
   return labels.slice(-weeks)
 }
 
-const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false, selectedPeriod = '4weeks', onPeriodChange, preloadedData = null, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' } }) => {
+const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false, selectedPeriod = '3months', onPeriodChange, preloadedData = null, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' } }) => {
   const [activityData, setActivityData] = useState(null)
   const [weeklyData, setWeeklyData] = useState([])
   const [isLoading, setIsLoading] = useState(true)

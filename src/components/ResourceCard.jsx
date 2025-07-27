@@ -81,7 +81,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
   const chartContainerRef = useRef(null)
   const [isSharing, setIsSharing] = useState(false)
   const [screenshotMode, setScreenshotMode] = useState(false)
-  const [selectedPeriod, setSelectedPeriod] = useState('4weeks')
+  const [selectedPeriod, setSelectedPeriod] = useState('3months')
   const [shareMessage, setShareMessage] = useState('')
   const [shareMessageType, setShareMessageType] = useState('success')
   
@@ -441,6 +441,8 @@ const ResourceCard = ({ resource, onViewResource }) => {
       data-resource-id={resource.id}
       data-resource-name={resource.name}
       className={`relative bg-card-bg/50 backdrop-blur-md border border-gray-800 rounded-xl p-4 transition-all duration-300 ease-in-out transform-gpu shadow-lg hover:shadow-2xl cursor-pointer ${
+        !isExpanded ? 'hover:scale-[1.07]' : ''
+      } ${
         isExpanded && activeTab === 'activity' ? 'col-span-2' : ''
       }`}
       style={{
@@ -603,7 +605,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                   <div className="flex items-center space-x-3">
                     <button
                       onClick={handleShareActivityChart}
-                      className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-white/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] hover:border-white hover:bg-white/10 ${isSharing ? 'opacity-50 cursor-not-allowed' : ''} ${screenshotMode ? 'hidden' : ''}`}
+                      className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10 ${isSharing ? 'opacity-50 cursor-not-allowed' : ''} ${screenshotMode ? 'hidden' : ''}`}
                       title="Share Activity Chart"
                       disabled={isSharing}
                     >

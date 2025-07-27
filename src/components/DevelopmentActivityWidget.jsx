@@ -667,7 +667,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
           onClick={onExpand}
         >
           <div className="flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl">
-            <Activity size={24} className="text-amber-400" />
+            <Activity size={24} className="text-[#C8F560]" />
           </div>
         </div>
       ) : (
@@ -692,7 +692,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
               <div className="flex-shrink-0 px-8 pt-8 pb-4 min-h-0">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <Activity size={20} className="text-amber-400 flex-shrink-0" />
+                    <Activity size={20} className="text-[#C8F560] flex-shrink-0" />
                     <h3 className="text-white font-semibold text-sm">Development Activity</h3>
                     {!screenshotMode && (
                       <>
@@ -752,7 +752,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                         />
                         <div className="relative">
                           <button
-                            className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-white/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] hover:border-white hover:bg-white/10 ${
+                            className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10 ${
                               isSharing ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                             onClick={() => {

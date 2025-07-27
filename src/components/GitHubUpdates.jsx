@@ -152,13 +152,13 @@ const GitHubUpdates = ({ resource }) => {
       </div>
 
       {/* Tab Content */}
-      <div className="space-y-1">
+      <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-hide">
         {activeTab === 'releases' && (
           <>
             {releases.length === 0 ? (
               <p className="text-gray-500 text-xs">No recent releases</p>
             ) : (
-              releases.slice(0, 5).map((release) => (
+              releases.map((release) => (
                 <div key={release.id} className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <a
@@ -190,7 +190,7 @@ const GitHubUpdates = ({ resource }) => {
             {commits.length === 0 ? (
               <p className="text-gray-500 text-xs">No recent commits</p>
             ) : (
-              commits.slice(0, 8).map((commit) => (
+              commits.map((commit) => (
                 <div key={commit.sha} className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <a

@@ -45,13 +45,13 @@ const SidebarWidgetsContainer = ({ expanded, setExpanded, handleWidgetExpand, is
       <div className="relative z-50 w-16 h-16" onClick={() => handleWidgetExpand('dev')}>
         <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
           expanded === 'dev' 
-            ? 'border-amber-400/50 shadow-[0_0_20px_rgba(251,191,36,0.4),0_0_40px_rgba(251,191,36,0.2)]' 
-            : 'hover:border-amber-400/30 hover:shadow-[0_0_15px_rgba(251,191,36,0.3),0_0_30px_rgba(251,191,36,0.15)]'
+            ? 'border-[#C8F560]/50 shadow-[0_0_20px_rgba(200,245,96,0.4),0_0_40px_rgba(200,245,96,0.2)]' 
+            : 'hover:border-[#C8F560]/30 hover:shadow-[0_0_15px_rgba(200,245,96,0.3),0_0_30px_rgba(200,245,96,0.15)]'
         }`}>
           <Activity size={24} className={`transition-all duration-300 ${
             expanded === 'dev' 
-              ? 'text-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.8)]' 
-              : 'text-gray-400 group-hover:text-amber-400'
+              ? 'text-[#C8F560] drop-shadow-[0_0_12px_rgba(200,245,96,0.8)]' 
+              : 'text-gray-400 group-hover:text-[#C8F560]'
           }`} />
         </div>
       </div>
@@ -186,8 +186,8 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
                 className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-amber-500/20 rounded-lg flex items-center justify-center">
-                    <Activity size={16} className="text-gray-400 group-hover:text-amber-400" />
+                  <div className="w-8 h-8 bg-[#C8F560]/20 rounded-lg flex items-center justify-center">
+                    <Activity size={16} className="text-gray-400 group-hover:text-[#C8F560]" />
                   </div>
                   <div>
                     <div className="text-white font-medium">Development Activity</div>
@@ -295,7 +295,7 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
 function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [sortBy, setSortBy] = useState('name');
+  const [sortBy, setSortBy] = useState('category');
   const [filterBy, setFilterBy] = useState('all');
   const [aiResults, setAiResults] = useState(null);
   const [showAIWidget, setShowAIWidget] = useState(false);
@@ -544,7 +544,7 @@ function App() {
           <div className="bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700">
               <div className="flex items-center space-x-3">
-                {expanded === 'dev' && <Activity className="h-6 w-6 text-amber-400" />}
+                {expanded === 'dev' && <Activity className="h-6 w-6 text-[#C8F560]" />}
                 {expanded === 'github' && (
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="text-purple-400">
                     <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
@@ -632,9 +632,18 @@ function App() {
 
   const filteredResources = useMemo(() => {
     let filtered = allResources;
+    
+    // Category filter
     if (selectedCategory !== 'All') {
       filtered = filtered.filter((resource) => resource.category === selectedCategory);
     }
+    
+    // Type filter (organization/repository/misc)
+    if (filterBy !== 'all') {
+      filtered = filtered.filter((resource) => resource.type === filterBy);
+    }
+    
+    // Search term filter
     if (searchTerm) {
       filtered = filtered.filter(
         (resource) =>
@@ -643,19 +652,50 @@ function App() {
           resource.keySolutions?.some((solution) => solution.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
+    
     return filtered;
-  }, [allResources, searchTerm, selectedCategory]);
+  }, [allResources, searchTerm, selectedCategory, filterBy]);
 
-  const groupedResources = useMemo(() => {
-    const grouped = {};
-    filteredResources.forEach((resource) => {
-      if (!grouped[resource.category]) {
-        grouped[resource.category] = [];
-      }
-      grouped[resource.category].push(resource);
-    });
-    return grouped;
-  }, [filteredResources]);
+  const sortedAndGroupedResources = useMemo(() => {
+    let sorted = [...filteredResources];
+    
+    // Apply sorting
+    if (sortBy === 'name') {
+      // Sort by name A-Z, ignoring categories
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+      // For name sorting, return as single group
+      return { 'All Resources': sorted };
+    } else if (sortBy === 'activity') {
+      // Sort by activity (high to low)
+      // For now, prioritize resources with GitHub repos
+      sorted.sort((a, b) => {
+        const aHasGitHub = a.social?.github ? 1 : 0;
+        const bHasGitHub = b.social?.github ? 1 : 0;
+        if (aHasGitHub !== bHasGitHub) {
+          return bHasGitHub - aHasGitHub; // GitHub repos first
+        }
+        return a.name.localeCompare(b.name); // Then alphabetical
+      });
+      // For activity sorting, return as single group
+      return { 'Active Projects': sorted };
+    } else {
+      // Default: sort by category A-Z
+      const grouped = {};
+      sorted.forEach((resource) => {
+        if (!grouped[resource.category]) {
+          grouped[resource.category] = [];
+        }
+        grouped[resource.category].push(resource);
+      });
+      
+      // Sort resources within each category by name
+      Object.keys(grouped).forEach(category => {
+        grouped[category].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      
+      return grouped;
+    }
+  }, [filteredResources, sortBy]);
 
   return (
     <div className="min-h-screen bg-custom-bg z-0">
@@ -783,7 +823,7 @@ function App() {
             <section id="resources" className="min-h-screen py-20 lg:py-20 pt-8 lg:pt-20">
               <div className="max-w-6xl mx-auto px-4">
                 <div className="max-w-4xl mx-auto text-center mb-16">
-                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
+                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-normal text-white mb-6 leading-tight">
                     Developer Resources
                   </h2>
                   <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed mb-12">
@@ -796,11 +836,15 @@ function App() {
                       selectedCategory={selectedCategory}
                       setSelectedCategory={setSelectedCategory}
                       categories={categories}
+                      sortBy={sortBy}
+                      setSortBy={setSortBy}
+                      filterBy={filterBy}
+                      setFilterBy={setFilterBy}
                     />
                   </div>
                 </div>
 
-                {Object.keys(groupedResources).length === 0 ? (
+                {Object.keys(sortedAndGroupedResources).length === 0 ? (
                   <div className="text-center py-20">
                     <div className="text-gray-400 text-6xl mb-6">🔍</div>
                     <h3 className="text-2xl font-bold text-white mb-4">No resources found</h3>
@@ -808,7 +852,7 @@ function App() {
                   </div>
                 ) : (
                   <div className="space-y-20">
-                    {Object.entries(groupedResources)
+                    {Object.entries(sortedAndGroupedResources)
                       .sort(([categoryA], [categoryB]) => categoryA.localeCompare(categoryB))
                       .map(([category, resources]) => (
                         <div key={category}>

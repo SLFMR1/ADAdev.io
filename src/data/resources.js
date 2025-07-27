@@ -310,7 +310,7 @@ export const cardanoResources = {
       },
       "docs": "https://www.npmjs.com/package/@dotare/cardano-delegation",
       "category": "Libraries & Languages",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null
@@ -579,7 +579,7 @@ export const cardanoResources = {
       "website": "https://iohk.zendesk.com/hc/en-us/articles/900005141163-Cybersecurity-guidelines-for-Cardano-users",
       "social": {},
       "category": "Security & Auditing",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null
@@ -604,7 +604,7 @@ export const cardanoResources = {
         "x": "https://twitter.com/cardanoscanio"
       },
       "category": "Analytics & Data",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null
@@ -628,7 +628,7 @@ export const cardanoResources = {
       },
       "docs": "https://xerberus.gitbook.io/documentation",
       "category": "Analytics & Data",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null
@@ -673,7 +673,7 @@ export const cardanoResources = {
       "website": "https://developers.cardano.org/",
       "social": {},
       "category": "Education & Documentation",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null
@@ -792,7 +792,7 @@ export const cardanoResources = {
       },
       "docs": "https://docs.vespr.xyz/vespr/",
       "category": "Wallets & User Tools",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null
@@ -815,7 +815,7 @@ export const cardanoResources = {
       },
       "docs": "https://docs.typhonwallet.io/#cip30-dapp-connector",
       "category": "Wallets & User Tools",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null
@@ -862,7 +862,7 @@ export const cardanoResources = {
         "x": "https://x.com/eternlwallet"
       },
       "category": "Wallets & User Tools",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null
@@ -940,7 +940,7 @@ export const cardanoResources = {
         "x": "https://x.com/iamx_id"
       },
       "category": "Identity & Authentication",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null
@@ -1042,7 +1042,7 @@ export const cardanoResources = {
         "discord": "https://discord.com/invite/midnightnetwork"
       },
       "category": "Privacy & Zero-Knowledge",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null
@@ -1364,7 +1364,7 @@ export const cardanoResources = {
         "x": "https://twitter.com/SundaeSwap"
       },
       "category": "Layer 2 Scaling Solutions",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null
@@ -1389,7 +1389,7 @@ export const cardanoResources = {
         "x": "https://twitter.com/SundaeSwap"
       },
       "category": "Governance & DAOs",
-      "type": "unknown",
+      "type": "misc",
       "organization": null,
       "repository": null,
       "repo_path": null

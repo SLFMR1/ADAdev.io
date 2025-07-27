@@ -1,13 +1,18 @@
 import React from 'react'
 import { Search } from 'lucide-react'
 import CustomDropdown from './CustomDropdown'
+import PeriodDropdown from './PeriodDropdown'
 
 const SearchBar = ({ 
   searchTerm, 
   setSearchTerm, 
   selectedCategory, 
   setSelectedCategory, 
-  categories 
+  categories,
+  sortBy,
+  setSortBy,
+  filterBy,
+  setFilterBy
 }) => {
   return (
     <div className="mb-8">
@@ -40,10 +45,41 @@ const SearchBar = ({
             placeholder="Select category"
           />
         </div>
+
+        {/* Sort By */}
+        <div className="w-full sm:w-48">
+          <PeriodDropdown
+            value={sortBy}
+            onChange={setSortBy}
+            options={[
+              { key: 'category', label: 'Category A-Z' },
+              { key: 'activity', label: 'Activity High-Low' },
+              { key: 'name', label: 'Name A-Z' }
+            ]}
+            placeholder="Sort by..."
+            className="w-full"
+          />
+        </div>
+
+        {/* Filter By Type */}
+        <div className="w-full sm:w-48">
+          <PeriodDropdown
+            value={filterBy}
+            onChange={setFilterBy}
+            options={[
+              { key: 'all', label: 'All Types' },
+              { key: 'organization', label: 'Organization' },
+              { key: 'repository', label: 'Repository' },
+              { key: 'misc', label: 'Misc' }
+            ]}
+            placeholder="Filter by..."
+            className="w-full"
+          />
+        </div>
       </div>
 
       {/* Active filters display */}
-      {(searchTerm || selectedCategory !== 'All') && (
+      {(searchTerm || selectedCategory !== 'All' || sortBy !== 'category' || filterBy !== 'all') && (
         <div className="flex flex-wrap gap-2 text-sm">
           {searchTerm && (
             <span className="inline-flex items-center px-3 py-2 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
@@ -61,6 +97,28 @@ const SearchBar = ({
               {selectedCategory}
               <button
                 onClick={() => setSelectedCategory('All')}
+                className="ml-2 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {sortBy !== 'category' && (
+            <span className="inline-flex items-center px-3 py-2 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
+              Sort: {sortBy === 'activity' ? 'Activity High-Low' : 'Name A-Z'}
+              <button
+                onClick={() => setSortBy('category')}
+                className="ml-2 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {filterBy !== 'all' && (
+            <span className="inline-flex items-center px-3 py-2 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
+              {filterBy.charAt(0).toUpperCase() + filterBy.slice(1)}
+              <button
+                onClick={() => setFilterBy('all')}
                 className="ml-2 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
               >
                 ×

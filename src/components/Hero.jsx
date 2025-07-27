@@ -62,14 +62,14 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
                   }}
                   className="flex items-center space-x-2 group cursor-pointer transition-all duration-200 hover:scale-105"
                 >
-                  <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white group-hover:text-amber-400 transition-all duration-200 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(251,191,36,0.5)]" />
+                  <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-[#C8F560] transition-all duration-200 drop-shadow-[0_0_8px_rgba(200,245,96,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(200,245,96,0.5)]" />
                   <span className="text-xs sm:text-sm text-gray-400 group-hover:text-white group-hover:scale-107 transition-all duration-200">Real-time Ecosystem Pulse</span>
                 </button>
                 <button 
                   onClick={scrollToResources}
                   className="flex items-center space-x-2 group cursor-pointer transition-all duration-200 hover:scale-105"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 sm:w-5 sm:h-5 text-white group-hover:text-red-400 transition-all duration-200 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(248,113,113,0.5)]">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 transition-all duration-200 drop-shadow-[0_0_8px_rgba(248,113,113,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(248,113,113,0.5)]">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                   </svg>
                   <span className="text-xs sm:text-sm text-gray-400 group-hover:text-white group-hover:scale-107 transition-all duration-200">Curated Dev Resources</span>
@@ -84,7 +84,7 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
                   }}
                   className="flex items-center space-x-2 group cursor-pointer transition-all duration-200 hover:scale-105"
                 >
-                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white group-hover:text-teal-400 transition-all duration-200 drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(20,184,166,0.5)]" />
+                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-teal-400 transition-all duration-200 drop-shadow-[0_0_8px_rgba(20,184,166,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(20,184,166,0.5)]" />
                   <span className="text-xs sm:text-sm text-gray-400 group-hover:text-white group-hover:scale-107 transition-all duration-200">Personalized Development Plans</span>
                 </button>
               </div>
