@@ -33,26 +33,26 @@ const CustomDropdown = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-3 sm:py-2 bg-card-bg/50 backdrop-blur-md border border-gray-700 rounded-full text-white focus:outline-none focus:border-gray-600 transition-colors duration-200 text-sm touch-target"
+        className="w-full flex items-center justify-between px-3 py-1.5 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md text-gray-300 focus:outline-none focus:border-gray-500 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10"
       >
         <span className={`truncate ${!value ? 'text-gray-400/30' : ''}`}>{value || placeholder}</span>
         <ChevronDown 
-          size={16} 
-          className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          size={14} 
+          className={`transition-transform duration-200 text-gray-400 ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full mt-1 w-full bg-card-bg/50 backdrop-blur-md border border-gray-700 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto mobile-scroll">
+        <div className="absolute top-full mt-1 w-full bg-gray-800/40 backdrop-blur-sm border border-gray-600/50 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto mobile-scroll">
           {options.map((option, index) => (
             <button
               key={index}
               type="button"
               onClick={() => handleSelect(option)}
-              className={`w-full text-left px-4 py-3 sm:py-3 text-sm transition-colors duration-200 hover:bg-gray-800/70 first:rounded-t-xl last:rounded-b-xl touch-target ${
+              className={`w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-700/50 first:rounded-t-lg last:rounded-b-lg touch-target ${
                 value === option 
-                  ? 'bg-gray-800/70 text-primary-500' 
+                  ? 'bg-gray-700/50 text-gray-200' 
                   : 'text-gray-300'
               }`}
             >

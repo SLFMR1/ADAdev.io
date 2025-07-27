@@ -24,10 +24,10 @@ const SearchBar = ({
           </div>
           <input
             type="text"
-            placeholder="Search resources..."
+            placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="block w-full pl-9 pr-3 py-3 sm:py-2 border border-gray-700 rounded-full bg-card-bg/50 backdrop-blur-md text-gray-100 focus:outline-none focus:border-gray-600 transition-colors duration-200 text-sm sm:text-sm"
+            className="block w-full pl-9 pr-3 py-2 border border-gray-600/50 rounded-full bg-gray-800/30 backdrop-blur-sm text-gray-300 focus:outline-none focus:border-gray-500 hover:border-gray-500 transition-all duration-200 text-sm touch-target"
             style={{
               '::placeholder': {
                 color: 'rgba(107, 114, 128, 0.3)'
