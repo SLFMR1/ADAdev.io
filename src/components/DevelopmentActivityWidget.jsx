@@ -426,28 +426,70 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       }
       return aggregatedData;
     } else {
-      // For weekly data, create weekly data points
+      // For weekly data, use actual database weekStart dates instead of synthetic generation
       const aggregatedData = [];
-      const maxWeeks = Math.max(...chartData.map(item => item.weeklyCounts?.length || 0));
-      const today = new Date();
       
-      for (let week = 0; week < maxWeeks; week++) {
-        const totalCount = chartData.reduce((sum, item) => sum + (item.weeklyCounts?.[week] || 0), 0);
+      // Get all unique weekStart dates from all resources' weeklyData
+      const allWeekStartsSet = new Set();
+      
+      chartData.forEach(item => {
+        if (item.weeklyData && Array.isArray(item.weeklyData)) {
+          item.weeklyData.forEach(weekData => {
+            if (weekData && weekData.weekStart) {
+              allWeekStartsSet.add(weekData.weekStart);
+            }
+          });
+        }
+      });
+      
+      // Convert to sorted array (chronological order)
+      const allWeekStarts = Array.from(allWeekStartsSet).sort();
+      
+      // If no actual database dates available, fall back to synthetic generation for backward compatibility
+      if (allWeekStarts.length === 0) {
+        console.warn('No actual database weekStart dates found, falling back to synthetic generation');
+        const maxWeeks = Math.max(...chartData.map(item => item.weeklyCounts?.length || 0));
+        const today = new Date();
         
-        // Calculate the start of each week (going backwards from current week)
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - (maxWeeks - 1 - week) * 7);
-        
-        // Adjust to Monday of that week
-        const dayOfWeek = weekStart.getDay();
-        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        weekStart.setDate(weekStart.getDate() - daysToMonday);
-        
-        aggregatedData.push({
-          count: totalCount,
-          weekStart: weekStart.toISOString().slice(0, 10)
+        for (let week = 0; week < maxWeeks; week++) {
+          const totalCount = chartData.reduce((sum, item) => sum + (item.weeklyCounts?.[week] || 0), 0);
+          
+          // Calculate the start of each week (going backwards from current week)
+          const weekStart = new Date(today);
+          weekStart.setDate(today.getDate() - (maxWeeks - 1 - week) * 7);
+          
+          // Adjust to Monday of that week
+          const dayOfWeek = weekStart.getDay();
+          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          weekStart.setDate(weekStart.getDate() - daysToMonday);
+          
+          aggregatedData.push({
+            count: totalCount,
+            weekStart: weekStart.toISOString().slice(0, 10)
+          });
+        }
+      } else {
+        // Use actual database dates
+        allWeekStarts.forEach(weekStart => {
+          let totalCount = 0;
+          
+          // Sum commits for this specific week across all resources
+          chartData.forEach(item => {
+            if (item.weeklyData && Array.isArray(item.weeklyData)) {
+              const weekData = item.weeklyData.find(w => w.weekStart === weekStart);
+              if (weekData && typeof weekData.count === 'number') {
+                totalCount += weekData.count;
+              }
+            }
+          });
+          
+          aggregatedData.push({
+            count: totalCount,
+            weekStart: weekStart
+          });
         });
       }
+      
       return aggregatedData;
     }
   }, []);

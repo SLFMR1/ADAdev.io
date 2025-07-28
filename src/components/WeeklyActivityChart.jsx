@@ -184,9 +184,30 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         // Determine number of weeks based on time period
         const weeks = periodToWeeks[selectedPeriod] || 4
         
-        // Get data from server API with period parameter
-        logger.log(`🔄 Fetching data from server for ${resource.name} (period: ${selectedPeriod})`)
-        const resourceData = await fetchGitHubUpdates(resource, selectedPeriod)
+        // Use hybrid approach for current week accuracy
+        logger.log(`🔄 Fetching hybrid data for ${resource.name} (period: ${selectedPeriod})`)
+        
+        // Determine if we should use hybrid endpoint based on period
+        const shouldUseHybrid = ['4weeks', '3months'].includes(selectedPeriod)
+        
+        let resourceData
+        
+        if (shouldUseHybrid) {
+          // Use hybrid endpoint for recent periods to ensure current week accuracy
+          const periodToWeeks = { '4weeks': 4, '3months': 13 }
+          const weeks = periodToWeeks[selectedPeriod] || 4
+          
+          const response = await fetch(`/api/github/hybrid-activity/${encodeURIComponent(resource.id || resource.name)}?weeks=${weeks}`)
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+          resourceData = await response.json()
+          
+          logger.log(`✅ Hybrid data received - sources:`, resourceData.dataSources)
+        } else {
+          // Use regular endpoint for historical periods (52weeks, 3years)
+          resourceData = await fetchGitHubUpdates(resource, selectedPeriod)
+        }
         
         // Validate and process the response data
         if (resourceData && resourceData.commitsPerWeekDetailed && Array.isArray(resourceData.commitsPerWeekDetailed) && resourceData.commitsPerWeekDetailed.length > 0) {
