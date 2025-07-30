@@ -173,8 +173,17 @@ const fetchRepoCommits = async (repoPath, since = null) => {
       return []
     }
     
-    setCachedData(cacheKey, commits)
-    return commits
+    // Enrich each commit with repository information for maintainCommitsCache
+    const enrichedCommits = commits.map(commit => ({
+      ...commit,
+      repository: {
+        full_name: repoPath,
+        name: repoPath.split('/')[1] || repoPath
+      }
+    }))
+    
+    setCachedData(cacheKey, enrichedCommits)
+    return enrichedCommits
   } catch (error) {
     if (error.message.includes('404')) {
       console.warn(`Repository ${repoPath} not found or not accessible`)
@@ -654,14 +663,19 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
       commits = []
     }
     
-    // Transform commits to match frontend expectations
+    // Transform commits to match frontend expectations while preserving original structure
     const transformedCommits = commits.map(commit => ({
+      // Frontend-expected fields
       sha: commit.sha,
       message: commit.commit?.message || commit.message || '',
       date: commit.commit?.author?.date || commit.date || new Date().toISOString(),
       htmlUrl: commit.html_url || commit.htmlUrl || '',
       author: commit.commit?.author?.name || commit.author?.name || 'Unknown',
-      repo: resource.name
+      repo: resource.name,
+      // Preserve original GitHub API structure for maintainCommitsCache
+      commit: commit.commit,
+      html_url: commit.html_url,
+      repository: commit.repository
     }))
     
     console.log(`📈 ${resource.name}: Found ${commits.length} raw commits, transformed to ${transformedCommits.length}`);
@@ -1897,18 +1911,18 @@ app.get('/api/global-updates', async (req, res) => {
   try {
     console.log('🌍 Global updates request')
 
-    // Get latest 30 commits and releases across all resources
+    // Get more releases and commits to allow better filtering on client side
     const [commitsResult, releasesResult] = await Promise.all([
       supabase
         .from('github_commits_cache')
         .select('*')
         .order('commit_date', { ascending: false })
-        .limit(30),
+        .limit(200), // More commits for better client-side filtering
       supabase
         .from('github_releases_cache')
         .select('*')
         .order('published_at', { ascending: false })
-        .limit(30)
+        .limit(200) // More releases for better client-side filtering
     ])
 
     const commits = commitsResult.data || []
@@ -2129,18 +2143,77 @@ async function maintainCommitsCache(resourceId, commits) {
   if (!supabase || !commits || commits.length === 0) return
   
   try {
+    // Debug logging for commit structure
+    if (commits.length > 0) {
+      const sampleCommit = commits[0]
+      console.log(`🔍 ${resourceId}: Processing ${commits.length} commits. Sample structure:`, {
+        hasRepository: !!sampleCommit.repository,
+        repoFullName: sampleCommit.repository?.full_name,
+        hasCommit: !!sampleCommit.commit,
+        hasAuthor: !!sampleCommit.commit?.author,
+        hasHtmlUrl: !!sampleCommit.html_url,
+        sha: sampleCommit.sha?.substring(0, 8)
+      })
+    }
+    
     // Prepare commit records for insertion
-    const commitRecords = commits.map(commit => ({
-      resource_id: resourceId,
-      resource_name: resourceId, // We'll improve this with proper resource mapping
-      repo_name: commit.repository?.full_name || commit.repository?.name || 'unknown',
-      sha: commit.sha,
-      commit_date: commit.commit?.author?.date || new Date().toISOString(),
-      author_name: commit.commit?.author?.name || 'Unknown',
-      author_email: commit.commit?.author?.email || '',
-      message: commit.commit?.message || '',
-      html_url: commit.html_url
-    }))
+    const commitRecords = commits.map((commit, index) => {
+      // Validate commit structure
+      if (!commit.sha) {
+        console.warn(`⚠️ ${resourceId}: Commit ${index} missing SHA, skipping`)
+        return null
+      }
+      
+      // Generate fallback URL if html_url is null
+      let htmlUrl = commit.html_url
+      if (!htmlUrl && commit.sha && commit.repository?.full_name) {
+        htmlUrl = `https://github.com/${commit.repository.full_name}/commit/${commit.sha}`
+        console.log(`🔗 ${resourceId}: Generated fallback URL for ${commit.sha.substring(0, 8)}`)
+      } else if (!htmlUrl) {
+        // Final fallback for edge cases
+        htmlUrl = `https://github.com/unknown/unknown/commit/${commit.sha || 'unknown'}`
+        console.warn(`⚠️ ${resourceId}: Using unknown fallback URL for commit ${commit.sha?.substring(0, 8)}`)
+      }
+      
+      // Extract repository name with better fallback logic
+      const repoName = commit.repository?.full_name || 
+                      commit.repository?.name || 
+                      (commit.repo && commit.org ? `${commit.org}/${commit.repo}` : null) ||
+                      'unknown'
+      
+      // Extract commit information with validation
+      const authorName = commit.commit?.author?.name || 
+                        commit.author?.login || 
+                        'Unknown'
+      const authorEmail = commit.commit?.author?.email || ''
+      const message = commit.commit?.message || commit.message || ''
+      const commitDate = commit.commit?.author?.date || 
+                        commit.commit?.committer?.date || 
+                        new Date().toISOString()
+      
+      // Log issues for debugging
+      if (repoName === 'unknown') {
+        console.warn(`⚠️ ${resourceId}: Could not determine repo name for commit ${commit.sha?.substring(0, 8)}`)
+      }
+      if (authorName === 'Unknown') {
+        console.warn(`⚠️ ${resourceId}: Could not determine author for commit ${commit.sha?.substring(0, 8)}`)
+      }
+      if (!message) {
+        console.warn(`⚠️ ${resourceId}: Empty message for commit ${commit.sha?.substring(0, 8)}`)
+      }
+      
+      return {
+        resource_id: resourceId,
+        resource_name: resourceId,
+        repo_name: repoName,
+        sha: commit.sha,
+        commit_date: commitDate,
+        author_name: authorName,
+        author_email: authorEmail,
+        message: message,
+        html_url: htmlUrl
+      }
+    }).filter(record => record !== null) // Remove invalid commits
     
     // Insert new commits (duplicates will be ignored due to unique constraint)
     const { error: insertError } = await supabase
@@ -2154,6 +2227,8 @@ async function maintainCommitsCache(resourceId, commits) {
       console.error(`❌ Error inserting commits for ${resourceId}:`, insertError)
       return
     }
+    
+    console.log(`✅ ${resourceId}: Successfully cached ${commitRecords.length} commits to database`)
     
     // Manually maintain rolling cache (keep only latest 30)
     const { error: cleanupError } = await supabase.rpc('cleanup_commits_cache', {

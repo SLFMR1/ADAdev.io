@@ -43,10 +43,10 @@ const SidebarWidgetsContainer = ({ expanded, setExpanded, handleWidgetExpand, is
   return (
     <div className="fixed left-0 top-1/2 -translate-y-1/2 z-50 flex flex-col items-start gap-0 hidden lg:flex">
       {/* Development Activity Widget */}
-      <div className="relative z-50 w-16 h-16" onClick={() => handleWidgetExpand('dev')}>
+      <div className="relative z-50 w-16 h-16 isolate hover:z-[70]" onClick={() => handleWidgetExpand('dev')}>
         <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
           expanded === 'dev' 
-            ? 'border-[#C8F560]/50 shadow-[0_0_20px_rgba(200,245,96,0.4),0_0_40px_rgba(200,245,96,0.2)]' 
+            ? 'border-[#C8F560]/50 shadow-[0_0_20px_rgba(200,245,96,0.4),0_0_40px_rgba(200,245,96,0.2)] z-[70]' 
             : 'hover:border-[#C8F560]/30 hover:shadow-[0_0_15px_rgba(200,245,96,0.3),0_0_30px_rgba(200,245,96,0.15)]'
         }`}>
           <Activity size={24} className={`transition-all duration-300 ${
@@ -58,10 +58,10 @@ const SidebarWidgetsContainer = ({ expanded, setExpanded, handleWidgetExpand, is
       </div>
       
       {/* GitHub Updates Widget */}
-      <div className="relative z-50 w-16 h-16" onClick={() => handleWidgetExpand('github')}>
+      <div className="relative z-50 w-16 h-16 isolate hover:z-[70]" onClick={() => handleWidgetExpand('github')}>
         <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
           expanded === 'github' 
-            ? 'border-purple-400/50 shadow-[0_0_20px_rgba(168,85,247,0.4),0_0_40px_rgba(168,85,247,0.2)]' 
+            ? 'border-purple-400/50 shadow-[0_0_20px_rgba(168,85,247,0.4),0_0_40px_rgba(168,85,247,0.2)] z-[70]' 
             : 'hover:border-purple-400/30 hover:shadow-[0_0_15px_rgba(168,85,247,0.3),0_0_30px_rgba(168,85,247,0.15)]'
         }`}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className={`transition-all duration-300 ${
@@ -75,10 +75,10 @@ const SidebarWidgetsContainer = ({ expanded, setExpanded, handleWidgetExpand, is
       </div>
       
       {/* AI Widget */}
-      <div className="relative z-50 w-16 h-16" onClick={() => handleWidgetExpand('ai')}>
+      <div className="relative z-50 w-16 h-16 isolate hover:z-[70]" onClick={() => handleWidgetExpand('ai')}>
         <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
           expanded === 'ai' 
-            ? 'border-teal-400/50 shadow-[0_0_20px_rgba(20,184,166,0.4),0_0_40px_rgba(20,184,166,0.2)]' 
+            ? 'border-teal-400/50 shadow-[0_0_20px_rgba(20,184,166,0.4),0_0_40px_rgba(20,184,166,0.2)] z-[70]' 
             : 'hover:border-teal-400/30 hover:shadow-[0_0_15px_rgba(20,184,166,0.3),0_0_30px_rgba(20,184,166,0.15)]'
         }`}>
           <Bot size={24} className={`transition-all duration-300 ${
@@ -90,7 +90,7 @@ const SidebarWidgetsContainer = ({ expanded, setExpanded, handleWidgetExpand, is
       </div>
       
       {/* Resources Widget */}
-      <div className="relative z-[60] w-16 h-16" onClick={() => {
+      <div className="relative z-[60] w-16 h-16 isolate hover:z-[70]" onClick={() => {
         // Close any open widget first
         if (expanded) {
           setExpanded(null)
@@ -111,7 +111,7 @@ const SidebarWidgetsContainer = ({ expanded, setExpanded, handleWidgetExpand, is
       }}>
         <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
           isResourcesSectionActive 
-            ? 'border-red-400/50 shadow-[0_0_20px_rgba(248,113,113,0.4),0_0_40px_rgba(248,113,113,0.2)]' 
+            ? 'border-red-400/50 shadow-[0_0_20px_rgba(248,113,113,0.4),0_0_40px_rgba(248,113,113,0.2)] z-[70]' 
             : 'hover:border-red-400/30 hover:shadow-[0_0_15px_rgba(248,113,113,0.3),0_0_30px_rgba(248,113,113,0.15)]'
         }`}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-all duration-300 ${
@@ -125,10 +125,10 @@ const SidebarWidgetsContainer = ({ expanded, setExpanded, handleWidgetExpand, is
       </div>
       
       {/* Add Resource Widget */}
-      <div className="relative z-50 w-16 h-16" onClick={() => handleWidgetExpand('add')}>
+      <div className="relative z-50 w-16 h-16 isolate hover:z-[70]" onClick={() => handleWidgetExpand('add')}>
         <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
           expanded === 'add' 
-            ? 'border-emerald-400/50 shadow-[0_0_20px_rgba(52,211,153,0.4),0_0_40px_rgba(52,211,153,0.2)]' 
+            ? 'border-emerald-400/50 shadow-[0_0_20px_rgba(52,211,153,0.4),0_0_40px_rgba(52,211,153,0.2)] z-[70]' 
             : 'hover:border-emerald-400/30 hover:shadow-[0_0_15px_rgba(52,211,153,0.3),0_0_30px_rgba(52,211,153,0.15)]'
         }`}>
           <Plus size={24} className={`transition-all duration-300 ${
@@ -140,10 +140,10 @@ const SidebarWidgetsContainer = ({ expanded, setExpanded, handleWidgetExpand, is
       </div>
       
       {/* Find Developer Widget */}
-      <div className="relative z-50 w-16 h-16" onClick={() => handleWidgetExpand('find')}>
+      <div className="relative z-50 w-16 h-16 isolate hover:z-[70]" onClick={() => handleWidgetExpand('find')}>
         <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
           expanded === 'find' 
-            ? 'border-blue-400/50 shadow-[0_0_20px_rgba(59,130,246,0.4),0_0_40px_rgba(59,130,246,0.2)]' 
+            ? 'border-blue-400/50 shadow-[0_0_20px_rgba(59,130,246,0.4),0_0_40px_rgba(59,130,246,0.2)] z-[70]' 
             : 'hover:border-blue-400/30 hover:shadow-[0_0_15px_rgba(59,130,246,0.3),0_0_30px_rgba(59,130,246,0.15)]'
         }`}>
           <Users size={24} className={`transition-all duration-300 ${

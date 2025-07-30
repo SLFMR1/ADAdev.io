@@ -354,6 +354,7 @@ class GitHubService {
    * @returns {Promise<Array>} - Array of GitHub data for resources
    */
   async fetchGlobalGitHubUpdates(resources) {
+    console.log('🚀 FETCH DEBUG: fetchGlobalGitHubUpdates called with', resources.length, 'resources')
     const resourcesWithGitHub = resources.filter(resource => resource.social?.github)
     
     if (resourcesWithGitHub.length === 0) {
@@ -361,6 +362,7 @@ class GitHubService {
       return []
     }
     
+    console.log('🚀 FETCH DEBUG: Found', resourcesWithGitHub.length, 'resources with GitHub URLs')
     logger.log(`🚀 Client requesting FAST global cached updates for ${resourcesWithGitHub.length} resources`)
     
     try {
@@ -369,6 +371,7 @@ class GitHubService {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache', // Bypass service worker cache
         }
       })
       
@@ -398,68 +401,118 @@ class GitHubService {
       const allCommits = data.commits || []
       const allReleases = data.releases || []
       
+      // Create a map to match resource names to the provided resources 
+      const resourceLookup = new Map()
+      resourcesWithGitHub.forEach(resource => {
+        resourceLookup.set(resource.name, resource)
+      })
+      
+      logger.log(`🔍 Widget resources available:`, resourcesWithGitHub.map(r => r.name).sort())
+      logger.log(`🏷️ Database resources found:`, [...new Set([...allCommits, ...allReleases].map(item => item.resource?.name))].filter(Boolean).sort())
+      
       // Group by resource for the widget's expected format
       const resourceMap = new Map()
       
       // Add commits to resource map
       allCommits.forEach(commit => {
-        const resourceId = commit.resource?.id || commit.resource?.name || 'unknown'
-        if (!resourceMap.has(resourceId)) {
-          resourceMap.set(resourceId, {
-            resource: {
-              id: resourceId,
-              name: commit.resource?.name || resourceId,
-              social: { github: 'https://github.com/' + commit.repository.full_name }
-            },
-            commits: [],
-            releases: [],
-            commitsPerWeek: 0,
-            weeklyData: [],
-            repoInfo: null
+        const resourceName = commit.resource?.name || 'unknown'
+        const matchedResource = resourceLookup.get(resourceName)
+        
+        if (matchedResource) {
+          if (!resourceMap.has(resourceName)) {
+            resourceMap.set(resourceName, {
+              resource: matchedResource, // Use the full resource object from cardanoResources
+              commits: [],
+              releases: [],
+              commitsPerWeek: 0,
+              weeklyData: [],
+              repoInfo: null
+            })
+          }
+          
+          resourceMap.get(resourceName).commits.push({
+            sha: commit.sha,
+            message: commit.commit?.message || '',
+            date: commit.commit?.author?.date,
+            author: commit.commit?.author?.name,
+            htmlUrl: commit.html_url,
+            repositoryName: commit.repository?.name
           })
         }
-        
-        resourceMap.get(resourceId).commits.push({
-          sha: commit.sha,
-          message: commit.commit?.message || '',
-          date: commit.commit?.author?.date,
-          author: commit.commit?.author?.name,
-          htmlUrl: commit.html_url,
-          repositoryName: commit.repository?.name
-        })
       })
       
       // Add releases to resource map
-      allReleases.forEach(release => {
-        const resourceId = release.resource?.id || release.resource?.name || 'unknown'
-        if (!resourceMap.has(resourceId)) {
-          resourceMap.set(resourceId, {
-            resource: {
-              id: resourceId,
-              name: release.resource?.name || resourceId,
-              social: { github: 'https://github.com/' + release.repository.full_name }
-            },
-            commits: [],
-            releases: [],
-            commitsPerWeek: 0,
-            weeklyData: [],
-            repoInfo: null
+      let releasesMatched = 0
+      let releasesUnmatched = 0
+      console.log('🔍 RESOURCE DEBUG: Starting release matching process...')
+      console.log('🔍 RESOURCE DEBUG: Total releases to process:', allReleases.length)
+      console.log('🔍 RESOURCE DEBUG: Available widget resources:', Array.from(resourceLookup.keys()).sort())
+      
+      allReleases.forEach((release, index) => {
+        const resourceName = release.resource?.name || 'unknown'
+        const matchedResource = resourceLookup.get(resourceName)
+        
+        if (index < 5) { // Debug first 5 releases
+          console.log(`🔍 RESOURCE DEBUG: Release ${index + 1}:`, {
+            resourceName,
+            hasMatch: !!matchedResource,
+            releaseTag: release.tag_name,
+            releaseDate: release.published_at
           })
         }
         
-        resourceMap.get(resourceId).releases.push({
-          id: release.id,
-          name: release.name || release.tag_name,
-          tagName: release.tag_name,
-          publishedAt: release.published_at,
-          htmlUrl: release.html_url,
-          draft: release.draft,
-          prerelease: release.prerelease,
-          repositoryName: release.repository?.name
-        })
+        if (matchedResource) {
+          releasesMatched++
+          if (!resourceMap.has(resourceName)) {
+            resourceMap.set(resourceName, {
+              resource: matchedResource, // Use the full resource object from cardanoResources
+              commits: [],
+              releases: [],
+              commitsPerWeek: 0,
+              weeklyData: [],
+              repoInfo: null
+            })
+          }
+          
+          resourceMap.get(resourceName).releases.push({
+            id: release.id,
+            name: release.name || release.tag_name,
+            tag_name: release.tag_name,
+            published_at: release.published_at,
+            html_url: release.html_url,
+            draft: release.draft,
+            prerelease: release.prerelease,
+            repositoryName: release.repository?.name
+          })
+        } else {
+          releasesUnmatched++
+          if (releasesUnmatched <= 5) { // Log first 5 unmatched
+            logger.log(`❌ Unmatched release resource: "${resourceName}"`)
+          }
+        }
       })
       
+      logger.log(`📊 Release matching: ${releasesMatched} matched, ${releasesUnmatched} unmatched out of ${allReleases.length} total`)
+      
       const transformedData = Array.from(resourceMap.values())
+      
+      // Debug final results
+      console.log('🎯 RESOURCE DEBUG: Final transformation results:')
+      console.log('🎯 RESOURCE DEBUG: Resources with data:', transformedData.length)
+      transformedData.forEach((resource, index) => {
+        if (index < 10) { // Debug first 10 resources
+          console.log(`🎯 RESOURCE DEBUG: Resource ${index + 1}: ${resource.resource.name}`, {
+            commits: resource.commits.length,
+            releases: resource.releases.length,
+            hasRecentReleases: resource.releases.filter(r => {
+              const releaseDate = new Date(r.published_at)
+              const thirtyDaysAgo = new Date()
+              thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+              return releaseDate >= thirtyDaysAgo
+            }).length
+          })
+        }
+      })
       
       logger.log(`⚡ FAST global cached updates: ${transformedData.length} resources with ${allCommits.length} commits, ${allReleases.length} releases`)
       

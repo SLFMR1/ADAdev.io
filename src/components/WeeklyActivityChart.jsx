@@ -39,7 +39,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
   // Map selectedPeriod to weeks directly (no internal state needed)
   const periodToWeeks = {
-    '4weeks': 4,
+    '4weeks': 5,
     '3months': 13,
     '52weeks': 52,
     '3years': 156
