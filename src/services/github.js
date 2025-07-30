@@ -123,33 +123,84 @@ class GitHubService {
       return { releases: [], commits: [], repoInfo: null, commitsPerWeek: 0 }
     }
     
-    logger.log(`🔍 Client requesting recent GitHub updates for ${resource.name}`)
+    logger.log(`🚀 Client requesting FAST cached updates for ${resource.name}`)
     
     try {
-      // Use the dedicated endpoint for recent commits and releases
-      const response = await fetch(`/api/github/recent`, {
+      // Use the OPTIMIZED database-cached endpoint for instant loading
+      const response = await fetch(`/api/resource-updates`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: resource.name, social: resource.social, type: resource.type })
+        body: JSON.stringify({ 
+          resourceId: resource.name, // Use resource name as ID for now
+          resourceName: resource.name 
+        })
       })
       
       if (!response.ok) {
-        throw new Error(`Server API error: ${response.status}`)
+        // Fallback to old endpoint if new one fails
+        logger.warn(`⚠️ New endpoint failed, falling back to old /api/github/recent`)
+        const fallbackResponse = await fetch(`/api/github/recent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: resource.name, social: resource.social, type: resource.type })
+        })
+        
+        if (!fallbackResponse.ok) {
+          throw new Error(`Both endpoints failed: ${response.status}, ${fallbackResponse.status}`)
+        }
+        
+        const fallbackData = await fallbackResponse.json()
+        logger.log(`📊 Fallback data for ${resource.name}:`, {
+          releases: fallbackData.releases?.length || 0,
+          commits: fallbackData.commits?.length || 0
+        })
+        return fallbackData
       }
       
       const data = await response.json()
       
-      logger.log(`📊 Client received recent updates for ${resource.name}:`, {
-        releases: data.releases?.length || 0,
-        commits: data.commits?.length || 0,
-        commitsPerWeek: data.commitsPerWeek || 0
+      // Transform the data to match the expected format
+      const transformedData = {
+        releases: data.releases.map(release => ({
+          id: release.id,
+          name: release.name || release.tag_name,
+          tagName: release.tag_name,
+          publishedAt: release.published_at,
+          htmlUrl: release.html_url,
+          draft: release.draft,
+          prerelease: release.prerelease,
+          repositoryName: release.repository?.name
+        })),
+        commits: data.commits.map(commit => ({
+          sha: commit.sha,
+          message: commit.commit?.message || '',
+          date: commit.commit?.author?.date,
+          author: commit.commit?.author?.name,
+          htmlUrl: commit.html_url,
+          repositoryName: commit.repository?.name
+        })),
+        repoInfo: {
+          name: resource.name,
+          htmlUrl: githubUrl,
+          stargazersCount: 0,
+          forksCount: 0,
+          language: null
+        },
+        commitsPerWeek: 0 // Could calculate from commit dates if needed
+      }
+      
+      logger.log(`⚡ FAST cached updates for ${resource.name}:`, {
+        releases: transformedData.releases.length,
+        commits: transformedData.commits.length
       })
       
-      return data
+      return transformedData
     } catch (error) {
-      logger.error(`Client error fetching recent GitHub updates for ${resource.name}:`, error)
+      logger.error(`Client error fetching fast cached updates for ${resource.name}:`, error)
       return { 
         releases: [], 
         commits: [], 
@@ -310,58 +361,111 @@ class GitHubService {
       return []
     }
     
-    logger.log(`🔍 Client requesting global GitHub data for ${resourcesWithGitHub.length} resources`)
+    logger.log(`🚀 Client requesting FAST global cached updates for ${resourcesWithGitHub.length} resources`)
     
     try {
-      const response = await fetch(`${this.serverBase}/global`, {
-        method: 'POST',
+      // Use the OPTIMIZED database-cached endpoint for instant loading
+      const response = await fetch('/api/global-updates', {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ resources: resourcesWithGitHub })
+        }
       })
       
       if (!response.ok) {
-        // Handle different error types
-        if (response.status === 429) {
-          throw new Error('GitHub API rate limit exceeded. Please try again later.')
-        } else if (response.status >= 500) {
-          throw new Error(`Server error (${response.status}). Please try again later.`)
-        } else {
-          throw new Error(`API error: ${response.status} ${response.statusText}`)
+        // Fallback to old endpoint if new one fails
+        logger.warn(`⚠️ New global endpoint failed, falling back to old /api/github/global`)
+        const fallbackResponse = await fetch(`${this.serverBase}/global`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ resources: resourcesWithGitHub })
+        })
+        
+        if (!fallbackResponse.ok) {
+          throw new Error(`Both endpoints failed: ${response.status}, ${fallbackResponse.status}`)
         }
+        
+        const fallbackData = await fallbackResponse.json()
+        logger.log(`📊 Fallback global data: ${fallbackData.length} resources`)
+        return fallbackData
       }
       
       const data = await response.json()
       
-      // Validate response data
-      if (!Array.isArray(data)) {
-        logger.warn('⚠️ Expected array response, got:', typeof data)
-        return []
-      }
+      // Transform the global cached data to match expected widget format
+      const allCommits = data.commits || []
+      const allReleases = data.releases || []
       
-      logger.log(`📊 Client received global data for ${data.length} resources`)
+      // Group by resource for the widget's expected format
+      const resourceMap = new Map()
       
-      // Filter out any invalid entries and ensure proper structure
-      const validData = data.filter(item => {
-        if (!item || !item.resource) {
-          logger.warn('⚠️ Skipping invalid data item:', item)
-          return false
+      // Add commits to resource map
+      allCommits.forEach(commit => {
+        const resourceId = commit.resource?.id || commit.resource?.name || 'unknown'
+        if (!resourceMap.has(resourceId)) {
+          resourceMap.set(resourceId, {
+            resource: {
+              id: resourceId,
+              name: commit.resource?.name || resourceId,
+              social: { github: 'https://github.com/' + commit.repository.full_name }
+            },
+            commits: [],
+            releases: [],
+            commitsPerWeek: 0,
+            weeklyData: [],
+            repoInfo: null
+          })
         }
-        return true
-      }).map(item => ({
-        resource: item.resource,
-        commits: Array.isArray(item.commits) ? item.commits : [],
-        releases: Array.isArray(item.releases) ? item.releases : [],
-        commitsPerWeek: item.commitsPerWeek || 0,
-        weeklyData: Array.isArray(item.weeklyData) ? item.weeklyData : [],
-        repoInfo: item.repoInfo || null
-      }))
+        
+        resourceMap.get(resourceId).commits.push({
+          sha: commit.sha,
+          message: commit.commit?.message || '',
+          date: commit.commit?.author?.date,
+          author: commit.commit?.author?.name,
+          htmlUrl: commit.html_url,
+          repositoryName: commit.repository?.name
+        })
+      })
       
-      logger.log(`✅ Processed ${validData.length} valid resources`)
-      return validData
+      // Add releases to resource map
+      allReleases.forEach(release => {
+        const resourceId = release.resource?.id || release.resource?.name || 'unknown'
+        if (!resourceMap.has(resourceId)) {
+          resourceMap.set(resourceId, {
+            resource: {
+              id: resourceId,
+              name: release.resource?.name || resourceId,
+              social: { github: 'https://github.com/' + release.repository.full_name }
+            },
+            commits: [],
+            releases: [],
+            commitsPerWeek: 0,
+            weeklyData: [],
+            repoInfo: null
+          })
+        }
+        
+        resourceMap.get(resourceId).releases.push({
+          id: release.id,
+          name: release.name || release.tag_name,
+          tagName: release.tag_name,
+          publishedAt: release.published_at,
+          htmlUrl: release.html_url,
+          draft: release.draft,
+          prerelease: release.prerelease,
+          repositoryName: release.repository?.name
+        })
+      })
+      
+      const transformedData = Array.from(resourceMap.values())
+      
+      logger.log(`⚡ FAST global cached updates: ${transformedData.length} resources with ${allCommits.length} commits, ${allReleases.length} releases`)
+      
+      return transformedData
     } catch (error) {
-      logger.error('❌ Client error fetching global GitHub updates:', error)
+      logger.error('❌ Client error fetching fast global cached updates:', error)
       
       // Provide more specific error handling
       if (error.message.includes('rate limit')) {

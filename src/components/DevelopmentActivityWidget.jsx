@@ -149,7 +149,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   const chartSvgRef = useRef(null);
 
   // Client-side cache optimized for GitHub activity patterns (data changes infrequently)
-  const CACHE_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
+  const CACHE_TIMEOUT = 6 * 60 * 60 * 1000; // 6 hours
 
   // View mode options for dropdown
   const viewModeOptions = [

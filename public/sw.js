@@ -1,8 +1,8 @@
 const CACHE_NAME = 'github-updates-v2'
-const CACHE_DURATION = 60 * 60 * 1000 // 1 hour (increased from 15 minutes)
+const CACHE_DURATION = 4 * 60 * 60 * 1000 // 4 hours (increased for data analysis platform)
 const MAX_CACHE_SIZE = 100 // Increased from 50
 const API_CACHE_NAME = 'api-cache-v1'
-const API_CACHE_DURATION = 30 * 60 * 1000 // 30 minutes for API responses
+const API_CACHE_DURATION = 2 * 60 * 60 * 1000 // 2 hours for API responses
 
 // Production logger - only log in development
 const log = (...args) => {

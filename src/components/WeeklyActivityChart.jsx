@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { fetchGitHubUpdates } from '../services/github'
+// Removed hybridDataFetcher and supabase imports - using server API instead
 import { TrendingUp, Calendar, GitCommit } from 'lucide-react'
 import logger from '../utils/logger-frontend'
 import Portal from './Portal'
+
+// Removed Supabase client initialization - using server API instead
 
 // Helper to generate line chart points from weekly data
 const getLineChartPoints = (data, width, height, padding) => {
@@ -26,63 +29,7 @@ const getLineChartPoints = (data, width, height, padding) => {
   return points
 }
 
-// Helper to generate weekly data from monthly data and current week
-const generateWeeklyData = (commitsPerMonth, currentWeekCommits) => {
-  if (!commitsPerMonth || commitsPerMonth.length === 0) {
-    // If no monthly data, create a simple array with current week
-    return [{ count: currentWeekCommits || 0, weekStart: new Date().toISOString().slice(0, 10) }]
-  }
-  
-  // Convert monthly data to weekly data (approximate)
-  const weeklyData = []
-  commitsPerMonth.forEach(month => {
-    // Distribute monthly commits across 4 weeks (approximate)
-    const weeklyAverage = Math.floor((month.count || 0) / 4)
-    for (let i = 0; i < 4; i++) {
-      weeklyData.push({ 
-        count: weeklyAverage, 
-        weekStart: new Date().toISOString().slice(0, 10) 
-      })
-    }
-  })
-  
-  // Replace the last week with current week data
-  if (weeklyData.length > 0) {
-    weeklyData[weeklyData.length - 1] = { 
-      count: currentWeekCommits || 0, 
-      weekStart: new Date().toISOString().slice(0, 10) 
-    }
-  } else {
-    weeklyData.push({ 
-      count: currentWeekCommits || 0, 
-      weekStart: new Date().toISOString().slice(0, 10) 
-    })
-  }
-  
-  // Ensure we have at least 12 weeks of data
-  while (weeklyData.length < 12) {
-    weeklyData.unshift({ count: 0, weekStart: new Date().toISOString().slice(0, 10) })
-  }
-  
-  // Take the last 12 weeks
-  return weeklyData.slice(-12)
-}
-
-// Helper to get month names for the last N weeks
-const getMonthLabels = (commitsPerMonth, weeks) => {
-  if (!commitsPerMonth || commitsPerMonth.length === 0) return Array(weeks).fill('')
-  // Get the last N months
-  const months = commitsPerMonth.slice(-Math.ceil(weeks / 4)).map(m => m.month)
-  // Expand to weeks (4 per month)
-  let labels = []
-  months.forEach((month, i) => {
-    for (let j = 0; j < 4; j++) {
-      labels.push(i === 0 && j === 0 ? month : (j === 0 ? month : ''))
-    }
-  })
-  // Take the last N
-  return labels.slice(-weeks)
-}
+// NOTE: Synthetic data generation functions removed - using only accurate hybrid data
 
 const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false, selectedPeriod = '3months', onPeriodChange, preloadedData = null, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' } }) => {
   const [activityData, setActivityData] = useState(null)
@@ -159,20 +106,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             
             setIsLoading(false)
             return
-          } else if (resourceData && (resourceData.commitsPerWeek || resourceData.commitsPerMonth)) {
-            // Fallback to basic preloaded data
-            const currentWeek = resourceData.commitsPerWeek || 0
-            
-            setActivityData({
-              currentWeek: currentWeek,
-              repoInfo: resourceData.repoInfo
-            })
-            
-            const weeklyData = generateWeeklyData(resourceData.commitsPerMonth, currentWeek)
-            setWeeklyData(weeklyData)
-            
-            setIsLoading(false)
-            return
+          } else {
+            logger.warn(`Preloaded data for ${resource.name} lacks commitsPerWeekDetailed - skipping preloaded data`);
           }
         }
         
@@ -184,30 +119,42 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         // Determine number of weeks based on time period
         const weeks = periodToWeeks[selectedPeriod] || 4
         
-        // Use hybrid approach for current week accuracy
-        logger.log(`🔄 Fetching hybrid data for ${resource.name} (period: ${selectedPeriod})`)
+        // Use server API for accurate data with proper current week exclusion
+        logger.log(`🔄 Fetching server API data for ${resource.name} (period: ${selectedPeriod})`)
         
-        // Determine if we should use hybrid endpoint based on period
-        const shouldUseHybrid = ['4weeks', '3months'].includes(selectedPeriod)
-        
-        let resourceData
-        
-        if (shouldUseHybrid) {
-          // Use hybrid endpoint for recent periods to ensure current week accuracy
-          const periodToWeeks = { '4weeks': 4, '3months': 13 }
-          const weeks = periodToWeeks[selectedPeriod] || 4
-          
-          const response = await fetch(`/api/github/hybrid-activity/${encodeURIComponent(resource.id || resource.name)}?weeks=${weeks}`)
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-          }
-          resourceData = await response.json()
-          
-          logger.log(`✅ Hybrid data received - sources:`, resourceData.dataSources)
-        } else {
-          // Use regular endpoint for historical periods (52weeks, 3years)
-          resourceData = await fetchGitHubUpdates(resource, selectedPeriod)
+        // Map selectedPeriod to server API period format
+        const periodMapping = {
+          '4weeks': 'monthly',
+          '3months': '3months', 
+          '52weeks': '52weeks',
+          '3years': '3years'
         }
+        
+        const serverPeriod = periodMapping[selectedPeriod] || 'monthly'
+        
+        // Use the proven server API with resource-specific parameters
+        const params = new URLSearchParams({
+          resourceId: resource.id?.toString() || resource.name,
+          resourceName: resource.name,
+          period: serverPeriod
+        })
+        
+        const response = await fetch(`/api/development-activity?${params}`)
+        if (!response.ok) {
+          throw new Error(`Server responded with ${response.status}: ${response.statusText}`)
+        }
+        
+        const serverData = await response.json()
+        
+        // Transform server response to expected format
+        const resourceData = {
+          commitsPerWeekDetailed: serverData.weeklyData || [],
+          commitsPerWeek: serverData.commitsPerWeek || 0,
+          repoInfo: serverData.repoInfo || null,
+          dataSources: serverData.dataSources || { database: true, github: false }
+        }
+        
+        logger.log(`✅ Server API data received - sources:`, resourceData.dataSources)
         
         // Validate and process the response data
         if (resourceData && resourceData.commitsPerWeekDetailed && Array.isArray(resourceData.commitsPerWeekDetailed) && resourceData.commitsPerWeekDetailed.length > 0) {
@@ -252,39 +199,20 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           // Only use as many weeks as available, up to the requested period
           const trimmedData = validWeeklyData.slice(-weeks)
           setWeeklyData(trimmedData)
-        } else if (resourceData && (resourceData.commitsPerWeek || resourceData.commitsPerMonth)) {
-          // Fallback to basic data
-          const currentWeek = resourceData.commitsPerWeek || 0
-          
-          setActivityData({
-            currentWeek: currentWeek,
-            repoInfo: resourceData.repoInfo
-          })
-          
-          // Generate weekly data from monthly data
-          const weeklyData = generateWeeklyData(resourceData.commitsPerMonth, currentWeek)
-          setWeeklyData(weeklyData)
         } else {
-          // No valid data available
-          setActivityData({
-            currentWeek: 0,
-            repoInfo: null
-          })
-          
-          // Generate empty weekly data
-          const emptyWeeklyData = generateWeeklyData([], 0)
-          setWeeklyData(emptyWeeklyData)
+          // No valid weekly data available - throw error instead of showing synthetic data
+          throw new Error('No accurate weekly data available')
         }
       } catch (error) {
         logger.error(`Error loading activity data for ${resource.name}:`, error)
         setError(error.message)
         
-        // Set fallback data on error
+        // Set minimal data on error (no synthetic data)
         setActivityData({
           currentWeek: 0,
           repoInfo: null
         })
-        setWeeklyData(generateWeeklyData([], 0))
+        setWeeklyData([])
       } finally {
         setIsLoading(false)
       }
@@ -473,12 +401,12 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       <div className="bg-gray-800/50 rounded-lg p-4 sm:p-6" style={{ minHeight: window.innerWidth < 1024 ? 280 : 400 }}>
         <div className="flex items-center justify-between mb-3">
           <span className="text-gray-400 text-xs">
-            {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'}
+            {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'} (Historical Complete Weeks)
           </span>
           <div className="flex items-center space-x-1">
             <GitCommit size={12} style={{ color: accentColor.hex }} />
-            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>{currentWeekCommits}</span>
-            <span className="text-gray-400 text-xs">this week</span>
+            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>{validWeeklyData[validWeeklyData.length - 1]?.count || 0}</span>
+            <span className="text-gray-400 text-xs">last complete week</span>
           </div>
         </div>
 
@@ -750,24 +678,24 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         </div>
       </div>
 
-      {/* Current Week Stats */}
+      {/* Last Complete Week Stats */}
       <div className="bg-gray-800/50 rounded-lg p-3 mt-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-gray-400 text-xs">This Week</span>
+          <span className="text-gray-400 text-xs">Last Complete Week</span>
           <div className="flex items-center space-x-1">
             <GitCommit size={12} style={{ color: accentColor.hex }} />
-            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>{activityData.currentWeek}</span>
+            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>{validWeeklyData[validWeeklyData.length - 1]?.count || 0}</span>
             <span className="text-gray-400 text-xs">commits</span>
           </div>
         </div>
 
-        {/* Simple Bar Chart for current week, scaled to min-max */}
+        {/* Simple Bar Chart for last complete week, scaled to min-max */}
         <div className="relative">
           <div className="w-full bg-gray-700 rounded-full h-2">
             <div 
               className="h-2 rounded-full transition-all duration-500 ease-out"
               style={{ 
-                width: `${((activityData.currentWeek - minCommits) / (maxCommits - minCommits || 1)) * 100}%`,
+                width: `${((validWeeklyData[validWeeklyData.length - 1]?.count || 0 - minCommits) / (maxCommits - minCommits || 1)) * 100}%`,
                 background: `linear-gradient(to right, ${accentColor.hex}, ${accentColor.hex}dd)`,
                 boxShadow: `0 0 8px rgba(${accentColor.rgb}, 0.3)`
               }}
@@ -784,17 +712,17 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       {!hideActivityLevelInfo && (
         <div className="flex items-center space-x-2">
           <div className={`w-3 h-3 rounded-full ${
-            activityData.currentWeek >= 20 ? 'bg-red-500' :
-            activityData.currentWeek >= 10 ? 'bg-orange-500' :
-            activityData.currentWeek >= 5 ? 'bg-yellow-500' :
-            activityData.currentWeek >= 2 ? 'bg-green-500' :
+            (validWeeklyData[validWeeklyData.length - 1]?.count || 0) >= 20 ? 'bg-red-500' :
+            (validWeeklyData[validWeeklyData.length - 1]?.count || 0) >= 10 ? 'bg-orange-500' :
+            (validWeeklyData[validWeeklyData.length - 1]?.count || 0) >= 5 ? 'bg-yellow-500' :
+            (validWeeklyData[validWeeklyData.length - 1]?.count || 0) >= 2 ? 'bg-green-500' :
             'bg-gray-500'
           }`}></div>
           <span className="text-gray-400 text-xs">
-            {activityData.currentWeek >= 20 ? 'Very High' :
-             activityData.currentWeek >= 10 ? 'High' :
-             activityData.currentWeek >= 5 ? 'Medium' :
-             activityData.currentWeek >= 2 ? 'Low' :
+            {(validWeeklyData[validWeeklyData.length - 1]?.count || 0) >= 20 ? 'Very High' :
+             (validWeeklyData[validWeeklyData.length - 1]?.count || 0) >= 10 ? 'High' :
+             (validWeeklyData[validWeeklyData.length - 1]?.count || 0) >= 5 ? 'Medium' :
+             (validWeeklyData[validWeeklyData.length - 1]?.count || 0) >= 2 ? 'Low' :
              'Minimal'} Activity
           </span>
         </div>
@@ -804,8 +732,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         <div className="text-xs text-gray-500">
           <p>
             {activityData.repoInfo?.isOrganization 
-              ? `Activity based on commits across ${activityData.repoInfo.totalRepos} repositories in the last week.`
-              : 'Activity based on commits to the main repository in the last week.'
+              ? `Activity based on commits across ${activityData.repoInfo.totalRepos} repositories. Shows complete historical weeks only (excludes current incomplete week).`
+              : 'Activity based on commits to the main repository. Shows complete historical weeks only (excludes current incomplete week).'
             }
           </p>
         </div>

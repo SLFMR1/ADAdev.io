@@ -27,9 +27,9 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
   
   // Content-aware cache settings - much more efficient for GitHub data patterns
   const CONTENT_CACHE_KEY = 'github_content_cache_v2'
-  const ACTIVE_HOURS_REFRESH = 2 * 60 * 60 * 1000 // 2 hours during active hours (9-18 UTC)
-  const PASSIVE_HOURS_REFRESH = 6 * 60 * 60 * 1000 // 6 hours during passive hours
-  const MAX_CACHE_AGE = 24 * 60 * 60 * 1000 // 24 hours max
+  const ACTIVE_HOURS_REFRESH = 4 * 60 * 60 * 1000 // 4 hours during active hours (9-18 UTC)
+  const PASSIVE_HOURS_REFRESH = 12 * 60 * 60 * 1000 // 12 hours during passive hours
+  const MAX_CACHE_AGE = 48 * 60 * 60 * 1000 // 48 hours max
   
   // Helper to determine if we're in active development hours (9-18 UTC)
   const isActiveHours = () => {

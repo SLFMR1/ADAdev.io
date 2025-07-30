@@ -13,7 +13,13 @@ import html2canvas from 'html2canvas'
 import { createGlobalGradientBackground } from '../utils/logger-frontend.js'
 import { createIsolatedScreenshot, shareToX, generateTweetText } from '../utils/screenshotUtils'
 import { fetchGitHubUpdates } from '../services/github'
+import { createClient } from '@supabase/supabase-js'
 import logger from '../utils/logger-frontend'
+
+// Initialize Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Accent color system matching widget sidebar colors
 const accentColors = [
@@ -101,8 +107,8 @@ const ResourceCard = ({ resource, onViewResource }) => {
   const [activityChartError, setActivityChartError] = useState(null)
   const [lastActivityFetch, setLastActivityFetch] = useState(null)
   
-  // Cache timeout for activity chart data (2 hours)
-  const ACTIVITY_CACHE_TIMEOUT = 2 * 60 * 60 * 1000
+  // Cache timeout for activity chart data (6 hours)
+  const ACTIVITY_CACHE_TIMEOUT = 6 * 60 * 60 * 1000
 
   // Period options for activity chart
   const periodOptions = [
@@ -111,7 +117,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
     { key: '52weeks', label: 'Last 1 Year' }
   ]
   
-  // Preload activity chart data for all periods (separate from Updates tab data)
+  // Preload activity chart data for all periods using fast server API
   const preloadActivityChartData = useCallback(async () => {
     if (!resource.social?.github || isLoadingActivityChart) {
       return
@@ -127,55 +133,77 @@ const ResourceCard = ({ resource, onViewResource }) => {
     setActivityChartError(null)
     
     try {
-      logger.log(`🚀 Preloading activity chart data for ${resource.name} (all periods)...`)
+      logger.log(`🚀 Preloading activity chart data for ${resource.name} (server API approach)...`)
       
-      // Fetch data for all periods in parallel
+      // Use the same fast server API as DevelopmentActivityWidget
       const periods = ['4weeks', '3months', '52weeks']
-      const promises = periods.map(period => 
-        fetchGitHubUpdates(resource, period)
-          .then(data => ({ period, data }))
-          .catch(error => ({ period, error: error.message }))
-      )
-      
-      const results = await Promise.all(promises)
-      
-      // Process results and build preloaded data object
       const preloadedData = {}
       let hasValidData = false
       
-      results.forEach(({ period, data, error }) => {
-        if (error) {
-          logger.warn(`Failed to load ${period} chart data for ${resource.name}:`, error)
-          preloadedData[period] = { error }
-        } else if (data) {
-          // Only store the data needed for charts (commitsPerWeekDetailed, currentWeek, repoInfo)
-          preloadedData[period] = {
-            commitsPerWeekDetailed: data.commitsPerWeekDetailed || [],
-            commitsPerWeek: data.commitsPerWeek || 0,
-            commitsPerMonth: data.commitsPerMonth || [],
-            repoInfo: data.repoInfo || null
+      // Fetch data for each period using the server API
+      for (const period of periods) {
+        try {
+          // Map ResourceCard periods to server API periods
+          const periodMapping = {
+            '4weeks': 'monthly',
+            '3months': '3months', 
+            '52weeks': '52weeks'
           }
-          hasValidData = true
-          console.log(`📊 ${period} raw data for ${resource.name}:`, {
-            weeklyDataLength: data.commitsPerWeekDetailed?.length || 0,
-            sampleWeeks: data.commitsPerWeekDetailed?.slice(0, 3),
-            actualPeriodRequested: period
+          
+          const serverPeriod = periodMapping[period] || period
+          
+          // Build query parameters for specific resource
+          const params = new URLSearchParams({
+            resourceId: resource.id?.toString() || resource.name,
+            resourceName: resource.name,
+            period: serverPeriod
           })
-          logger.log(`✅ Loaded ${period} chart data: ${data.commitsPerWeekDetailed?.length || 0} weeks`)
+          
+          const response = await fetch(`/api/development-activity?${params}`)
+          
+          if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}`)
+          }
+          
+          const data = await response.json()
+          
+          if (data && data.weeklyData && Array.isArray(data.weeklyData)) {
+            preloadedData[period] = {
+              commitsPerWeekDetailed: data.weeklyData,
+              commitsPerWeek: data.weeklyData[data.weeklyData.length - 1]?.count || 0,
+              commitsPerMonth: [], // Not used in charts, keeping for compatibility
+              repoInfo: data.repoInfo || null,
+              dataSources: { database: true, github: false } // Server API uses database-only
+            }
+            hasValidData = true
+            console.log(`📊 ${period} server API data for ${resource.name}:`, {
+              weeklyDataLength: data.weeklyData?.length || 0,
+              sampleWeeks: data.weeklyData?.slice(0, 3),
+              dataSources: { database: true, github: false },
+              actualPeriodRequested: period
+            })
+            logger.log(`✅ Loaded ${period} server API chart data: ${data.weeklyData?.length || 0} weeks`)
+          } else {
+            logger.warn(`Invalid server API response for ${period} data for ${resource.name}`)
+            preloadedData[period] = { error: 'Invalid server response' }
+          }
+        } catch (error) {
+          logger.warn(`Failed to load ${period} server API data for ${resource.name}:`, error)
+          preloadedData[period] = { error: error.message || 'Failed to fetch data' }
         }
-      })
+      }
       
       if (hasValidData) {
         setActivityChartData(preloadedData)
         setLastActivityFetch(Date.now())
-        console.log('📦 Preloaded data structure:', preloadedData)
-        logger.log(`📦 Activity chart data preloaded for ${resource.name} with ${Object.keys(preloadedData).length} periods`)
+        console.log('📦 Preloaded server API data structure:', preloadedData)
+        logger.log(`📦 Activity chart data preloaded for ${resource.name} with ${Object.keys(preloadedData).length} periods (server API approach)`)
       } else {
-        throw new Error('No valid chart data received for any period')
+        throw new Error('No valid server API chart data received for any period')
       }
       
     } catch (error) {
-      logger.error(`❌ Failed to preload activity chart data for ${resource.name}:`, error)
+      logger.error(`❌ Failed to preload server API activity chart data for ${resource.name}:`, error)
       setActivityChartError(error.message)
     } finally {
       setIsLoadingActivityChart(false)
@@ -590,9 +618,9 @@ const ResourceCard = ({ resource, onViewResource }) => {
                         })
                         setSelectedPeriod(newPeriod)
                         
-                        // If we don't have preloaded chart data for this period, trigger a load
+                        // If we don't have preloaded chart data for this period, trigger a server API load
                         if (!activityChartData[newPeriod] && resource.social?.github) {
-                          logger.log(`🔄 Loading missing chart period data: ${newPeriod}`)
+                          logger.log(`🔄 Loading missing server API chart period data: ${newPeriod}`)
                           preloadActivityChartData()
                         }
                       }}
