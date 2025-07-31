@@ -229,15 +229,19 @@ const ResourceCard = ({ resource, onViewResource }) => {
         e.stopPropagation()
         setActiveTab(tabName)
         
-        // Scroll to card when activity tab is manually clicked and preload chart data
-        if (tabName === 'activity' && isExpanded) {
-          console.log(`🎯 Activity tab clicked for ${resource.name}, starting preload...`)
-          // Preload activity chart data when activity tab is selected
-          preloadActivityChartData()
-          // Single scroll after complete expansion
-          setTimeout(() => scrollToCard(), 600);
+        // Scroll to card when switching tabs to ensure it stays visible
+        if (isExpanded) {
+          if (tabName === 'activity') {
+            console.log(`🎯 Activity tab clicked for ${resource.name}, starting preload...`)
+            // Preload activity chart data when activity tab is selected
+            preloadActivityChartData()
+            // Single scroll after complete expansion
+            setTimeout(() => scrollToCard(), 600);
+          } else {
+            // For other tabs, scroll after a shorter delay since no data loading
+            setTimeout(() => scrollToCard(), 300);
+          }
         }
-        // No auto-scroll for other tabs - only activity tab needs centering
       }}
       className={`px-3 py-1 text-sm rounded-md transition-all duration-200  ${
         activeTab === tabName 
@@ -324,12 +328,15 @@ const ResourceCard = ({ resource, onViewResource }) => {
           setActiveTab(tabName);
           console.log(`✅ Tab set to ${tabName} for ${resource.name}`);
           
-          // Smooth scroll to the card when activity tab is selected and preload chart data
+          // Smooth scroll to the card when any tab is selected externally
           if (tabName === 'activity') {
             // Preload activity chart data when activity tab is selected externally
             preloadActivityChartData()
             // Single scroll after complete expansion
             setTimeout(() => scrollToCard(), 800);
+          } else {
+            // For other tabs, scroll after expansion is complete
+            setTimeout(() => scrollToCard(), 500);
           }
         }, 200);
       }
@@ -377,7 +384,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
         
         // Calculate the scroll position to center the card
         // Add offset for fixed headers/navigation (adjust as needed)
-        const headerOffset = 40 // Reduced offset to position card higher
+        const headerOffset = 0 
         
         // Center the card at 50% of the viewport
         const targetScrollTop = window.pageYOffset + cardTop - (viewportHeight / 2) + (cardHeight / 2) - headerOffset
