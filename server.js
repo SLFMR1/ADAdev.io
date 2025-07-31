@@ -1383,7 +1383,7 @@ app.get('/api/development-activity', async (req, res) => {
       
       // Map period to the correct format
       const periodMapping = {
-        '4weeks': 'monthly',
+        '4weeks': '5weeks',
         '3months': '3months', 
         '52weeks': '52weeks'
       };
@@ -1396,6 +1396,10 @@ app.get('/api/development-activity', async (req, res) => {
         monthly: {
           since: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString(),
           days: 28
+        },
+        '5weeks': {
+          since: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000).toISOString(),
+          days: 35
         },
         '3months': {
           since: new Date(now.getTime() - 13 * 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -1468,6 +1472,11 @@ app.get('/api/development-activity', async (req, res) => {
       monthly: {
         since: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString(),
         days: 28,
+        useDailyProcessing: false
+      },
+      '5weeks': {
+        since: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000).toISOString(),
+        days: 35,
         useDailyProcessing: false
       },
       '3months': {
@@ -1551,6 +1560,7 @@ app.get('/api/development-activity', async (req, res) => {
           // Fetch data with priority: 7-day first, then other periods
           const prioritizedPeriods = [
             ['current', periods.current], // 7-day first (highest priority)
+            ['5weeks', periods['5weeks']],
             ['monthly', periods.monthly],
             ['3months', periods['3months']],
             ['52weeks', periods['52weeks']],
@@ -1707,6 +1717,7 @@ app.get('/api/development-activity', async (req, res) => {
       // 🚀 NEW: Preloaded data for ALL periods to enable instant switching
       preloadedPeriods: {
         current: buildPeriodData(allResourcesData, 'current'),
+        '5weeks': buildPeriodData(allResourcesData, '5weeks'),
         monthly: buildPeriodData(allResourcesData, 'monthly'),
         '3months': buildPeriodData(allResourcesData, '3months'),
         '52weeks': buildPeriodData(allResourcesData, '52weeks'),

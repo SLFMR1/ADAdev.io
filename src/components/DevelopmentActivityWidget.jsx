@@ -17,7 +17,7 @@ import {
 
 const periodOptions = [
   { key: 'current', label: 'Last 7 Days', weeks: 1 },
-  { key: 'monthly', label: 'Last 28 Days', weeks: 4 },
+  { key: '5weeks', label: 'Last 4 Weeks', weeks: 4 },
   { key: '3months', label: 'Last 3 Months', weeks: 13 },
   { key: '52weeks', label: 'Last 12 Months', weeks: 52 },
   { key: '3years', label: 'Last 3 Years', weeks: 156 }

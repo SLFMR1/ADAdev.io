@@ -145,7 +145,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
         try {
           // Map ResourceCard periods to server API periods
           const periodMapping = {
-            '4weeks': 'monthly',
+            '4weeks': '5weeks',
             '3months': '3months', 
             '52weeks': '52weeks'
           }

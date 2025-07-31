@@ -124,7 +124,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         
         // Map selectedPeriod to server API period format
         const periodMapping = {
-          '4weeks': 'monthly',
+          '4weeks': '5weeks',
           '3months': '3months', 
           '52weeks': '52weeks',
           '3years': '3years'
