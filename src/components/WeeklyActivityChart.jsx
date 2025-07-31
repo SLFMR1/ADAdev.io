@@ -815,8 +815,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                     const percentage = Math.round((currentTotal / originalHistoricalMax) * 100);
                     return `${percentage}% of available data peak (${originalHistoricalMax} commits)`;
                   } else {
-                    // Insufficient or no data - keep it simple
-                    return `${currentTotal} commits this period`;
+                    return '';
                   }
                 })()}
               </span>
