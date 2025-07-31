@@ -173,14 +173,18 @@ const ResourceCard = ({ resource, onViewResource }) => {
               commitsPerWeek: data.weeklyData[data.weeklyData.length - 1]?.count || 0,
               commitsPerMonth: [], // Not used in charts, keeping for compatibility
               repoInfo: data.repoInfo || null,
-              dataSources: { database: true, github: false } // Server API uses database-only
+              dataSources: { database: true, github: false }, // Server API uses database-only
+              historicalMaximums: data.historicalMaximums || {}, // Include historical maximums for performance indicators
+              historicalMetadata: data.historicalMetadata || {} // Include metadata for data quality indicators
             }
             hasValidData = true
             console.log(`📊 ${period} server API data for ${resource.name}:`, {
               weeklyDataLength: data.weeklyData?.length || 0,
               sampleWeeks: data.weeklyData?.slice(0, 3),
               dataSources: { database: true, github: false },
-              actualPeriodRequested: period
+              actualPeriodRequested: period,
+              historicalMaximums: data.historicalMaximums || 'none',
+              dataQuality: data.historicalMetadata?.dataQuality || 'unknown'
             })
             logger.log(`✅ Loaded ${period} server API chart data: ${data.weeklyData?.length || 0} weeks`)
           } else {

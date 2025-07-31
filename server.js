@@ -899,9 +899,35 @@ const getHistoricalActivity = async (resource, startDate, endDate) => {
 
 // Calculate historical maximum totals for each period type with graceful fallbacks
 const calculateHistoricalMaximums = async (resource) => {
+  // Check cache first
+  const resourceIdentifier = resource.id?.toString() || resource.name;
+  const cacheKey = `historical-maximums-${resourceIdentifier}`;
+  const cached = HISTORICAL_MAXIMUMS_CACHE.get(cacheKey);
+  
+  if (cached && (Date.now() - cached.timestamp < HISTORICAL_MAXIMUMS_TTL)) {
+    console.log(`⚡ Using cached historical maximums for ${resource.name} (${Math.round((Date.now() - cached.timestamp) / 1000)}s old)`);
+    return cached.data;
+  }
+  
   if (!supabase) {
-    console.warn('No Supabase connection - using fallback maximums')
-    return createFallbackMaximums()
+    console.warn(`❌ No Supabase connection for ${resource.name} - returning empty maximums`);
+    const fallbackResult = {
+      maximums: {}, // Empty object - let frontend handle gracefully
+      metadata: {
+        hasHistoricalData: false,
+        totalWeeksAvailable: 0,
+        dataQuality: 'no_data',
+        reason: 'no_supabase_connection'
+      }
+    };
+    
+    // Cache the fallback result for a shorter time (5 minutes)
+    HISTORICAL_MAXIMUMS_CACHE.set(cacheKey, {
+      data: fallbackResult,
+      timestamp: Date.now()
+    });
+    
+    return fallbackResult;
   }
 
   try {
@@ -928,8 +954,16 @@ const calculateHistoricalMaximums = async (resource) => {
     }
 
     if (!data || data.length === 0) {
-      console.log(`No historical data found for ${resource.name} - using fallback maximums`)
-      return createFallbackMaximums()
+      console.log(`No historical data found for ${resource.name} - returning empty maximums for intelligent frontend handling`)
+      return {
+        maximums: {}, // Empty object - let frontend handle gracefully
+        metadata: {
+          hasHistoricalData: false,
+          totalWeeksAvailable: 0,
+          dataQuality: 'no_data',
+          reason: 'insufficient_historical_data'
+        }
+      }
     }
 
     // Convert to array of weekly commit counts, sorted by date
@@ -951,6 +985,14 @@ const calculateHistoricalMaximums = async (resource) => {
       '52weeks': 52,  // 12 months = ~52 weeks  
       '3years': 156   // 3 years = ~156 weeks
     }
+    
+    // Minimum data requirements for meaningful comparison (Period + 1 logic)
+    const minimumWeeksForComparison = {
+      '5weeks': 5,    // Need 5 weeks minimum for 4-week comparison (can compare 2 sequences)
+      '3months': 17,  // Need ~4 months (17 weeks) for 3-month comparison  
+      '52weeks': 65,  // Need ~13 months (65 weeks) for 12-month comparison
+      '3years': 208   // Need ~4 years (208 weeks) for 3-year comparison
+    }
 
     const result = {
       maximums: {},
@@ -962,7 +1004,9 @@ const calculateHistoricalMaximums = async (resource) => {
     }
 
     Object.entries(periods).forEach(([periodKey, weekCount]) => {
-      if (weeklyCommits.length >= weekCount) {
+      const minimumWeeks = minimumWeeksForComparison[periodKey];
+      
+      if (weeklyCommits.length >= minimumWeeks) {
         // Sufficient data: calculate proper rolling maximum
         let maxTotal = 0
         let windowTotals = [] // Debug: track all window totals
@@ -984,11 +1028,12 @@ const calculateHistoricalMaximums = async (resource) => {
         
         result.maximums[periodKey] = maxTotal // Use actual calculated maximum
       } else if (weeklyCommits.length > 0) {
-        // Insufficient data: use available data intelligently
-        const availableTotal = weeklyCommits.reduce((sum, week) => sum + week.count, 0)
-        const scaledMaximum = Math.max(availableTotal, weeklyCommits.length * 5) // Reasonable baseline
-        result.maximums[periodKey] = scaledMaximum
-        result.metadata.dataQuality = 'limited'
+        // Insufficient data: return null for intelligent frontend handling
+        console.log(`Insufficient data for ${periodKey}: need ${minimumWeeks} weeks, have ${weeklyCommits.length} weeks`)
+        result.maximums[periodKey] = null // Let frontend handle insufficient data case
+        result.metadata.dataQuality = 'insufficient_data'
+        result.metadata.minimumWeeksNeeded = minimumWeeks
+        result.metadata.availableWeeks = weeklyCommits.length
       } else {
         // No data: use reasonable baseline
         result.maximums[periodKey] = weekCount * 5 // 5 commits per week baseline
@@ -997,11 +1042,40 @@ const calculateHistoricalMaximums = async (resource) => {
     })
 
     console.log(`✅ Calculated historical maximums for ${resource.name}:`, result.maximums, `(${result.metadata.dataQuality} quality)`)
+    
+    // Cache the successful result
+    HISTORICAL_MAXIMUMS_CACHE.set(cacheKey, {
+      data: result,
+      timestamp: Date.now()
+    });
+    
+    // Clean up old cache entries (keep only 20 entries max)
+    if (HISTORICAL_MAXIMUMS_CACHE.size > 20) {
+      const oldestKey = HISTORICAL_MAXIMUMS_CACHE.keys().next().value;
+      HISTORICAL_MAXIMUMS_CACHE.delete(oldestKey);
+    }
+    
     return result
 
   } catch (error) {
     console.warn(`Error calculating historical maximums for ${resource.name}:`, error.message)
-    return createFallbackMaximums()
+    const errorResult = {
+      maximums: {}, // Empty object - let frontend handle gracefully
+      metadata: {
+        hasHistoricalData: false,
+        totalWeeksAvailable: 0,
+        dataQuality: 'no_data',
+        reason: 'calculation_error'
+      }
+    };
+    
+    // Cache error result for shorter time (5 minutes)
+    HISTORICAL_MAXIMUMS_CACHE.set(cacheKey, {
+      data: errorResult,
+      timestamp: Date.now()
+    });
+    
+    return errorResult;
   }
 }
 
@@ -1484,6 +1558,10 @@ app.get('/api/github/org-activity/:orgName', async (req, res) => {
 // Server-side cache for view mode results - optimized for fast loading
 const VIEW_MODE_CACHE = new Map();
 const VIEW_MODE_CACHE_TTL = 60 * 60 * 1000; // 1 hour (GitHub data doesn't change frequently)
+
+// Cache for historical maximums - 2 hour TTL since they change even less frequently
+const HISTORICAL_MAXIMUMS_CACHE = new Map();
+const HISTORICAL_MAXIMUMS_TTL = 2 * 60 * 60 * 1000; // 2 hours
 
 // Get development activity for dashboard - preload all periods
 app.get('/api/development-activity', async (req, res) => {

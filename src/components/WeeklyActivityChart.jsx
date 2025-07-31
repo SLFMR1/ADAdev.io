@@ -36,7 +36,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const [weeklyData, setWeeklyData] = useState([])
   const [historicalMaximums, setHistoricalMaximums] = useState({})
   const [historicalMetadata, setHistoricalMetadata] = useState({ hasHistoricalData: false, dataQuality: 'fallback' })
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(!preloadedData || preloadedData.error)
   const [error, setError] = useState(null)
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
   // Map selectedPeriod to weeks directly (no internal state needed)
@@ -53,13 +53,13 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   useEffect(() => {
     const loadActivityData = async () => {
       try {
-        setIsLoading(true)
         setError(null)
         
         // If preloaded data is available for this period, use it immediately
         if (preloadedData && !preloadedData.error) {
           logger.log(`⚡ Using preloaded data for ${resource.name} (period: ${selectedPeriod})`)
           console.log('WeeklyActivityChart received preloaded data:', preloadedData)
+          // Don't set loading state here - component should start unloaded when preloaded data exists
           
           // Process preloaded data the same way as fetched data
           const resourceData = preloadedData
@@ -119,6 +119,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         if (preloadedData?.error) {
           logger.warn(`Preloaded data has error for ${resource.name}: ${preloadedData.error}`);
         }
+        
+        // Only set loading state when making API calls
+        setIsLoading(true)
         
         // Determine number of weeks based on time period
         const weeks = periodToWeeks[selectedPeriod] || 4
@@ -296,7 +299,6 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   
   const maxCommits = Math.max(...validWeeklyData.map(w => w.count), 1)
   const minCommits = Math.min(...validWeeklyData.map(w => w.count), 0)
-  const currentWeekCommits = validWeeklyData[validWeeklyData.length - 1]?.count || 0
 
   // Generate chart points with enhanced validation to prevent NaN coordinates
   const chartPoints = validWeeklyData.map((w, i) => {
@@ -740,16 +742,30 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   const serverPeriod = periodMapping[selectedPeriod] || selectedPeriod;
                   let historicalMax = historicalMaximums[serverPeriod];
                   
-                  // If no historical maximum or zero, use current value as baseline
+                  // Smart handling of insufficient historical data
                   if (!historicalMax || historicalMax === 0) {
-                    historicalMax = Math.max(currentValue, 1);
+                    // Insufficient data case - show 100% but we'll add indicators elsewhere
+                    return "100%";
                   }
                   
-                  // Calculate percentage with bounds checking
+                  // Calculate percentage with bounds checking (only when we have real historical data)
                   const percentage = (currentValue / historicalMax) * 100;
-                  return `${Math.min(100, Math.max(0, percentage))}%`;
+                  return `${Math.min(100, Math.max(0, Math.round(percentage)))}%`;
                 })(),
-                background: `linear-gradient(to right, ${accentColor.hex}, ${accentColor.hex}dd)`,
+                background: (() => {
+                  const isLongerPeriod = selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
+                  if (isLongerPeriod) {
+                    const periodMapping = { '4weeks': '5weeks', '3months': '3months', '52weeks': '52weeks', '3years': '3years' };
+                    const serverPeriod = periodMapping[selectedPeriod] || selectedPeriod;
+                    const historicalMax = historicalMaximums[serverPeriod];
+                    
+                    // Subtle visual hint for insufficient data
+                    if (!historicalMax || historicalMax === 0) {
+                      return `linear-gradient(to right, ${accentColor.hex}99, ${accentColor.hex}77)`; // Slightly more transparent
+                    }
+                  }
+                  return `linear-gradient(to right, ${accentColor.hex}, ${accentColor.hex}dd)`;
+                })(),
                 boxShadow: `0 0 8px rgba(${accentColor.rgb}, 0.3)`
               }}
             ></div>
@@ -767,7 +783,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   
                   // Use same logic as progress bar for consistency
                   if (!historicalMax || historicalMax === 0) {
-                    historicalMax = Math.max(currentTotal, 1);
+                    // For display purposes, show current total when no historical data
+                    return Math.max(currentTotal, 1);
                   }
                   
                   return historicalMax;
@@ -780,13 +797,15 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           {/* Context-aware progress information */}
           {(selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && (
             <div className="text-center mt-2">
-              <span className={`text-xs ${historicalMetadata.dataQuality === 'high' ? 'text-gray-400' : 'text-gray-500'}`}>
+              <span className={`text-xs ${
+                historicalMetadata.dataQuality === 'high' ? 'text-gray-400' : 
+                historicalMetadata.dataQuality === 'limited' ? 'text-gray-400' :
+                'text-gray-500' // Subtle - no obvious color differences for insufficient data
+              }`}>
                 {(() => {
                   const currentTotal = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
                   const periodMapping = { '4weeks': '5weeks', '3months': '3months', '52weeks': '52weeks', '3years': '3years' };
                   const serverPeriod = periodMapping[selectedPeriod] || selectedPeriod;
-                  const historicalMax = historicalMaximums[serverPeriod];
-                  
                   const originalHistoricalMax = historicalMaximums[serverPeriod];
                   
                   if (historicalMetadata.dataQuality === 'high' && originalHistoricalMax && originalHistoricalMax > 0) {
@@ -796,6 +815,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                     const percentage = Math.round((currentTotal / originalHistoricalMax) * 100);
                     return `${percentage}% of available data peak (${originalHistoricalMax} commits)`;
                   } else {
+                    // Insufficient or no data - keep it simple
                     return `${currentTotal} commits this period`;
                   }
                 })()}
