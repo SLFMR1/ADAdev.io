@@ -59,7 +59,7 @@ const WeeklyCommitCount = ({ resource }) => {
   if (commitsPerMonth === null) return null
 
   return (
-    <div className="flex items-center space-x-1 text-xs text-gray-500">
+    <div className="flex items-center space-x-1 text-xs text-gray-500" title="completed weeks">
       <GitCommit size={12} />
       <span>{commitsPerMonth}/month</span>
       {resource.social?.github && !resource.social.github.includes('/') && (

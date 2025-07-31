@@ -897,6 +897,129 @@ const getHistoricalActivity = async (resource, startDate, endDate) => {
   return weeklyData
 }
 
+// Calculate historical maximum totals for each period type with graceful fallbacks
+const calculateHistoricalMaximums = async (resource) => {
+  if (!supabase) {
+    console.warn('No Supabase connection - using fallback maximums')
+    return createFallbackMaximums()
+  }
+
+  try {
+    // Get all historical weekly data for this resource (excluding current incomplete week)
+    const resourceIdentifier = resource.id?.toString() || resource.name
+
+    // Calculate current week start to exclude incomplete current week (consistent with other functions)
+    const now = new Date()
+    const currentWeekStart = new Date(now)
+    currentWeekStart.setDate(now.getDate() - now.getDay())
+    currentWeekStart.setHours(0, 0, 0, 0)
+    const currentWeekKey = currentWeekStart.toISOString().slice(0, 10)
+
+    const { data, error } = await supabase
+      .from('github_activity')
+      .select('week_start, commit_count')
+      .eq('resource_id', resourceIdentifier)
+      .lt('week_start', currentWeekKey) // Exclude current incomplete week
+      .order('week_start')
+
+    if (error) {
+      console.warn(`Error fetching historical data for maximums: ${error.message}`)
+      return createFallbackMaximums()
+    }
+
+    if (!data || data.length === 0) {
+      console.log(`No historical data found for ${resource.name} - using fallback maximums`)
+      return createFallbackMaximums()
+    }
+
+    // Convert to array of weekly commit counts, sorted by date
+    const weeklyCommits = data.map(row => ({
+      weekStart: row.week_start,
+      count: row.commit_count || 0
+    })).sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart))
+
+    // Debug logging for data analysis
+    const totalWeeks = weeklyCommits.length
+    const dateRange = totalWeeks > 0 ? `${weeklyCommits[0].weekStart} to ${weeklyCommits[totalWeeks-1].weekStart}` : 'none'
+    const totalCommits = weeklyCommits.reduce((sum, week) => sum + week.count, 0)
+    console.log(`📅 ${resource.name} historical data: ${totalWeeks} weeks (${dateRange}), ${totalCommits} total commits [excluding current week ${currentWeekKey}]`)
+
+    // Calculate rolling maximums for each period
+    const periods = {
+      '5weeks': 5,    // 4 weeks period uses 5 weeks of data (minus current week)
+      '3months': 13,  // 3 months = ~13 weeks
+      '52weeks': 52,  // 12 months = ~52 weeks  
+      '3years': 156   // 3 years = ~156 weeks
+    }
+
+    const result = {
+      maximums: {},
+      metadata: {
+        hasHistoricalData: true,
+        totalWeeksAvailable: weeklyCommits.length,
+        dataQuality: 'high'
+      }
+    }
+
+    Object.entries(periods).forEach(([periodKey, weekCount]) => {
+      if (weeklyCommits.length >= weekCount) {
+        // Sufficient data: calculate proper rolling maximum
+        let maxTotal = 0
+        let windowTotals = [] // Debug: track all window totals
+        const possibleWindows = weeklyCommits.length - weekCount + 1
+        
+        for (let i = 0; i <= weeklyCommits.length - weekCount; i++) {
+          const windowTotal = weeklyCommits
+            .slice(i, i + weekCount)
+            .reduce((sum, week) => sum + week.count, 0)
+          
+          windowTotals.push(windowTotal)
+          if (windowTotal > maxTotal) {
+            maxTotal = windowTotal
+          }
+        }
+        
+        // Debug logging
+        console.log(`📊 ${resource.name} ${periodKey} (${weekCount} weeks): ${possibleWindows} windows, max=${maxTotal}, all=[${windowTotals.slice(0, 5).join(',')}${windowTotals.length > 5 ? '...' : ''}]`)
+        
+        result.maximums[periodKey] = maxTotal // Use actual calculated maximum
+      } else if (weeklyCommits.length > 0) {
+        // Insufficient data: use available data intelligently
+        const availableTotal = weeklyCommits.reduce((sum, week) => sum + week.count, 0)
+        const scaledMaximum = Math.max(availableTotal, weeklyCommits.length * 5) // Reasonable baseline
+        result.maximums[periodKey] = scaledMaximum
+        result.metadata.dataQuality = 'limited'
+      } else {
+        // No data: use reasonable baseline
+        result.maximums[periodKey] = weekCount * 5 // 5 commits per week baseline
+        result.metadata.dataQuality = 'estimated'
+      }
+    })
+
+    console.log(`✅ Calculated historical maximums for ${resource.name}:`, result.maximums, `(${result.metadata.dataQuality} quality)`)
+    return result
+
+  } catch (error) {
+    console.warn(`Error calculating historical maximums for ${resource.name}:`, error.message)
+    return createFallbackMaximums()
+  }
+}
+
+// Create reasonable fallback maximums when no data is available
+const createFallbackMaximums = () => ({
+  maximums: {
+    '5weeks': 25,   // 5 commits/week baseline
+    '3months': 65,  // 5 commits/week baseline 
+    '52weeks': 260, // 5 commits/week baseline
+    '3years': 780   // 5 commits/week baseline
+  },
+  metadata: {
+    hasHistoricalData: false,
+    totalWeeksAvailable: 0,
+    dataQuality: 'fallback'
+  }
+})
+
 // Load resources
 const loadResources = async () => {
   try {
@@ -1432,13 +1555,18 @@ app.get('/api/development-activity', async (req, res) => {
           isOrganization: false
         };
         
+        // Calculate historical maximums for progress bar scaling
+        const maximumsData = await calculateHistoricalMaximums(targetResource);
+
         const response = {
           resource: targetResource,
           weeklyData: activityData || [],
           commitsPerWeek: totalCommits,
           repoInfo: repoInfo,
           period: period,
-          dataSources: { database: true, github: false }
+          dataSources: { database: true, github: false },
+          historicalMaximums: maximumsData.maximums,
+          historicalMetadata: maximumsData.metadata
         };
         
         console.log(`✅ Single resource response for ${targetResource.name}: ${totalCommits} commits, ${activityData?.length || 0} weeks`);

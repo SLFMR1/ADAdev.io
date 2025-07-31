@@ -34,6 +34,8 @@ const getLineChartPoints = (data, width, height, padding) => {
 const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false, selectedPeriod = '3months', onPeriodChange, preloadedData = null, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' } }) => {
   const [activityData, setActivityData] = useState(null)
   const [weeklyData, setWeeklyData] = useState([])
+  const [historicalMaximums, setHistoricalMaximums] = useState({})
+  const [historicalMetadata, setHistoricalMetadata] = useState({ hasHistoricalData: false, dataQuality: 'fallback' })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
@@ -98,6 +100,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               currentWeek: currentWeek,
               repoInfo: resourceData.repoInfo
             })
+            setHistoricalMaximums(resourceData.historicalMaximums || {})
+            setHistoricalMetadata(resourceData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' })
             
             // Determine number of weeks based on time period
             const weeks = periodToWeeks[selectedPeriod] || 4
@@ -151,7 +155,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           commitsPerWeekDetailed: serverData.weeklyData || [],
           commitsPerWeek: serverData.commitsPerWeek || 0,
           repoInfo: serverData.repoInfo || null,
-          dataSources: serverData.dataSources || { database: true, github: false }
+          dataSources: serverData.dataSources || { database: true, github: false },
+          historicalMaximums: serverData.historicalMaximums || {},
+          historicalMetadata: serverData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' }
         }
         
         logger.log(`✅ Server API data received - sources:`, resourceData.dataSources)
@@ -195,6 +201,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             currentWeek: currentWeek,
             repoInfo: resourceData.repoInfo
           })
+          setHistoricalMaximums(resourceData.historicalMaximums || {})
+          setHistoricalMetadata(resourceData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' })
           
           // Only use as many weeks as available, up to the requested period
           const trimmedData = validWeeklyData.slice(-weeks)
@@ -213,6 +221,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           repoInfo: null
         })
         setWeeklyData([])
+        setHistoricalMaximums({})
+        setHistoricalMetadata({ hasHistoricalData: false, dataQuality: 'fallback' })
       } finally {
         setIsLoading(false)
       }
@@ -678,33 +688,120 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         </div>
       </div>
 
-      {/* Last Complete Week Stats */}
+      {/* Period-Based Stats */}
       <div className="bg-gray-800/50 rounded-lg p-3 mt-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-gray-400 text-xs">Last Complete Week</span>
+          <div className="flex flex-col">
+            <span className="text-gray-400 text-xs">
+              {selectedPeriod === '4weeks' ? 'Current 4-Week Total' : 
+               selectedPeriod === '3months' ? 'Current 3-Month Total' : 
+               selectedPeriod === '52weeks' ? 'Current 12-Month Total' : 
+               selectedPeriod === '3years' ? 'Current 3-Year Total' : 'Last Complete Week'}
+            </span>
+            {(selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && (
+              <span className="text-gray-500 text-xs mt-0.5">
+                vs. best {selectedPeriod === '4weeks' ? '4-week' : 
+                              selectedPeriod === '3months' ? '3-month' : 
+                              selectedPeriod === '52weeks' ? '12-month' : '3-year'} period
+              </span>
+            )}
+          </div>
           <div className="flex items-center space-x-1">
             <GitCommit size={12} style={{ color: accentColor.hex }} />
-            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>{validWeeklyData[validWeeklyData.length - 1]?.count || 0}</span>
+            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>
+              {selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years' ? 
+                validWeeklyData.reduce((total, week) => total + (week.count || 0), 0) : 
+                validWeeklyData[validWeeklyData.length - 1]?.count || 0}
+            </span>
             <span className="text-gray-400 text-xs">commits</span>
           </div>
         </div>
 
-        {/* Simple Bar Chart for last complete week, scaled to min-max */}
+        {/* Bar Chart - uses historical maximums for meaningful progress bars */}
         <div className="relative">
           <div className="w-full bg-gray-700 rounded-full h-2">
             <div 
               className="h-2 rounded-full transition-all duration-500 ease-out"
               style={{ 
-                width: `${((validWeeklyData[validWeeklyData.length - 1]?.count || 0 - minCommits) / (maxCommits - minCommits || 1)) * 100}%`,
+                width: (() => {
+                  const isLongerPeriod = selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
+                  const currentValue = isLongerPeriod ? 
+                    validWeeklyData.reduce((total, week) => total + (week.count || 0), 0) : 
+                    validWeeklyData[validWeeklyData.length - 1]?.count || 0;
+                  
+                  if (!isLongerPeriod) {
+                    // For single week, use max-min range (unchanged)
+                    const maximum = maxCommits - minCommits || 1;
+                    return `${Math.min(100, Math.max(0, ((currentValue - minCommits) / maximum) * 100))}%`;
+                  }
+                  
+                  // For longer periods, use historical maximum with graceful fallback
+                  const periodMapping = { '4weeks': '5weeks', '3months': '3months', '52weeks': '52weeks', '3years': '3years' };
+                  const serverPeriod = periodMapping[selectedPeriod] || selectedPeriod;
+                  let historicalMax = historicalMaximums[serverPeriod];
+                  
+                  // If no historical maximum or zero, use current value as baseline
+                  if (!historicalMax || historicalMax === 0) {
+                    historicalMax = Math.max(currentValue, 1);
+                  }
+                  
+                  // Calculate percentage with bounds checking
+                  const percentage = (currentValue / historicalMax) * 100;
+                  return `${Math.min(100, Math.max(0, percentage))}%`;
+                })(),
                 background: `linear-gradient(to right, ${accentColor.hex}, ${accentColor.hex}dd)`,
                 boxShadow: `0 0 8px rgba(${accentColor.rgb}, 0.3)`
               }}
             ></div>
           </div>
           <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>{minCommits}</span>
-            <span>{maxCommits}</span>
+            <span>0</span>
+            <span>
+              {(() => {
+                const isLongerPeriod = selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
+                if (isLongerPeriod) {
+                  const periodMapping = { '4weeks': '5weeks', '3months': '3months', '52weeks': '52weeks', '3years': '3years' };
+                  const serverPeriod = periodMapping[selectedPeriod] || selectedPeriod;
+                  const currentTotal = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
+                  let historicalMax = historicalMaximums[serverPeriod];
+                  
+                  // Use same logic as progress bar for consistency
+                  if (!historicalMax || historicalMax === 0) {
+                    historicalMax = Math.max(currentTotal, 1);
+                  }
+                  
+                  return historicalMax;
+                } else {
+                  return maxCommits;
+                }
+              })()}
+            </span>
           </div>
+          {/* Context-aware progress information */}
+          {(selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && (
+            <div className="text-center mt-2">
+              <span className={`text-xs ${historicalMetadata.dataQuality === 'high' ? 'text-gray-400' : 'text-gray-500'}`}>
+                {(() => {
+                  const currentTotal = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
+                  const periodMapping = { '4weeks': '5weeks', '3months': '3months', '52weeks': '52weeks', '3years': '3years' };
+                  const serverPeriod = periodMapping[selectedPeriod] || selectedPeriod;
+                  const historicalMax = historicalMaximums[serverPeriod];
+                  
+                  const originalHistoricalMax = historicalMaximums[serverPeriod];
+                  
+                  if (historicalMetadata.dataQuality === 'high' && originalHistoricalMax && originalHistoricalMax > 0) {
+                    const percentage = Math.round((currentTotal / originalHistoricalMax) * 100);
+                    return `${percentage}% of historical peak (${originalHistoricalMax} commits)`;
+                  } else if (historicalMetadata.dataQuality === 'limited' && originalHistoricalMax && originalHistoricalMax > 0) {
+                    const percentage = Math.round((currentTotal / originalHistoricalMax) * 100);
+                    return `${percentage}% of available data peak (${originalHistoricalMax} commits)`;
+                  } else {
+                    return `${currentTotal} commits this period`;
+                  }
+                })()}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
