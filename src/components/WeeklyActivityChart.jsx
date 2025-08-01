@@ -10,7 +10,8 @@ import {
   validateNodeCount,
   getCacheTTL,
   usesHybridData,
-  getServerPeriod
+  getServerPeriod,
+  transformChartData
 } from '../utils/chartDataUtils'
 import { ChartDataCache } from '../utils/cacheUtils'
 
@@ -89,18 +90,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             setHistoricalMaximums(resourceData.historicalMaximums || {})
             setHistoricalMetadata(resourceData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' })
             
-            // Use centralized period configuration
-            const config = getPeriodConfig(selectedPeriod)
-            const weeks = config.weeks
-            
-            // Server now handles current week exclusion consistently, so just take the requested number of weeks
-            // Sort chronologically first
-            let finalData = validWeeklyData.sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
-            
-            // Take the exact number of weeks expected for this period (server already excludes current week)
-            finalData = finalData.slice(-weeks);
-            
-            setWeeklyData(finalData)
+            // Apply current week filtering and process data using centralized logic
+            const filteredData = transformChartData([{ weeklyData: validWeeklyData }], selectedPeriod, `WeeklyActivityChart-${resource.name}-preloaded`)
+            setWeeklyData(filteredData)
             
             setIsLoading(false)
             return
@@ -119,7 +111,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         
         // Use centralized period configuration
         const config = getPeriodConfig(selectedPeriod)
-        const weeks = config.weeks
+        const expectedWeeks = config.weeks
         
         // Check if this period should use GitHub API (only 7-day period)
         if (usesHybridData(selectedPeriod)) {
@@ -207,12 +199,12 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           setHistoricalMaximums(resourceData.historicalMaximums || {})
           setHistoricalMetadata(resourceData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' })
           
-          // Only use as many weeks as available, up to the requested period
-          const trimmedData = validWeeklyData.slice(-weeks)
-          setWeeklyData(trimmedData)
+          // Apply current week filtering and trim to requested period using centralized logic
+          const filteredData = transformChartData([{ weeklyData: validWeeklyData }], selectedPeriod, `WeeklyActivityChart-${resource.name}`)
+          setWeeklyData(filteredData)
           
           // Validate final node count
-          validateNodeCount(trimmedData, selectedPeriod, `WeeklyActivityChart-${resource.name}`)
+          validateNodeCount(filteredData, selectedPeriod, `WeeklyActivityChart-${resource.name}`)
         } else {
           // No valid weekly data available - throw error instead of showing synthetic data
           throw new Error('No accurate weekly data available')
@@ -243,15 +235,14 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       logger.log(`⚡ Using cached data for ${resource.name}`)
       // Process cached data same as API response
       if (cachedData.commitsPerWeekDetailed && Array.isArray(cachedData.commitsPerWeekDetailed)) {
-        const config = getPeriodConfig(selectedPeriod)
-        const weeks = config.weeks
-        const trimmedData = cachedData.commitsPerWeekDetailed.slice(-weeks)
+        // Apply current week filtering and trim to requested period using centralized logic
+        const filteredData = transformChartData([{ weeklyData: cachedData.commitsPerWeekDetailed }], selectedPeriod, `WeeklyActivityChart-${resource.name}-cached`)
         
         setActivityData({
-          currentWeek: trimmedData[trimmedData.length - 1]?.count || 0,
+          currentWeek: filteredData[filteredData.length - 1]?.count || 0,
           repoInfo: cachedData.repoInfo
         })
-        setWeeklyData(trimmedData)
+        setWeeklyData(filteredData)
         setHistoricalMaximums(cachedData.historicalMaximums || {})
         setHistoricalMetadata(cachedData.historicalMetadata || {})
         setIsLoading(false)
@@ -285,6 +276,111 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       </div>
     )
   }
+
+  // Calculate historical maximum without useMemo to avoid cache dependency issues
+  const calculateHistoricalMax = () => {
+    if (!weeklyData || weeklyData.length === 0) {
+      return 1;
+    }
+    
+    let maxWeekTotal = 0;
+    const currentPeriodTotal = weeklyData.reduce((total, week) => total + (week.count || 0), 0);
+    
+    // Use all available periods for comprehensive historical comparison
+    // Priority: 3years > 52weeks > 3months > 5weeks
+    const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
+    
+    for (const period of periodsToCheck) {
+      const cachedPeriodData = ChartDataCache.get('resource', period, resource.id);
+      if (cachedPeriodData && cachedPeriodData.commitsPerWeekDetailed) {
+        const weeklyDataForTransform = cachedPeriodData.commitsPerWeekDetailed;
+        
+        if (weeklyDataForTransform && weeklyDataForTransform.length > 0) {
+          // For longer periods, find maximum rolling period total
+          if (period === '3years' || period === '52weeks' || period === '3months') {
+            const config = getPeriodConfig(selectedPeriod);
+            const currentPeriodWeeks = config.weeks || 4;
+            
+            // Calculate rolling maximums for the current period length
+            for (let i = 0; i <= weeklyDataForTransform.length - currentPeriodWeeks; i++) {
+              const rollingTotal = weeklyDataForTransform
+                .slice(i, i + currentPeriodWeeks)
+                .reduce((sum, w) => sum + (w && w.count ? w.count : 0), 0);
+              maxWeekTotal = Math.max(maxWeekTotal, rollingTotal);
+            }
+          } else {
+            // For similar period length, just get the total
+            const periodTotal = weeklyDataForTransform.reduce((sum, w) => sum + (w && w.count ? w.count : 0), 0);
+            maxWeekTotal = Math.max(maxWeekTotal, periodTotal);
+          }
+          
+          console.log(`📊 Using ${period} data for ResourceCard comparison, found max: ${maxWeekTotal}`);
+        }
+        
+        // Use only the first (longest) available period for most comprehensive comparison
+        break;
+      }
+    }
+    
+    // If no historical data found, use current period as baseline
+    if (maxWeekTotal === 0) {
+      console.log('📊 No historical data found for ResourceCard comparison, using current period as baseline');
+      return currentPeriodTotal || 1;
+    }
+    
+    // Include current period in comparison - if it's a new record, it becomes the new max
+    const trueHistoricalMax = Math.max(maxWeekTotal, currentPeriodTotal);
+    
+    console.log(`📊 ResourceCard historical max calculation: historicalMax=${maxWeekTotal}, currentPeriod=${currentPeriodTotal}, finalMax=${trueHistoricalMax}`);
+    
+    return trueHistoricalMax;
+  };
+  
+  const weeklyHistoricalMax = calculateHistoricalMax();
+
+  // Calculate if current period is a new record without useMemo to avoid cache dependency issues
+  const calculateIsNewRecord = () => {
+    if (!weeklyData || weeklyData.length === 0) {
+      return false;
+    }
+    
+    const currentPeriodTotal = weeklyData.reduce((total, week) => total + (week.count || 0), 0);
+    
+    // Get historical max (without current period)
+    let historicalMax = 0;
+    const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
+    
+    for (const period of periodsToCheck) {
+      const cachedPeriodData = ChartDataCache.get('resource', period, resource.id);
+      if (cachedPeriodData && cachedPeriodData.commitsPerWeekDetailed) {
+        const weeklyDataForTransform = cachedPeriodData.commitsPerWeekDetailed;
+        
+        if (weeklyDataForTransform && weeklyDataForTransform.length > 0) {
+          if (period === '3years' || period === '52weeks' || period === '3months') {
+            const config = getPeriodConfig(selectedPeriod);
+            const currentPeriodWeeks = config.weeks || 4;
+            
+            // Calculate rolling maximums for the current period length
+            for (let i = 0; i <= weeklyDataForTransform.length - currentPeriodWeeks; i++) {
+              const rollingTotal = weeklyDataForTransform
+                .slice(i, i + currentPeriodWeeks)
+                .reduce((sum, w) => sum + (w && w.count ? w.count : 0), 0);
+              historicalMax = Math.max(historicalMax, rollingTotal);
+            }
+          } else {
+            const periodTotal = weeklyDataForTransform.reduce((sum, w) => sum + (w && w.count ? w.count : 0), 0);
+            historicalMax = Math.max(historicalMax, periodTotal);
+          }
+        }
+        
+        break;
+      }
+    }
+    
+    return currentPeriodTotal > historicalMax;
+  };
+  
+  const isNewRecord = calculateIsNewRecord();
   
 
   // Chart configuration - just made a bit wider
@@ -326,15 +422,26 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const maxCommits = Math.max(...validWeeklyData.map(w => w.count), 1)
   const minCommits = Math.min(...validWeeklyData.map(w => w.count), 0)
 
-  // Generate chart points with enhanced validation to prevent NaN coordinates
+  // Get expected period configuration for proper temporal positioning
+  const config = getPeriodConfig(selectedPeriod)
+  const expectedWeeks = config.weeks
+  
+  // Calculate the expected start date for the full period
+  const now = new Date();
+  const expectedStartDate = new Date(now.getTime() - expectedWeeks * 7 * 24 * 60 * 60 * 1000);
+  
+  // Generate chart points with proper temporal positioning
   const chartPoints = validWeeklyData.map((w, i) => {
-    // Ensure we have valid inputs for calculations
-    const dataLength = Math.max(validWeeklyData.length, 1)
     const safeMaxCommits = Math.max(maxCommits, 1) // Prevent division by zero
     const safeCount = Math.max(0, w.count || 0) // Ensure non-negative
     
-    // Calculate coordinates with safe division
-    const x = chartPadding + (dataLength > 1 ? (i / (dataLength - 1)) : 0.5) * (chartWidth - 2 * chartPadding)
+    // Calculate the actual temporal position of this week within the expected period
+    const weekDate = new Date(w.weekStart);
+    const weeksSinceStart = Math.floor((weekDate.getTime() - expectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    const normalizedPosition = Math.max(0, Math.min(1, weeksSinceStart / (expectedWeeks - 1)));
+    
+    // Calculate coordinates using temporal position, not array index
+    const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding)
     const y = chartHeight - chartPadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * chartPadding)
     
     // Triple validation to ensure no NaN coordinates
@@ -363,33 +470,6 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     return `${validX},${validY}`
   }).join(' ')
 
-  // Month label logic with enhanced validation
-  let lastMonth = ''
-  const monthLabels = validWeeklyData.map((w, i) => {
-    try {
-      const weekStart = w.weekStart;
-      if (!weekStart) {
-        console.warn(`Missing weekStart for week ${i}`);
-        return '';
-      }
-      
-      const weekStartDate = new Date(weekStart);
-      if (isNaN(weekStartDate.getTime())) {
-        console.warn(`Invalid weekStart date: ${weekStart} for week ${i}`);
-        return '';
-      }
-      
-      const month = weekStartDate.toLocaleString('default', { month: 'short' });
-      if (month !== lastMonth && month !== 'Invalid Date') {
-        lastMonth = month;
-        return month;
-      }
-      return '';
-    } catch (error) {
-      console.warn(`Error processing month label for week ${i}:`, error);
-      return '';
-    }
-  })
 
   // Tooltip handlers with error handling
   const handleNodeMouseOver = (e, value, weekIdx) => {
@@ -505,11 +585,15 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             })()}
 
             {/* Month boundary grid lines */}
-            {monthLabels.map((label, i) => {
-              if (!label || i === 0) return null
+            {validWeeklyData.map((w, i) => {
+              const weekDate = new Date(w.weekStart);
+              const isMonthStart = weekDate.getDate() <= 7; // first week of month
+              if (!isMonthStart || i === 0) return null
               
-              const dataLength = Math.max(validWeeklyData.length, 1)
-              const x = chartPadding + (dataLength > 1 ? (i / (dataLength - 1)) : 0.5) * (chartWidth - 2 * chartPadding)
+              // Use temporal positioning
+              const weeksSinceStart = Math.floor((weekDate.getTime() - expectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+              const normalizedPosition = Math.max(0, Math.min(1, weeksSinceStart / (expectedWeeks - 1)));
+              const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding)
               
               // Validate coordinates
               const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding))
@@ -530,9 +614,12 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             })}
 
             {/* Week ticks */}
-            {validWeeklyData.map((_, i) => {
-              const dataLength = Math.max(validWeeklyData.length, 1)
-              const x = chartPadding + (dataLength > 1 ? (i / (dataLength - 1)) : 0.5) * (chartWidth - 2 * chartPadding)
+            {validWeeklyData.map((w, i) => {
+              // Use temporal positioning
+              const weekDate = new Date(w.weekStart);
+              const weeksSinceStart = Math.floor((weekDate.getTime() - expectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+              const normalizedPosition = Math.max(0, Math.min(1, weeksSinceStart / (expectedWeeks - 1)));
+              const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding)
               
               // Validate coordinates
               const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding))
@@ -572,12 +659,16 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             
             {/* Data points (nodes) with tooltips */}
             {validWeeklyData.map((w, i) => {
-              // Use same safe calculation as chartPoints
-              const dataLength = Math.max(validWeeklyData.length, 1)
+              // Use same temporal positioning calculation as chartPoints
               const safeMaxCommits = Math.max(maxCommits, 1)
               const safeCount = Math.max(0, w.count || 0)
               
-              const x = chartPadding + (dataLength > 1 ? (i / (dataLength - 1)) : 0.5) * (chartWidth - 2 * chartPadding)
+              // Calculate the actual temporal position of this week within the expected period
+              const weekDate = new Date(w.weekStart);
+              const weeksSinceStart = Math.floor((weekDate.getTime() - expectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+              const normalizedPosition = Math.max(0, Math.min(1, weeksSinceStart / (expectedWeeks - 1)));
+              
+              const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding)
               const y = chartHeight - chartPadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * chartPadding)
               
               // Validate coordinates
@@ -622,51 +713,88 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               )
             })}
             
-            {/* Month labels */}
-            {validWeeklyData.map((w, i) => {
-              try {
-                const date = new Date(w.weekStart)
-                if (isNaN(date.getTime())) return null // Invalid date
-                
-                const isMonthStart = date.getDate() <= 7 // first week of month
-                const isYearStart = date.getMonth() === 0 && isMonthStart
-                
-                // Safe coordinate calculation
-                const dataLength = Math.max(validWeeklyData.length, 1)
-                const x = chartPadding + (dataLength > 1 ? (i / (dataLength - 1)) : 0.5) * (chartWidth - 2 * chartPadding)
-                const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding))
-                
-                if (isYearStart) {
-                  return (
-                    <text
-                      key={`year-label-${i}`}
-                      x={safeX}
-                      y={chartHeight - bottomPadding / 2 + 32}
-                      fontSize={window.innerWidth < 1024 ? "14" : "16"}
-                      fill={accentColor.hex}
-                      textAnchor="middle"
-                      fontWeight="bold"
-                    >{date.getFullYear()}</text>
-                  )
-                } else if (isMonthStart) {
-                  return (
-                    <text
-                      key={`month-label-${i}`}
-                      x={safeX}
-                      y={chartHeight - bottomPadding / 2 + 18}
-                      fontSize={window.innerWidth < 1024 ? "11" : "13"}
-                      fill={accentColor.hex}
-                      textAnchor="middle"
-                      fontWeight="bold"
-                    >{date.toLocaleString('default', { month: 'short' })}</text>
-                  )
+            {/* Smart month/year labels with collision avoidance */}
+            {(() => {
+              const labels = [];
+              const minLabelSpacing = window.innerWidth < 1024 ? 80 : 120; // Minimum pixels between labels
+              let lastLabelX = -minLabelSpacing;
+              
+              // Calculate ideal number of labels based on chart width
+              const maxLabels = Math.floor((chartWidth - 2 * chartPadding) / minLabelSpacing);
+              const labelInterval = Math.max(1, Math.floor(validWeeklyData.length / maxLabels));
+              
+              validWeeklyData.forEach((w, i) => {
+                try {
+                  const date = new Date(w.weekStart);
+                  if (isNaN(date.getTime())) return;
+                  
+                  // Use temporal positioning
+                  const weeksSinceStart = Math.floor((date.getTime() - expectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+                  const normalizedPosition = Math.max(0, Math.min(1, weeksSinceStart / (expectedWeeks - 1)));
+                  const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding);
+                  const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding));
+                  
+                  // Check if this position has enough space from the last label
+                  if (safeX - lastLabelX < minLabelSpacing) return;
+                  
+                  const isYearStart = date.getMonth() === 0 && date.getDate() <= 7;
+                  const isQuarterStart = [0, 3, 6, 9].includes(date.getMonth()) && date.getDate() <= 7;
+                  
+                  // Prioritize year labels, then quarters for longer periods
+                  let shouldShowLabel = false;
+                  let labelText = '';
+                  let fontSize = window.innerWidth < 1024 ? "11" : "13";
+                  let yOffset = 18;
+                  
+                  if (selectedPeriod === '3years') {
+                    // For 3-year view, show years and quarters
+                    if (isYearStart) {
+                      shouldShowLabel = true;
+                      labelText = date.getFullYear().toString();
+                      fontSize = window.innerWidth < 1024 ? "14" : "16";
+                      yOffset = 32;
+                    } else if (isQuarterStart && i % Math.max(1, Math.floor(labelInterval / 2)) === 0) {
+                      shouldShowLabel = true;
+                      labelText = `Q${Math.floor(date.getMonth() / 3) + 1}`;
+                    }
+                  } else if (selectedPeriod === '52weeks') {
+                    // For 1-year view, show quarters and some months
+                    if (isQuarterStart) {
+                      shouldShowLabel = true;
+                      labelText = date.toLocaleString('default', { month: 'short' });
+                    }
+                  } else {
+                    // For shorter periods, show months more frequently
+                    const isMonthStart = date.getDate() <= 7;
+                    if (isMonthStart && i % labelInterval === 0) {
+                      shouldShowLabel = true;
+                      labelText = date.toLocaleString('default', { month: 'short' });
+                    }
+                  }
+                  
+                  if (shouldShowLabel) {
+                    lastLabelX = safeX;
+                    labels.push(
+                      <text
+                        key={`smart-label-${i}`}
+                        x={safeX}
+                        y={chartHeight - bottomPadding / 2 + yOffset}
+                        fontSize={fontSize}
+                        fill={accentColor.hex}
+                        textAnchor="middle"
+                        fontWeight="bold"
+                      >
+                        {labelText}
+                      </text>
+                    );
+                  }
+                } catch (error) {
+                  console.warn(`Error rendering smart label for week ${i}:`, error);
                 }
-                return null
-              } catch (error) {
-                console.warn(`Error rendering label for week ${i}:`, error)
-                return null
-              }
-            })}
+              });
+              
+              return labels;
+            })()}
             {/* Y-axis labels - improved visibility and more labels */}
             {(() => {
               const labels = []
@@ -749,7 +877,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           </div>
         </div>
 
-        {/* Bar Chart - uses historical maximums for meaningful progress bars */}
+        {/* Bar Chart - uses dynamic historical maximums for meaningful progress bars */}
         <div className="relative">
           <div className="w-full bg-gray-700 rounded-full h-2">
             <div 
@@ -767,33 +895,14 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                     return `${Math.min(100, Math.max(0, ((currentValue - minCommits) / maximum) * 100))}%`;
                   }
                   
-                  // For longer periods, use historical maximum with graceful fallback
-                  const serverPeriod = getServerPeriod(selectedPeriod);
-                  let historicalMax = historicalMaximums[serverPeriod];
+                  // For longer periods, use dynamic historical maximum
+                  const historicalMax = weeklyHistoricalMax || 1;
                   
-                  // Smart handling of insufficient historical data
-                  if (!historicalMax || historicalMax === 0) {
-                    // Insufficient data case - show 100% but we'll add indicators elsewhere
-                    return "100%";
-                  }
-                  
-                  // Calculate percentage with bounds checking (only when we have real historical data)
+                  // Calculate percentage with bounds checking
                   const percentage = (currentValue / historicalMax) * 100;
                   return `${Math.min(100, Math.max(0, Math.round(percentage)))}%`;
                 })(),
-                background: (() => {
-                  const isLongerPeriod = selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
-                  if (isLongerPeriod) {
-                    const serverPeriod = getServerPeriod(selectedPeriod);
-                    const historicalMax = historicalMaximums[serverPeriod];
-                    
-                    // Subtle visual hint for insufficient data
-                    if (!historicalMax || historicalMax === 0) {
-                      return `linear-gradient(to right, ${accentColor.hex}99, ${accentColor.hex}77)`; // Slightly more transparent
-                    }
-                  }
-                  return `linear-gradient(to right, ${accentColor.hex}, ${accentColor.hex}dd)`;
-                })(),
+                background: `linear-gradient(to right, ${accentColor.hex}, ${accentColor.hex}dd)`,
                 boxShadow: `0 0 8px rgba(${accentColor.rgb}, 0.3)`
               }}
             ></div>
@@ -804,47 +913,38 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               {(() => {
                 const isLongerPeriod = selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
                 if (isLongerPeriod) {
-                  const serverPeriod = getServerPeriod(selectedPeriod);
-                  const currentTotal = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
-                  let historicalMax = historicalMaximums[serverPeriod];
-                  
-                  // Use same logic as progress bar for consistency
-                  if (!historicalMax || historicalMax === 0) {
-                    // For display purposes, show current total when no historical data
-                    return Math.max(currentTotal, 1);
-                  }
-                  
-                  return historicalMax;
+                  return weeklyHistoricalMax || 1;
                 } else {
                   return maxCommits;
                 }
               })()}
             </span>
           </div>
-          {/* Context-aware progress information */}
+          {/* Dynamic progress information with new record indicator */}
           {(selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && (
             <div className="text-center mt-2">
-              <span className={`text-xs ${
-                historicalMetadata.dataQuality === 'high' ? 'text-gray-400' : 
-                historicalMetadata.dataQuality === 'limited' ? 'text-gray-400' :
-                'text-gray-500' // Subtle - no obvious color differences for insufficient data
-              }`}>
-                {(() => {
-                  const currentTotal = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
-                  const serverPeriod = getServerPeriod(selectedPeriod);
-                  const originalHistoricalMax = historicalMaximums[serverPeriod];
-                  
-                  if (historicalMetadata.dataQuality === 'high' && originalHistoricalMax && originalHistoricalMax > 0) {
-                    const percentage = Math.round((currentTotal / originalHistoricalMax) * 100);
-                    return `${percentage}% of historical peak (${originalHistoricalMax} commits)`;
-                  } else if (historicalMetadata.dataQuality === 'limited' && originalHistoricalMax && originalHistoricalMax > 0) {
-                    const percentage = Math.round((currentTotal / originalHistoricalMax) * 100);
-                    return `${percentage}% of available data peak (${originalHistoricalMax} commits)`;
-                  } else {
-                    return '';
-                  }
-                })()}
-              </span>
+              <div className="flex items-center justify-center space-x-2">
+                <span className="text-xs text-gray-400">
+                  {(() => {
+                    const currentTotal = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
+                    const historicalMax = weeklyHistoricalMax || 1;
+                    const percentage = Math.round((currentTotal / historicalMax) * 100);
+                    return `${percentage}% of historical peak (${historicalMax} commits)`;
+                  })()}
+                </span>
+                {isNewRecord && (
+                  <span 
+                    className="text-xs font-medium px-1 py-0.5 rounded"
+                    style={{ 
+                      color: accentColor.hex,
+                      backgroundColor: `rgba(${accentColor.rgb}, 0.1)`,
+                      border: `1px solid rgba(${accentColor.rgb}, 0.2)`
+                    }}
+                  >
+                    • new record
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>

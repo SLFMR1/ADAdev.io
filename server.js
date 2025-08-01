@@ -159,22 +159,53 @@ const fetchRepoCommits = async (repoPath, since = null) => {
   if (cached) return cached
   
   try {
-    let url = `${GITHUB_API_BASE}/repos/${repoPath}/commits?per_page=100`
-    if (since) {
-      url += `&since=${since}`
+    let allCommits = []
+    let page = 1
+    let hasMore = true
+    
+    while (hasMore) {
+      let url = `${GITHUB_API_BASE}/repos/${repoPath}/commits?per_page=100&page=${page}`
+      if (since) {
+        url += `&since=${since}`
+      }
+      
+      const response = await rateLimitedFetch(url)
+      const commits = await response.json()
+      
+      // Validate that commits is an array
+      if (!Array.isArray(commits)) {
+        console.warn(`Invalid commits response for ${repoPath}:`, typeof commits)
+        break
+      }
+      
+      // If we get less than 100 commits, we've reached the end
+      if (commits.length === 0) {
+        hasMore = false
+        break
+      }
+      
+      allCommits.push(...commits)
+      
+      // GitHub API pagination limit safety
+      if (commits.length < 100) {
+        hasMore = false
+      } else {
+        page++
+        // Add small delay between pages to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
+      // Safety limit to prevent infinite loops (adjust as needed)
+      if (page > 50) {
+        console.warn(`Reached page limit (${page}) for ${repoPath}, stopping pagination`)
+        break
+      }
     }
     
-    const response = await rateLimitedFetch(url)
-    const commits = await response.json()
-    
-    // Validate that commits is an array
-    if (!Array.isArray(commits)) {
-      console.warn(`Invalid commits response for ${repoPath}:`, typeof commits)
-      return []
-    }
+    console.log(`📄 Fetched ${allCommits.length} total commits from ${page} pages for ${repoPath}`)
     
     // Enrich each commit with repository information for maintainCommitsCache
-    const enrichedCommits = commits.map(commit => ({
+    const enrichedCommits = allCommits.map(commit => ({
       ...commit,
       repository: {
         full_name: repoPath,
@@ -384,9 +415,26 @@ const verifyDataStored = async (resource, expectedWeeks) => {
   }
   
   try {
-    const resourceIdentifier = resource.id || 
-      resource.social?.github?.replace('https://github.com/', '') ||
-      resource.name?.toLowerCase().replace(/\s+/g, '-')
+    // CRITICAL: Use same extractRepoPath logic as storeWeeklyActivity to ensure identifier consistency
+    const extractRepoPath = (githubUrl) => {
+      if (!githubUrl) return null
+      
+      // Handle organization URLs (e.g., https://github.com/masumi-network)
+      const orgMatch = githubUrl.match(/github\.com\/([^\/]+)$/)
+      if (orgMatch) {
+        return orgMatch[1]
+      }
+      
+      // Handle repository URLs (e.g., https://github.com/owner/repo)
+      const repoMatch = githubUrl.match(/github\.com\/([^\/]+\/[^\/]+)/)
+      if (repoMatch) {
+        return repoMatch[1]
+      }
+      
+      return null
+    }
+    
+    const resourceIdentifier = extractRepoPath(resource.social?.github)
     
     if (!resourceIdentifier) {
       return { success: false, stored: 0, expected: expectedWeeks.length }
@@ -401,19 +449,13 @@ const verifyDataStored = async (resource, expectedWeeks) => {
     const earliestWeek = weekStarts.sort()[0]
     const latestWeek = weekStarts.sort().reverse()[0]
     
-    // Get current week start (Sunday) to exclude incomplete current week from verification
-    const now = new Date()
-    const currentWeekStart = getCurrentWeekStart()
-    const currentWeekKey = currentWeekStart.toISOString().slice(0, 10) // Use UTC ISO format consistently with frontend
-    
-    // Query database for stored data (excluding current week)
+    // Query database for stored data
     const { data, error, count } = await supabase
       .from('github_activity')
       .select('*', { count: 'exact' })
       .eq('resource_id', resourceIdentifier)
       .gte('week_start', earliestWeek)
       .lte('week_start', latestWeek)
-      .lt('week_start', currentWeekKey) // Exclude current incomplete week
     
     if (error) {
       console.warn(`Verification query failed for ${resource.name}:`, error.message)
@@ -452,18 +494,12 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
       return []
     }
     
-    // Get current week start (Sunday) to exclude incomplete current week
-    const now = new Date()
-    const currentWeekStart = getCurrentWeekStart()
-    const currentWeekKey = currentWeekStart.toISOString().slice(0, 10) // Use UTC ISO format consistently with frontend
-    
     const { data, error } = await supabase
       .from('github_activity')
       .select('*')
       .eq('resource_id', resourceIdentifier)
       .gte('week_start', startDate)
       .lte('week_start', endDate)
-      .lt('week_start', currentWeekKey) // Exclude current incomplete week
       .order('week_start')
     
     if (error) throw error
@@ -495,15 +531,7 @@ const processCommitsToWeekly = (commits) => {
     weeklyData.set(weekKey, (weeklyData.get(weekKey) || 0) + 1)
   })
   
-  // Get current week start (Sunday) to exclude incomplete current week
-  const currentWeekStart = getCurrentWeekStart()
-  const currentWeekKey = currentWeekStart.toISOString().slice(0, 10) // Use UTC ISO format consistently with frontend
-  
   return Array.from(weeklyData.entries())
-    .filter(([weekStart, count]) => {
-      // Exclude current incomplete week
-      return weekStart !== currentWeekKey
-    })
     .map(([weekStart, count]) => {
       // Ensure weekStart is a valid date string
       const weekStartDate = new Date(weekStart)
@@ -702,20 +730,30 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
   }
 }
 
-const getHistoricalActivity = async (resource, startDate, endDate) => {
-  // Check database cache first for ALL resources (both repos and orgs)
+const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh = false) => {
+  // Always define cacheKey (needed for storing results later)
+  const cacheKey = generateCacheKey('historical_activity', resource.id || resource.name, { startDate, endDate })
+  
+  // Initialize variables that might be needed later
   let dbData = []
+  let finalData = []
   
-  try {
-    dbData = await getWeeklyActivity(resource, startDate, endDate)
-  } catch (error) {
-    console.warn(`Database query failed for ${resource.name}:`, error.message)
-  }
-  
-  if (dbData.length > 0) {
-    console.log(`✅ Using cached database data for ${resource.name} (${dbData.length} weeks)`);
+  // Skip cache entirely if forceRefresh is true (for historical backfilling)
+  if (forceRefresh) {
+    console.log(`🔄 Force refresh enabled for ${resource.name} - skipping all cache checks`)
+  } else {
+    // Check database cache first for ALL resources (both repos and orgs)
     
-    const nowForMapping = new Date()
+    try {
+      dbData = await getWeeklyActivity(resource, startDate, endDate)
+    } catch (error) {
+      console.warn(`Database query failed for ${resource.name}:`, error.message)
+    }
+    
+    if (dbData.length > 0) {
+      console.log(`✅ Using cached database data for ${resource.name} (${dbData.length} weeks)`);
+      
+      const nowForMapping = new Date()
     const currentWeekStartForMapping = getCurrentWeekStart()
     
     const mappedData = dbData.map(row => {
@@ -794,14 +832,14 @@ const getHistoricalActivity = async (resource, startDate, endDate) => {
       // No fetch timestamp - use data but try to refresh
       console.log(`⚡ Using database data for ${resource.name} (no timestamp - will attempt refresh)`)
     }
-  }
-  
-  // Check in-memory cache before hitting GitHub API
-  const cacheKey = generateCacheKey('historical_activity', resource.id || resource.name, { startDate, endDate })
-  const cachedResult = getCachedData(cacheKey)
-  if (cachedResult) {
-    console.log(`✅ Using in-memory cache for ${resource.name}`);
-    return cachedResult
+    }
+    
+    // Check in-memory cache before hitting GitHub API
+    const cachedResult = getCachedData(cacheKey)
+    if (cachedResult) {
+      console.log(`✅ Using in-memory cache for ${resource.name}`);
+      return cachedResult
+    }
   }
   
   // Check if we're currently rate limited
@@ -919,16 +957,10 @@ const calculateHistoricalMaximums = async (resource) => {
     // Get all historical weekly data for this resource (excluding current incomplete week)
     const resourceIdentifier = resource.id?.toString() || resource.name
 
-    // Calculate current week start to exclude incomplete current week (consistent with other functions)
-    const now = new Date()
-    const currentWeekStart = getCurrentWeekStart()
-    const currentWeekKey = currentWeekStart.toISOString().slice(0, 10) // Use UTC ISO format consistently with frontend
-
     const { data, error } = await supabase
       .from('github_activity')
       .select('week_start, commit_count')
       .eq('resource_id', resourceIdentifier)
-      .lt('week_start', currentWeekKey) // Exclude current incomplete week
       .order('week_start')
 
     if (error) {
@@ -959,7 +991,7 @@ const calculateHistoricalMaximums = async (resource) => {
     const totalWeeks = weeklyCommits.length
     const dateRange = totalWeeks > 0 ? `${weeklyCommits[0].weekStart} to ${weeklyCommits[totalWeeks-1].weekStart}` : 'none'
     const totalCommits = weeklyCommits.reduce((sum, week) => sum + week.count, 0)
-    console.log(`📅 ${resource.name} historical data: ${totalWeeks} weeks (${dateRange}), ${totalCommits} total commits [excluding current week ${currentWeekKey}]`)
+    console.log(`📅 ${resource.name} historical data: ${totalWeeks} weeks (${dateRange}), ${totalCommits} total commits`)
 
     // Calculate rolling maximums for each period
     const periods = {
@@ -1569,7 +1601,8 @@ app.get('/api/development-activity', async (req, res) => {
       const periodMapping = {
         '4weeks': '5weeks',
         '3months': '3months', 
-        '52weeks': '52weeks'
+        '52weeks': '52weeks',
+        '3years': '3years'
       };
       
       const mappedPeriod = periodMapping[period] || period;
@@ -1592,6 +1625,10 @@ app.get('/api/development-activity', async (req, res) => {
         '52weeks': {
           since: new Date(now.getTime() - 52 * 7 * 24 * 60 * 60 * 1000).toISOString(),
           days: 364
+        },
+        '3years': {
+          since: new Date(now.getTime() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+          days: 1095
         }
       };
       
@@ -2030,9 +2067,24 @@ app.get('/api/github/rate-limit-status', async (req, res) => {
   }
 })
 
-// Removed /api/github/commits-for-day endpoint - 7-day processing uses server's processCommitsToDaily function
-
-// OPTIMIZED UPDATES ENDPOINTS - Using database cache for fast loading
+// Manual trigger for cache population
+app.post('/api/cache/populate', async (req, res) => {
+  try {
+    const { priority = 'all' } = req.body
+    console.log(`🎯 Manual cache population triggered (priority: ${priority})`)
+    
+    // Start the population process in background
+    populateUpdatesCache(priority)
+    
+    res.json({ 
+      message: `Cache population started with priority: ${priority}`,
+      status: 'triggered'
+    })
+  } catch (error) {
+    console.error('Manual cache population error:', error)
+    res.status(500).json({ error: 'Failed to trigger cache population' })
+  }
+})
 
 // Get resource updates (commits + releases) from database cache
 app.post('/api/resource-updates', async (req, res) => {
@@ -2676,6 +2728,226 @@ async function populateUpdatesCache(priority = 'all') {
   }
 }
 
+// Ensure historical data completeness at startup
+const ensureHistoricalDataCompleteness = async () => {
+  if (!supabase) {
+    console.log('⚠️ Supabase not configured, skipping historical data validation')
+    return
+  }
+
+  console.log('🔍 HISTORICAL DATA COMPLETENESS CHECK')
+  console.log('='.repeat(50))
+  
+  try {
+    const resources = await loadResources()
+    const resourcesWithGitHub = resources.filter(r => r.social?.github)
+    
+    console.log(`📊 Checking historical data for ${resourcesWithGitHub.length} resources...`)
+    
+    // Define minimum historical data requirements (in weeks)
+    const HISTORICAL_REQUIREMENTS = {
+      '5weeks': 5,
+      '3months': 13,
+      '52weeks': 52,
+      '3years': 156
+    }
+    
+    const resourcesNeedingData = []
+    
+    // Check each resource for data completeness
+    for (const resource of resourcesWithGitHub) {
+      // CRITICAL: Use same resource identification pattern as storage functions
+      const resourceId = resource.id || 
+        resource.social?.github?.replace('https://github.com/', '') ||
+        resource.name?.toLowerCase().replace(/\s+/g, '-')
+      
+      if (!resourceId) {
+        console.warn(`⚠️ No valid identifier for ${resource.name}`)
+        continue
+      }
+      
+      try {
+        // Check current database coverage
+        // CRITICAL FIX: Search by repo_path instead of resource_id since storage uses numeric IDs
+        const repoPath = resource.social?.github?.replace('https://github.com/', '')
+        const { data: existingData, error } = await supabase
+          .from('github_activity')
+          .select('week_start')
+          .eq('repo_path', repoPath || resourceId)
+          .order('week_start')
+        
+        if (error) {
+          console.warn(`⚠️ Error checking data for ${resource.name}: ${error.message}`)
+          continue
+        }
+        
+        const weeksAvailable = existingData?.length || 0
+        const missingPeriods = []
+        
+        // Check each required period
+        for (const [period, requiredWeeks] of Object.entries(HISTORICAL_REQUIREMENTS)) {
+          if (weeksAvailable < requiredWeeks) {
+            missingPeriods.push(period)
+          }
+        }
+        
+        if (missingPeriods.length > 0) {
+          resourcesNeedingData.push({
+            resource,
+            resourceId,
+            weeksAvailable,
+            missingPeriods
+          })
+          console.log(`📋 ${resource.name}: ${weeksAvailable} weeks available, missing: ${missingPeriods.join(', ')}`)
+        } else {
+          console.log(`✅ ${resource.name}: Complete historical data (${weeksAvailable} weeks - ALL PERIODS SATISFIED)`)
+        }
+        
+      } catch (error) {
+        console.warn(`⚠️ Error analyzing ${resource.name}: ${error.message}`)
+      }
+    }
+    
+    if (resourcesNeedingData.length === 0) {
+      console.log('🎉 All resources have complete historical data!')
+      return
+    }
+    
+    console.log(`\n🔧 FETCHING MISSING HISTORICAL DATA`)
+    console.log('─'.repeat(50))
+    console.log(`Resources needing data: ${resourcesNeedingData.length}`)
+    
+    // Sort by priority (resources with least data first)
+    resourcesNeedingData.sort((a, b) => a.weeksAvailable - b.weeksAvailable)
+    
+    let processedCount = 0
+    let successCount = 0
+    let errorCount = 0
+    let incompleteCount = 0
+    
+    // Process in small batches to respect rate limits
+    const batchSize = 2
+    for (let i = 0; i < resourcesNeedingData.length; i += batchSize) {
+      const batch = resourcesNeedingData.slice(i, i + batchSize)
+      
+      console.log(`\n📦 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(resourcesNeedingData.length/batchSize)}...`)
+      
+      for (const item of batch) {
+        try {
+          processedCount++
+          const { resource, resourceId, weeksAvailable } = item
+          
+          // Check if we're currently rate limited before attempting fetch
+          if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
+            console.warn(`⚠️ Skipping ${resource.name} - GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`);
+            errorCount++
+            continue
+          }
+          
+          console.log(`🔄 Fetching historical data for ${resource.name} (${processedCount}/${resourcesNeedingData.length})...`)
+          
+          // Calculate how far back we need to go (max 3 years)
+          const maxWeeksNeeded = Math.max(...Object.values(HISTORICAL_REQUIREMENTS))
+          const weeksToFetch = Math.min(maxWeeksNeeded, 156) // Cap at 3 years
+          
+          const endDate = new Date()
+          const startDate = new Date(endDate.getTime() - (weeksToFetch * 7 * 24 * 60 * 60 * 1000))
+          
+          // Use existing getHistoricalActivity function with force refresh
+          // Pass forceRefresh=true to bypass caching for historical backfill
+          console.log(`📡 Forcing fresh historical data fetch for ${resource.name}`)
+          const historicalData = await getHistoricalActivity(
+            resource, 
+            startDate.toISOString(), 
+            endDate.toISOString(),
+            true // forceRefresh = true to bypass cache
+          )
+          
+          if (historicalData && historicalData.length > 0) {
+            console.log(`📥 ${resource.name}: Fetched ${historicalData.length} weeks of data, now verifying completeness...`)
+            
+            // CRITICAL: Re-check database to verify what we actually have now
+            // CRITICAL FIX: Use repo_path for verification too, same as initial check
+            const verifyRepoPath = resource.social?.github?.replace('https://github.com/', '')
+            const { data: verificationData, error: verifyError } = await supabase
+              .from('github_activity')
+              .select('week_start')
+              .eq('repo_path', verifyRepoPath || resourceId)
+              .order('week_start')
+            
+            if (verifyError) {
+              console.error(`❌ ${resource.name}: Verification query failed: ${verifyError.message}`)
+              errorCount++
+              continue
+            }
+            
+            const actualWeeksAvailable = verificationData?.length || 0
+            const stillMissingPeriods = []
+            
+            // Check each required period against actual data
+            for (const [period, requiredWeeks] of Object.entries(HISTORICAL_REQUIREMENTS)) {
+              if (actualWeeksAvailable < requiredWeeks) {
+                stillMissingPeriods.push(period)
+              }
+            }
+            
+            if (stillMissingPeriods.length === 0) {
+              console.log(`✅ ${resource.name}: ALL REQUIREMENTS MET (${actualWeeksAvailable} weeks available)`)
+              successCount++
+            } else {
+              console.log(`⚠️ ${resource.name}: INCOMPLETE - ${actualWeeksAvailable} weeks available, still missing: ${stillMissingPeriods.join(', ')}`)
+              incompleteCount++
+            }
+          } else {
+            console.log(`❌ ${resource.name}: No historical data found`)
+            errorCount++
+          }
+          
+          // Rate limiting delay between resources
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          
+        } catch (error) {
+          errorCount++
+          console.error(`❌ Error fetching data for ${item.resource.name}: ${error.message}`)
+          
+          // Longer delay on error to avoid cascading failures
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+      }
+      
+      // Delay between batches
+      if (i + batchSize < resourcesNeedingData.length) {
+        console.log('⏳ Batch completed, waiting 3s before next batch...')
+        await new Promise(resolve => setTimeout(resolve, 3000))
+      }
+    }
+    
+    console.log(`\n📊 HISTORICAL DATA COMPLETENESS SUMMARY`)
+    console.log('='.repeat(50))
+    console.log(`📦 Resources processed: ${processedCount}`)
+    console.log(`✅ FULLY COMPLETE: ${successCount}`)
+    console.log(`⚠️ Partial/Incomplete: ${incompleteCount}`)
+    console.log(`❌ Errors: ${errorCount}`)
+    console.log(`🎯 Full completion rate: ${processedCount > 0 ? Math.round((successCount/processedCount) * 100) : 0}%`)
+    console.log(`📊 Data accuracy: ${processedCount > 0 ? Math.round(((successCount)/(successCount + incompleteCount + errorCount)) * 100) : 0}% of attempted resources have complete data`)
+    
+    if (successCount === processedCount && errorCount === 0 && incompleteCount === 0) {
+      console.log('🎉 ALL RESOURCES HAVE COMPLETE HISTORICAL DATA!')
+    } else if (successCount > 0) {
+      console.log(`📈 Progress made: ${successCount} resources now have complete data`)
+      if (incompleteCount > 0) {
+        console.log(`🔄 ${incompleteCount} resources still need more historical data`)
+        console.log('💡 Run again to continue fetching missing data for incomplete resources')
+      }
+    } else {
+      console.log('⚠️ No resources achieved full completeness - may need longer historical fetch periods or multiple runs')
+    }
+    
+  } catch (error) {
+    console.error('❌ Historical data completeness check failed:', error.message)
+  }
+}
+
 // Preload cache for both view modes on startup for instant first load
 const preloadStartupCache = async () => {
   console.log('🔄 Preloading server cache for instant first load...')
@@ -2712,33 +2984,54 @@ const startServer = async () => {
       console.log(`🔐 GitHub Token: ${GITHUB_TOKEN ? '✅ Available' : '❌ Not configured'}`)
       console.log(`💾 Supabase: ${supabase ? '✅ Connected' : '❌ Not configured'}`)
       
-      // Preload cache after server starts (in background)
-      setTimeout(preloadStartupCache, 2000) // 2 second delay to let server fully start
+      // Sequential startup process to avoid race conditions
+      const runSequentialStartup = async () => {
+        try {
+          // Step 1: Preload cache for immediate UI responsiveness
+          console.log('🔄 Step 1/3: Preloading server cache for instant first load...')
+          await preloadStartupCache()
+          console.log('✅ Step 1/3: Cache preloading completed')
+          
+          // Step 2: Check and ensure historical data completeness
+          if (supabase && GITHUB_TOKEN) {
+            console.log('🔍 Step 2/3: Starting historical data completeness check...')
+            await ensureHistoricalDataCompleteness()
+            console.log('✅ Step 2/3: Historical data check completed')
+          } else {
+            console.log('⚠️ Step 2/3: Skipping historical data completeness check (missing Supabase or GitHub token)')
+          }
+          
+          // Step 3: Initial population of updates cache
+          console.log('🚀 Step 3/3: Starting initial updates cache population...')
+          await populateUpdatesCache()
+          console.log('✅ Step 3/3: Updates cache population completed')
+          
+          // Set up recurring cache refresh schedules
+          console.log('📅 Setting up smart cache refresh schedule:')
+          console.log('   • Active projects: Every 1 hour')
+          console.log('   • All projects: Every 4 hours')
+          
+          // High priority: Active/popular projects every 1 hour
+          setInterval(() => {
+            console.log('⚡ Running high-priority updates cache refresh...')
+            populateUpdatesCache('active')
+          }, 1 * 60 * 60 * 1000) // 1 hour
+          
+          // Standard priority: All projects every 4 hours
+          setInterval(() => {
+            console.log('🔄 Running full updates cache refresh...')
+            populateUpdatesCache('all')
+          }, 4 * 60 * 60 * 1000) // 4 hours
+          
+          console.log('🎉 All startup processes completed successfully!')
+          
+        } catch (error) {
+          console.error('❌ Error in sequential startup process:', error.message)
+        }
+      }
       
-      // Set up smart scheduling for updates cache
-      setTimeout(() => {
-        // Initial population
-        console.log('🚀 Starting initial updates cache population...')
-        populateUpdatesCache()
-        
-        // Smart scheduling system for fresh data
-        console.log('📅 Setting up smart cache refresh schedule:')
-        console.log('   • Active projects: Every 1 hour')
-        console.log('   • All projects: Every 4 hours')
-        
-        // High priority: Active/popular projects every 1 hour
-        setInterval(() => {
-          console.log('⚡ Running high-priority updates cache refresh...')
-          populateUpdatesCache('active')
-        }, 1 * 60 * 60 * 1000) // 1 hour
-        
-        // Standard priority: All projects every 4 hours
-        setInterval(() => {
-          console.log('🔄 Running full updates cache refresh...')
-          populateUpdatesCache('all')
-        }, 4 * 60 * 60 * 1000) // 4 hours
-        
-      }, 10000) // 10 second delay to let main preload finish first
+      // Start sequential process after letting server fully initialize
+      setTimeout(runSequentialStartup, 2000) // 2 second delay to let server fully start
     })
   } catch (error) {
     console.error('Failed to start server:', error)

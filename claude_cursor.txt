@@ -1,0 +1,387 @@
+phil@SLFMR1 ADAdev.io % node server.js
+[dotenv@17.2.0] injecting env (9) from .env (tip: ⚙️  enable debug logging with { debug: true })
+✅ Database tables created/verified
+🚀 Server listening on port 3000
+📊 Environment: production
+🔐 GitHub Token: ✅ Available
+💾 Supabase: ✅ Connected
+🔄 Step 1/3: Preloading server cache for instant first load...
+🔄 Preloading server cache for instant first load...
+📦 Preloading repository view (7-day data prioritized)...
+✅ Successfully loaded 57 resources from resources.js
+🔄 Processing 57 total resources for repository view, preloading all periods...
+🚀 Preloading ALL periods for 23 filtered resources (was 57)
+📦 Processing batch 1/5 (5 resources)
+⏰ Helios: Fetching commits since 2025-07-25T22:30:36.521Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Helios (7 days, period: 4weeks)...
+⏰ Lucid: Fetching commits since 2025-07-25T22:30:36.528Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Lucid (7 days, period: 4weeks)...
+⏰ PyCardano: Fetching commits since 2025-07-25T22:30:36.530Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for PyCardano (7 days, period: 4weeks)...
+⏰ Cardano Serialization Lib: Fetching commits since 2025-07-25T22:30:36.530Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Cardano Serialization Lib (7 days, period: 4weeks)...
+⏰ Blaze: Fetching commits since 2025-07-25T22:30:36.531Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Blaze (7 days, period: 4weeks)...
+🔄 Fetching fresh data from GitHub API for Helios...
+🔄 Fetching fresh GitHub data for Helios (2025-07-04T22:30:36.519Z to 2025-08-01T22:30:36.527Z)
+✅ Using cached database data for Lucid (2 weeks)
+✅ Using historical database data for Lucid (oldest data: 28 days old - immutable)
+✅ Using cached database data for Helios (2 weeks)
+✅ Using historical database data for Helios (oldest data: 91 days old - immutable)
+✅ Using cached database data for Helios (91 weeks)
+✅ Using historical database data for Helios (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Lucid (2 weeks)
+✅ Using historical database data for Lucid (oldest data: 35 days old - immutable)
+✅ Using cached database data for Helios (24 weeks)
+✅ Using historical database data for Helios (oldest data: 364 days old - immutable)
+📄 Fetched 0 total commits from 1 pages for Hyperion-BT/helios
+📄 Fetched 0 total commits from 1 pages for Python-Cardano/pycardano
+📄 Fetched 2 total commits from 1 pages for spacebudz/lucid
+✅ Using cached database data for Cardano Serialization Lib (2 weeks)
+✅ Using historical database data for Cardano Serialization Lib (oldest data: 35 days old - immutable)
+✅ Using cached database data for Blaze (2 weeks)
+✅ Using historical database data for Blaze (oldest data: 28 days old - immutable)
+✅ Using cached database data for Cardano Serialization Lib (1 weeks)
+✅ Using historical database data for Cardano Serialization Lib (oldest data: 28 days old - immutable)
+✅ Using cached database data for PyCardano (7 weeks)
+✅ Using historical database data for PyCardano (oldest data: 91 days old - immutable)
+✅ Using cached database data for PyCardano (37 weeks)
+✅ Using historical database data for PyCardano (oldest data: 364 days old - immutable)
+✅ Using cached database data for PyCardano (103 weeks)
+✅ Using historical database data for PyCardano (oldest data: 1092 days old - immutable)
+📄 Fetched 5 total commits from 1 pages for butaneprotocol/blaze-cardano
+📄 Fetched 0 total commits from 1 pages for Emurgo/cardano-serialization-lib
+📄 Fetched 0 total commits from 1 pages for Hyperion-BT/helios
+📊 Processed 0 commits into 0 weeks for Helios
+⚠️ Storage verification failed for Helios: expected 0, stored 0
+📈 Helios: Found 0 raw commits, transformed to 0
+📅 Helios: Processed 7 data points (daily: true)
+✅ Using cached database data for PyCardano (1 weeks)
+✅ Using historical database data for PyCardano (oldest data: 28 days old - immutable)
+📈 Lucid: Found 2 raw commits, transformed to 2
+📅 Lucid: Processed 7 data points (daily: true)
+✅ Using cached database data for Lucid (20 weeks)
+✅ Using historical database data for Lucid (oldest data: 364 days old - immutable)
+✅ Using cached database data for PyCardano (1 weeks)
+✅ Using historical database data for PyCardano (oldest data: 35 days old - immutable)
+📈 Blaze: Found 5 raw commits, transformed to 5
+📅 Blaze: Processed 7 data points (daily: true)
+📈 PyCardano: Found 0 raw commits, transformed to 0
+📅 PyCardano: Processed 7 data points (daily: true)
+📊 PyCardano: current:0, 5weeks:1, monthly:1, 3months:13, 52weeks:126, 3years:368
+✅ Using cached database data for Lucid (4 weeks)
+✅ Using historical database data for Lucid (oldest data: 91 days old - immutable)
+📈 Cardano Serialization Lib: Found 0 raw commits, transformed to 0
+📅 Cardano Serialization Lib: Processed 7 data points (daily: true)
+✅ Using cached database data for Lucid (66 weeks)
+✅ Using historical database data for Lucid (oldest data: 1092 days old - immutable)
+📊 Lucid: current:2, 5weeks:2, monthly:2, 3months:6, 52weeks:114, 3years:516
+✅ Using cached database data for Cardano Serialization Lib (34 weeks)
+✅ Using historical database data for Cardano Serialization Lib (oldest data: 364 days old - immutable)
+✅ Using cached database data for Cardano Serialization Lib (108 weeks)
+✅ Using historical database data for Cardano Serialization Lib (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Blaze (7 weeks)
+✅ Using historical database data for Blaze (oldest data: 91 days old - immutable)
+✅ Using cached database data for Cardano Serialization Lib (6 weeks)
+✅ Using historical database data for Cardano Serialization Lib (oldest data: 91 days old - immutable)
+📊 Cardano Serialization Lib: current:0, 5weeks:10, monthly:2, 3months:34, 52weeks:239, 3years:820
+✅ Using cached database data for Blaze (3 weeks)
+✅ Using historical database data for Blaze (oldest data: 35 days old - immutable)
+✅ Using cached database data for Blaze (50 weeks)
+✅ Using historical database data for Blaze (oldest data: 1092 days old - immutable)
+🔄 Fetching fresh data from GitHub API for Helios...
+🔄 Fetching fresh GitHub data for Helios (2025-06-27T22:30:36.519Z to 2025-08-01T22:30:36.524Z)
+✅ Using cached database data for Blaze (34 weeks)
+✅ Using historical database data for Blaze (oldest data: 364 days old - immutable)
+📊 Blaze: current:5, 5weeks:7, monthly:4, 3months:18, 52weeks:252, 3years:590
+📄 Fetched 0 total commits from 1 pages for Hyperion-BT/helios
+📊 Processed 0 commits into 0 weeks for Helios
+⚠️ Storage verification failed for Helios: expected 0, stored 0
+📊 Helios: current:0, 5weeks:0, monthly:0, 3months:7, 52weeks:197, 3years:728
+✅ Batch 1 completed: 5 resources with all periods
+📦 Processing batch 2/5 (5 resources)
+⏰ Cardano CLI: Fetching commits since 2025-07-25T22:30:42.373Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Cardano CLI (7 days, period: 4weeks)...
+⏰ Kupo: Fetching commits since 2025-07-25T22:30:42.377Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Kupo (7 days, period: 4weeks)...
+⏰ NMKR Godot Plugin: Fetching commits since 2025-07-25T22:30:42.377Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for NMKR Godot Plugin (7 days, period: 4weeks)...
+⏰ NMKR Unity SDK: Fetching commits since 2025-07-25T22:30:42.378Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for NMKR Unity SDK (7 days, period: 4weeks)...
+⏰ Cardano GraphQL API: Fetching commits since 2025-07-25T22:30:42.379Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Cardano GraphQL API (7 days, period: 4weeks)...
+🔄 Fetching fresh data from GitHub API for NMKR Godot Plugin...
+🔄 Fetching fresh GitHub data for NMKR Godot Plugin (2025-07-04T22:30:36.519Z to 2025-08-01T22:30:42.378Z)
+🔄 Fetching fresh data from GitHub API for NMKR Unity SDK...
+🔄 Fetching fresh GitHub data for NMKR Unity SDK (2024-08-02T22:30:36.519Z to 2025-08-01T22:30:42.378Z)
+✅ Using cached database data for Kupo (9 weeks)
+✅ Using historical database data for Kupo (oldest data: 364 days old - immutable)
+✅ Using cached database data for NMKR Unity SDK (8 weeks)
+✅ Using historical database data for NMKR Unity SDK (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Cardano GraphQL API (12 weeks)
+✅ Using historical database data for Cardano GraphQL API (oldest data: 364 days old - immutable)
+✅ Using cached database data for Kupo (2 weeks)
+✅ Using historical database data for Kupo (oldest data: 91 days old - immutable)
+🔄 Fetching fresh data from GitHub API for NMKR Godot Plugin...
+🔄 Fetching fresh GitHub data for NMKR Godot Plugin (2025-06-27T22:30:36.519Z to 2025-08-01T22:30:42.377Z)
+✅ Using cached database data for Kupo (57 weeks)
+✅ Using historical database data for Kupo (oldest data: 1092 days old - immutable)
+🔄 Fetching fresh data from GitHub API for NMKR Unity SDK...
+🔄 Fetching fresh GitHub data for NMKR Unity SDK (2025-05-02T22:30:36.519Z to 2025-08-01T22:30:42.378Z)
+🔄 Fetching fresh data from GitHub API for Cardano GraphQL API...
+🔄 Fetching fresh GitHub data for Cardano GraphQL API (2025-06-27T22:30:36.519Z to 2025-08-01T22:30:42.379Z)
+✅ Using cached database data for Cardano GraphQL API (1 weeks)
+✅ Using historical database data for Cardano GraphQL API (oldest data: 91 days old - immutable)
+✅ Using cached database data for Cardano GraphQL API (38 weeks)
+✅ Using historical database data for Cardano GraphQL API (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Cardano CLI (4 weeks)
+✅ Using historical database data for Cardano CLI (oldest data: 35 days old - immutable)
+📄 Fetched 0 total commits from 1 pages for IntersectMBO/cardano-cli
+✅ Using cached database data for Cardano CLI (51 weeks)
+✅ Using historical database data for Cardano CLI (oldest data: 364 days old - immutable)
+✅ Using cached database data for Cardano CLI (12 weeks)
+✅ Using historical database data for Cardano CLI (oldest data: 91 days old - immutable)
+✅ Using cached database data for Cardano CLI (3 weeks)
+✅ Using historical database data for Cardano CLI (oldest data: 28 days old - immutable)
+🔄 Fetching fresh data from GitHub API for Kupo...
+🔄 Fetching fresh GitHub data for Kupo (2025-06-27T22:30:36.519Z to 2025-08-01T22:30:42.377Z)
+✅ Using cached database data for Cardano CLI (155 weeks)
+✅ Using historical database data for Cardano CLI (oldest data: 1092 days old - immutable)
+📄 Fetched 0 total commits from 1 pages for Odiobill/NmkrGodot
+📄 Fetched 0 total commits from 1 pages for CardanoSolutions/kupo
+🔄 Fetching fresh data from GitHub API for NMKR Godot Plugin...
+🔄 Fetching fresh GitHub data for NMKR Godot Plugin (2025-05-02T22:30:36.519Z to 2025-08-01T22:30:42.378Z)
+🔄 Fetching fresh data from GitHub API for NMKR Unity SDK...
+🔄 Fetching fresh GitHub data for NMKR Unity SDK (2025-07-04T22:30:36.519Z to 2025-08-01T22:30:42.378Z)
+📄 Fetched 0 total commits from 1 pages for Odiobill/NmkrGodot
+📊 Processed 0 commits into 0 weeks for NMKR Godot Plugin
+⚠️ Storage verification failed for NMKR Godot Plugin: expected 0, stored 0
+✅ Using cached database data for NMKR Godot Plugin (13 weeks)
+✅ Using historical database data for NMKR Godot Plugin (oldest data: 1092 days old - immutable)
+📄 Fetched 0 total commits from 1 pages for FutureFest/NMKR-Studio-Unity-SDK
+📊 Processed 0 commits into 0 weeks for NMKR Unity SDK
+⚠️ Storage verification failed for NMKR Unity SDK: expected 0, stored 0
+📄 Fetched 0 total commits from 1 pages for FutureFest/NMKR-Studio-Unity-SDK
+📊 Processed 0 commits into 0 weeks for NMKR Unity SDK
+⚠️ Storage verification failed for NMKR Unity SDK: expected 0, stored 0
+🔄 Fetching fresh data from GitHub API for NMKR Unity SDK...
+🔄 Fetching fresh GitHub data for NMKR Unity SDK (2025-06-27T22:30:36.519Z to 2025-08-01T22:30:42.378Z)
+📄 Fetched 0 total commits from 1 pages for FutureFest/NMKR-Studio-Unity-SDK
+✅ Using cached database data for NMKR Godot Plugin (11 weeks)
+✅ Using historical database data for NMKR Godot Plugin (oldest data: 364 days old - immutable)
+📄 Fetched 0 total commits from 1 pages for cardano-foundation/cardano-graphql
+📄 Fetched 0 total commits from 1 pages for Odiobill/NmkrGodot
+📊 Processed 0 commits into 0 weeks for NMKR Godot Plugin
+⚠️ Storage verification failed for NMKR Godot Plugin: expected 0, stored 0
+📈 NMKR Godot Plugin: Found 0 raw commits, transformed to 0
+📅 NMKR Godot Plugin: Processed 7 data points (daily: true)
+📄 Fetched 0 total commits from 1 pages for FutureFest/NMKR-Studio-Unity-SDK
+📊 Processed 0 commits into 0 weeks for NMKR Unity SDK
+⚠️ Storage verification failed for NMKR Unity SDK: expected 0, stored 0
+📄 Fetched 0 total commits from 1 pages for FutureFest/NMKR-Studio-Unity-SDK
+📊 Processed 0 commits into 0 weeks for NMKR Unity SDK
+⚠️ Storage verification failed for NMKR Unity SDK: expected 0, stored 0
+🔄 Fetching fresh data from GitHub API for Kupo...
+🔄 Fetching fresh GitHub data for Kupo (2025-07-04T22:30:36.519Z to 2025-08-01T22:30:42.377Z)
+📄 Fetched 0 total commits from 1 pages for Odiobill/NmkrGodot
+📊 Processed 0 commits into 0 weeks for NMKR Godot Plugin
+⚠️ Storage verification failed for NMKR Godot Plugin: expected 0, stored 0
+📊 NMKR Godot Plugin: current:0, 5weeks:0, monthly:0, 3months:0, 52weeks:19, 3years:21
+📈 Kupo: Found 0 raw commits, transformed to 0
+📅 Kupo: Processed 7 data points (daily: true)
+🔄 Fetching fresh data from GitHub API for Cardano GraphQL API...
+🔄 Fetching fresh GitHub data for Cardano GraphQL API (2025-07-04T22:30:36.519Z to 2025-08-01T22:30:42.379Z)
+📈 NMKR Unity SDK: Found 0 raw commits, transformed to 0
+📅 NMKR Unity SDK: Processed 7 data points (daily: true)
+📊 NMKR Unity SDK: current:0, 5weeks:0, monthly:0, 3months:0, 52weeks:0, 3years:27
+📈 Cardano GraphQL API: Found 0 raw commits, transformed to 0
+📅 Cardano GraphQL API: Processed 7 data points (daily: true)
+📄 Fetched 0 total commits from 1 pages for CardanoSolutions/kupo
+📊 Processed 0 commits into 0 weeks for Kupo
+⚠️ Storage verification failed for Kupo: expected 0, stored 0
+📄 Fetched 0 total commits from 1 pages for cardano-foundation/cardano-graphql
+📊 Processed 0 commits into 0 weeks for Cardano GraphQL API
+⚠️ Storage verification failed for Cardano GraphQL API: expected 0, stored 0
+📈 Cardano CLI: Found 0 raw commits, transformed to 0
+📅 Cardano CLI: Processed 7 data points (daily: true)
+📊 Cardano CLI: current:0, 5weeks:72, monthly:71, 3months:253, 52weeks:939, 3years:4084
+📄 Fetched 0 total commits from 1 pages for cardano-foundation/cardano-graphql
+📊 Processed 0 commits into 0 weeks for Cardano GraphQL API
+⚠️ Storage verification failed for Cardano GraphQL API: expected 0, stored 0
+📊 Cardano GraphQL API: current:0, 5weeks:0, monthly:0, 3months:4, 52weeks:20, 3years:124
+📄 Fetched 0 total commits from 1 pages for CardanoSolutions/kupo
+📊 Processed 0 commits into 0 weeks for Kupo
+⚠️ Storage verification failed for Kupo: expected 0, stored 0
+📊 Kupo: current:0, 5weeks:0, monthly:0, 3months:9, 52weeks:42, 3years:424
+✅ Batch 2 completed: 5 resources with all periods
+📦 Processing batch 3/5 (5 resources)
+⏰ Carp: Fetching commits since 2025-07-25T22:30:46.660Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Carp (7 days, period: 4weeks)...
+⏰ Cardano DB Sync: Fetching commits since 2025-07-25T22:30:46.661Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Cardano DB Sync (7 days, period: 4weeks)...
+⏰ Plutus Pioneer Program: Fetching commits since 2025-07-25T22:30:46.662Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Plutus Pioneer Program (7 days, period: 4weeks)...
+⏰ Cardano CIPs: Fetching commits since 2025-07-25T22:30:46.662Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Cardano CIPs (7 days, period: 4weeks)...
+⏰ OpShin Pioneer Program: Fetching commits since 2025-07-25T22:30:46.662Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for OpShin Pioneer Program (7 days, period: 4weeks)...
+✅ Using cached database data for Cardano CIPs (31 weeks)
+✅ Using historical database data for Cardano CIPs (oldest data: 364 days old - immutable)
+✅ Using cached database data for Cardano DB Sync (3 weeks)
+✅ Using historical database data for Cardano DB Sync (oldest data: 35 days old - immutable)
+✅ Using cached database data for Cardano CIPs (2 weeks)
+✅ Using historical database data for Cardano CIPs (oldest data: 28 days old - immutable)
+🔄 Fetching fresh data from GitHub API for Carp...
+🔄 Fetching fresh GitHub data for Carp (2025-06-27T22:30:36.519Z to 2025-08-01T22:30:46.661Z)
+✅ Using cached database data for Cardano CIPs (7 weeks)
+✅ Using historical database data for Cardano CIPs (oldest data: 91 days old - immutable)
+🔄 Fetching fresh data from GitHub API for OpShin Pioneer Program...
+🔄 Fetching fresh GitHub data for OpShin Pioneer Program (2025-07-04T22:30:36.519Z to 2025-08-01T22:30:46.663Z)
+🔄 Fetching fresh data from GitHub API for Plutus Pioneer Program...
+🔄 Fetching fresh GitHub data for Plutus Pioneer Program (2025-06-27T22:30:36.519Z to 2025-08-01T22:30:46.662Z)
+✅ Using cached database data for Cardano CIPs (109 weeks)
+✅ Using historical database data for Cardano CIPs (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Carp (1 weeks)
+✅ Using historical database data for Carp (oldest data: 364 days old - immutable)
+✅ Using cached database data for OpShin Pioneer Program (28 weeks)
+✅ Using historical database data for OpShin Pioneer Program (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Cardano DB Sync (41 weeks)
+✅ Using historical database data for Cardano DB Sync (oldest data: 364 days old - immutable)
+🔄 Fetching fresh data from GitHub API for Carp...
+🔄 Fetching fresh GitHub data for Carp (2025-07-04T22:30:36.519Z to 2025-08-01T22:30:46.661Z)
+🔄 Fetching fresh data from GitHub API for Carp...
+🔄 Fetching fresh GitHub data for Carp (2025-05-02T22:30:36.519Z to 2025-08-01T22:30:46.661Z)
+✅ Using cached database data for Cardano CIPs (3 weeks)
+✅ Using historical database data for Cardano CIPs (oldest data: 35 days old - immutable)
+✅ Using cached database data for Plutus Pioneer Program (3 weeks)
+✅ Using historical database data for Plutus Pioneer Program (oldest data: 364 days old - immutable)
+✅ Using cached database data for Cardano DB Sync (2 weeks)
+✅ Using historical database data for Cardano DB Sync (oldest data: 28 days old - immutable)
+✅ Using cached database data for Cardano DB Sync (138 weeks)
+✅ Using historical database data for Cardano DB Sync (oldest data: 1092 days old - immutable)
+🔄 Fetching fresh data from GitHub API for OpShin Pioneer Program...
+🔄 Fetching fresh GitHub data for OpShin Pioneer Program (2025-06-27T22:30:36.519Z to 2025-08-01T22:30:46.662Z)
+✅ Using cached database data for Cardano DB Sync (10 weeks)
+✅ Using historical database data for Cardano DB Sync (oldest data: 91 days old - immutable)
+✅ Using cached database data for Carp (46 weeks)
+✅ Using historical database data for Carp (oldest data: 1092 days old - immutable)
+📄 Fetched 0 total commits from 1 pages for dcSpark/carp
+🔄 Fetching fresh data from GitHub API for OpShin Pioneer Program...
+🔄 Fetching fresh GitHub data for OpShin Pioneer Program (2025-05-02T22:30:36.519Z to 2025-08-01T22:30:46.663Z)
+🔄 Fetching fresh data from GitHub API for Plutus Pioneer Program...
+🔄 Fetching fresh GitHub data for Plutus Pioneer Program (2025-05-02T22:30:36.519Z to 2025-08-01T22:30:46.662Z)
+🔄 Fetching fresh data from GitHub API for Plutus Pioneer Program...
+🔄 Fetching fresh GitHub data for Plutus Pioneer Program (2025-07-04T22:30:36.519Z to 2025-08-01T22:30:46.662Z)
+✅ Using cached database data for Plutus Pioneer Program (21 weeks)
+✅ Using historical database data for Plutus Pioneer Program (oldest data: 1092 days old - immutable)
+✅ Using cached database data for OpShin Pioneer Program (2 weeks)
+✅ Using historical database data for OpShin Pioneer Program (oldest data: 364 days old - immutable)
+📄 Fetched 0 total commits from 1 pages for OpShin/opshin-pioneer-program
+📊 Processed 0 commits into 0 weeks for OpShin Pioneer Program
+⚠️ Storage verification failed for OpShin Pioneer Program: expected 0, stored 0
+📄 Fetched 0 total commits from 1 pages for input-output-hk/plutus-pioneer-program
+📄 Fetched 0 total commits from 1 pages for input-output-hk/plutus-pioneer-program
+📊 Processed 0 commits into 0 weeks for Plutus Pioneer Program
+⚠️ Storage verification failed for Plutus Pioneer Program: expected 0, stored 0
+📄 Fetched 0 total commits from 1 pages for cardano-foundation/CIPs
+📄 Fetched 0 total commits from 1 pages for OpShin/opshin-pioneer-program
+📊 Processed 0 commits into 0 weeks for OpShin Pioneer Program
+⚠️ Storage verification failed for OpShin Pioneer Program: expected 0, stored 0
+📄 Fetched 0 total commits from 1 pages for dcSpark/carp
+📊 Processed 0 commits into 0 weeks for Carp
+⚠️ Storage verification failed for Carp: expected 0, stored 0
+📄 Fetched 0 total commits from 1 pages for input-output-hk/plutus-pioneer-program
+📊 Processed 0 commits into 0 weeks for Plutus Pioneer Program
+⚠️ Storage verification failed for Plutus Pioneer Program: expected 0, stored 0
+📄 Fetched 0 total commits from 1 pages for OpShin/opshin-pioneer-program
+📄 Fetched 0 total commits from 1 pages for input-output-hk/plutus-pioneer-program
+📊 Processed 0 commits into 0 weeks for Plutus Pioneer Program
+⚠️ Storage verification failed for Plutus Pioneer Program: expected 0, stored 0
+📄 Fetched 0 total commits from 1 pages for dcSpark/carp
+📊 Processed 0 commits into 0 weeks for Carp
+⚠️ Storage verification failed for Carp: expected 0, stored 0
+📄 Fetched 0 total commits from 1 pages for OpShin/opshin-pioneer-program
+📊 Processed 0 commits into 0 weeks for OpShin Pioneer Program
+⚠️ Storage verification failed for OpShin Pioneer Program: expected 0, stored 0
+📄 Fetched 0 total commits from 1 pages for dcSpark/carp
+📊 Processed 0 commits into 0 weeks for Carp
+⚠️ Storage verification failed for Carp: expected 0, stored 0
+📈 Carp: Found 0 raw commits, transformed to 0
+📅 Carp: Processed 7 data points (daily: true)
+📊 Carp: current:0, 5weeks:0, monthly:0, 3months:0, 52weeks:4, 3years:136
+📄 Fetched 0 total commits from 1 pages for input-output-hk/cardano-db-sync
+📈 Cardano CIPs: Found 0 raw commits, transformed to 0
+📅 Cardano CIPs: Processed 7 data points (daily: true)
+📊 Cardano CIPs: current:0, 5weeks:16, monthly:15, 3months:25, 52weeks:118, 3years:425
+📈 OpShin Pioneer Program: Found 0 raw commits, transformed to 0
+📅 OpShin Pioneer Program: Processed 7 data points (daily: true)
+📊 OpShin Pioneer Program: current:0, 5weeks:0, monthly:0, 3months:0, 52weeks:9, 3years:254
+📈 Plutus Pioneer Program: Found 0 raw commits, transformed to 0
+📅 Plutus Pioneer Program: Processed 7 data points (daily: true)
+📊 Plutus Pioneer Program: current:0, 5weeks:0, monthly:0, 3months:0, 52weeks:3, 3years:310
+📈 Cardano DB Sync: Found 0 raw commits, transformed to 0
+📅 Cardano DB Sync: Processed 7 data points (daily: true)
+📊 Cardano DB Sync: current:0, 5weeks:11, monthly:7, 3months:28, 52weeks:162, 3years:968
+✅ Batch 3 completed: 5 resources with all periods
+📦 Processing batch 4/5 (5 resources)
+⏰ Cardano Foundation Docs: Fetching commits since 2025-07-25T22:30:50.219Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Cardano Foundation Docs (7 days, period: 4weeks)...
+⏰ Lace Wallet: Fetching commits since 2025-07-25T22:30:50.221Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Lace Wallet (7 days, period: 4weeks)...
+⏰ Sokosumi: Fetching commits since 2025-07-25T22:30:50.222Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Sokosumi (7 days, period: 4weeks)...
+⏰ Kodosumi: Fetching commits since 2025-07-25T22:30:50.223Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Kodosumi (7 days, period: 4weeks)...
+⏰ Vibrant: Fetching commits since 2025-07-25T22:30:50.223Z (7 days, period: 4weeks, daily: true)
+🔄 Fetching recent activity for Vibrant (7 days, period: 4weeks)...
+✅ Using cached database data for Lace Wallet (50 weeks)
+✅ Using historical database data for Lace Wallet (oldest data: 364 days old - immutable)
+✅ Using cached database data for Vibrant (8 weeks)
+✅ Using historical database data for Vibrant (oldest data: 364 days old - immutable)
+✅ Using cached database data for Cardano Foundation Docs (3 weeks)
+✅ Using historical database data for Cardano Foundation Docs (oldest data: 28 days old - immutable)
+✅ Using cached database data for Sokosumi (4 weeks)
+✅ Using historical database data for Sokosumi (oldest data: 35 days old - immutable)
+✅ Using cached database data for Cardano Foundation Docs (9 weeks)
+✅ Using historical database data for Cardano Foundation Docs (oldest data: 91 days old - immutable)
+✅ Using cached database data for Sokosumi (3 weeks)
+✅ Using historical database data for Sokosumi (oldest data: 28 days old - immutable)
+✅ Using cached database data for Cardano Foundation Docs (43 weeks)
+✅ Using historical database data for Cardano Foundation Docs (oldest data: 364 days old - immutable)
+✅ Using cached database data for Lace Wallet (4 weeks)
+✅ Using historical database data for Lace Wallet (oldest data: 35 days old - immutable)
+✅ Using cached database data for Kodosumi (14 weeks)
+✅ Using historical database data for Kodosumi (oldest data: 364 days old - immutable)
+✅ Using cached database data for Lace Wallet (3 weeks)
+✅ Using historical database data for Lace Wallet (oldest data: 28 days old - immutable)
+✅ Using cached database data for Lace Wallet (113 weeks)
+✅ Using historical database data for Lace Wallet (oldest data: 1092 days old - immutable)
+🔄 Fetching fresh data from GitHub API for Vibrant...
+🔄 Fetching fresh GitHub data for Vibrant (2025-07-04T22:30:36.519Z to 2025-08-01T22:30:50.223Z)
+✅ Using cached database data for Sokosumi (22 weeks)
+✅ Using historical database data for Sokosumi (oldest data: 1092 days old - immutable)
+✅ Using cached database data for Sokosumi (12 weeks)
+✅ Using historical database data for Sokosumi (oldest data: 91 days old - immutable)
+✅ Using cached database data for Cardano Foundation Docs (4 weeks)
+✅ Using historical database data for Cardano Foundation Docs (oldest data: 35 days old - immutable)
+✅ Using cached database data for Kodosumi (14 weeks)
+✅ Using historical database data for Kodosumi (oldest data: 1092 days old - immutable)
+🔄 Fetching fresh data from GitHub API for Vibrant...
+🔄 Fetching fresh GitHub data for Vibrant (2025-06-27T22:30:36.519Z to 2025-08-01T22:30:50.223Z)
+✅ Using cached database data for Kodosumi (1 weeks)
+✅ Using historical database data for Kodosumi (oldest data: 35 days old - immutable)
+✅ Using cached database data for Kodosumi (1 weeks)
+✅ Using historical database data for Kodosumi (oldest data: 28 days old - immutable)
+✅ Using cached database data for Sokosumi (22 weeks)
+✅ Using historical database data for Sokosumi (oldest data: 364 days old - immutable)
+✅ Using cached database data for Kodosumi (7 weeks)
+✅ Using historical database data for Kodosumi (oldest data: 91 days old - immutable)
+✅ Using cached database data for Vibrant (61 weeks)
+✅ Using historical database data for Vibrant (oldest data: 1092 days old - immutable)
+🔄 Fetching fresh data from GitHub API for Vibrant...
+🔄 Fetching fresh GitHub data for Vibrant (2025-05-02T22:30:36.519Z to 2025-08-01T22:30:50.223Z)
+✅ Using cached database data for Lace Wallet (12 weeks)
+✅ Using historical database data for Lace Wallet (oldest data: 91 days old - immutable)
+✅ Using cached database data for Cardano Foundation Docs (136 weeks)
+✅ Using historical database data for Cardano Foundation Docs (oldest data: 1092 days old - immutable)
+📄 Fetched 5 total commits from 1 pages for input-output-hk/cardano-documentation
