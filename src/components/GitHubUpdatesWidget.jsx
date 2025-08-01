@@ -142,6 +142,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
   }, [])
   
 
+
   // Handle click outside to collapse widget
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -502,7 +503,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
       </div>
       ) : (
     <Portal>
-          <div className="fixed z-[9999] p-4 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] max-w-[95vw] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg transition-all duration-500 ease-in-out opacity-100 scale-100" data-widget="github-updates">
+          <div className="fixed z-[9999] p-4 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] max-w-[95vw] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg transition-all duration-700 ease-out opacity-100 scale-100" data-widget="github-updates">
         <button
           className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white transition-all duration-200"
           onClick={onCollapse}
@@ -583,9 +584,9 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
                             {update.resource.name}
                           </a>
                           {update.type === 'release' ? (
-                            <Tag size={12} className="text-white flex-shrink-0" />
+                            <Tag size={12} className="text-purple-400 flex-shrink-0" />
                           ) : (
-                            <GitCommit size={12} className="text-green-400 flex-shrink-0" />
+                            <GitCommit size={12} className="text-purple-400 flex-shrink-0" />
                           )}
                           <a
                             href={update.type === 'release' ? update.data.html_url : update.data.htmlUrl || '#'}

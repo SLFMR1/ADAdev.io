@@ -81,7 +81,6 @@ const ResourceCard = ({ resource, onViewResource }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState('about')
   const [isScrolling, setIsScrolling] = useState(false)
-  const expandTimeoutRef = useRef(null)
   const scrollTimeoutRef = useRef(null)
   const cardRef = useRef(null)
   const chartContainerRef = useRef(null)
@@ -217,7 +216,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
   const IconComponent = categoryIconComponents[resource.category] || categoryIconComponents.default;
 
   // Placeholder logo component
-  const PlaceholderLogo = ({ name, className = "" }) => (
+  const PlaceholderLogo = ({ className = "" }) => (
     <div className={`flex items-center justify-center bg-gray-700 rounded-md ${className}`}>
       <Building2 size={16} className="text-gray-400" />
     </div>
@@ -479,7 +478,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       onClick={handleCardClick}
       data-resource-id={resource.id}
       data-resource-name={resource.name}
-      className={`relative bg-card-bg/50 backdrop-blur-md border border-gray-800 rounded-xl p-4 transition-all duration-300 ease-in-out transform-gpu shadow-lg hover:shadow-2xl cursor-pointer ${
+      className={`relative bg-card-bg/50 backdrop-blur-md border border-gray-800 rounded-xl p-4 transition-all duration-300 ease-out transform-gpu shadow-lg hover:shadow-2xl cursor-pointer ${
         !isExpanded ? 'hover:scale-[1.07]' : ''
       } ${
         isExpanded && activeTab === 'activity' ? 'col-span-2' : ''
@@ -509,7 +508,9 @@ const ResourceCard = ({ resource, onViewResource }) => {
       </div>
 
       {/* Expanded View */}
-      <div className={`absolute top-0 left-0 w-full p-4 transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} style={{ 
+      <div className={`absolute top-0 left-0 w-full p-4 transition-all duration-300 ease-out ${
+        isExpanded ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
+      }`} style={{ 
         minHeight: activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '27rem' : '31rem') : (screenshotMode ? '41rem' : '45rem')) : (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem'))
       }}>
         <div className="flex flex-col min-h-full">
@@ -536,7 +537,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                     className={`h-10 object-contain ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} 
                   />
                 ) : (
-                  <PlaceholderLogo name={resource.name} className={`h-10 ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} />
+                  <PlaceholderLogo className={`h-10 ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} />
                 )}
               </a>
             ) : (
@@ -547,7 +548,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                   className={`h-10 object-contain ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} 
                 />
               ) : (
-                <PlaceholderLogo name={resource.name} className={`h-10 ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} />
+                <PlaceholderLogo className={`h-10 ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} />
               )
             )}
           </div>

@@ -1,24 +1,128 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Bot, X, FileText, ExternalLink, Copy, Check, Sparkles } from 'lucide-react'
-import { analyzeUserRequirements } from '../services/ai'
 import { generateMarkdownPlan } from '../services/ai'
 import logger from '../utils/logger-frontend'
 import Portal from './Portal'
+import AISearchInput from './AISearchInput'
 
 const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => {
-  const [inputValue, setInputValue] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [error, setError] = useState('')
-  const [progress, setProgress] = useState(0)
-  const [lastSubmissionTime, setLastSubmissionTime] = useState(0)
-  const [submissionCount, setSubmissionCount] = useState(0)
-  const [showChallenge, setShowChallenge] = useState(false)
-  const [challengeAnswer, setChallengeAnswer] = useState('')
-  const [suspiciousActivity, setSuspiciousActivity] = useState(0)
   const [aiResults, setAiResults] = useState(null)
   const [activeTab, setActiveTab] = useState('search')
   const [copied, setCopied] = useState(false)
+  const [cachedPlans, setCachedPlans] = useState([])
+  const [selectedPlanId, setSelectedPlanId] = useState(null)
   const progressInterval = useRef(null)
+
+  // Cache management functions
+  const savePlanToCache = (query, results) => {
+    const planId = Date.now().toString()
+    const newPlan = {
+      id: planId,
+      timestamp: Date.now(),
+      query: query.trim(),
+      results: results,
+      title: query.slice(0, 50) + (query.length > 50 ? '...' : '')
+    }
+    
+    try {
+      const existingPlans = JSON.parse(localStorage.getItem('aiDevelopmentPlans') || '[]')
+      const updatedPlans = [newPlan, ...existingPlans.slice(0, 9)] // Keep last 10 plans
+      localStorage.setItem('aiDevelopmentPlans', JSON.stringify(updatedPlans))
+      setCachedPlans(updatedPlans)
+      return planId
+    } catch (error) {
+      logger.error('Failed to save plan to cache:', error)
+      return null
+    }
+  }
+
+  const loadCachedPlans = () => {
+    try {
+      const cached = JSON.parse(localStorage.getItem('aiDevelopmentPlans') || '[]')
+      setCachedPlans(cached)
+    } catch (error) {
+      logger.error('Failed to load cached plans:', error)
+      setCachedPlans([])
+    }
+  }
+
+  const loadPlan = (planId) => {
+    const plan = cachedPlans.find(p => p.id === planId)
+    if (plan) {
+      setAiResults(plan.results)
+      setSelectedPlanId(planId)
+      setActiveTab('plan')
+    }
+  }
+
+  const deletePlan = (planId) => {
+    try {
+      const updatedPlans = cachedPlans.filter(p => p.id !== planId)
+      localStorage.setItem('aiDevelopmentPlans', JSON.stringify(updatedPlans))
+      setCachedPlans(updatedPlans)
+      
+      // If deleted plan was currently selected, reset
+      if (selectedPlanId === planId) {
+        setSelectedPlanId(null)
+        setAiResults(null)
+        setActiveTab('search')
+      }
+    } catch (error) {
+      logger.error('Failed to delete plan:', error)
+    }
+  }
+
+  const startNewSearch = () => {
+    setSelectedPlanId(null)
+    setAiResults(null)
+    setActiveTab('search')
+  }
+
+  // Load cached plans on component mount
+  useEffect(() => {
+    loadCachedPlans()
+  }, [])
+
+  // Function to handle clicking on a tool name in the development plan
+  const handleToolClick = (toolName) => {
+    // Switch to tools tab
+    setActiveTab('tools')
+    
+    // Wait for tab switch to complete, then scroll to the specific resource
+    setTimeout(() => {
+      // Find the resource that matches the tool name
+      const matchingResource = aiResults?.recommendedResources?.find(resource => 
+        resource.name.toLowerCase().includes(toolName.toLowerCase()) ||
+        toolName.toLowerCase().includes(resource.name.toLowerCase())
+      )
+      
+      if (matchingResource) {
+        // Find the element and scroll to it
+        const resourceElement = document.querySelector(`[data-resource-id="${matchingResource.id}"]`)
+        if (resourceElement) {
+          resourceElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          // Add a brief highlight effect
+          resourceElement.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.3)'
+          setTimeout(() => {
+            resourceElement.style.boxShadow = ''
+          }, 2000)
+        }
+      }
+    }, 150)
+  }
+
+  const handleCopyPlan = async () => {
+    try {
+      const markdownPlan = generateMarkdownPlan(aiResults)
+      await navigator.clipboard.writeText(markdownPlan)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      logger.error('Failed to copy plan:', error)
+    }
+  }
+
 
   // Handle click outside to collapse widget
   useEffect(() => {
@@ -34,194 +138,6 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isExpanded, onCollapse]);
-
-  // Rate limiting: max 5 submissions per minute
-  const RATE_LIMIT_SUBMISSIONS = 5
-  const RATE_LIMIT_WINDOW = 60000 // 1 minute in ms
-  const MIN_SUBMISSION_INTERVAL = 2000 // 2 seconds between submissions
-
-  const checkRateLimit = () => {
-    const now = Date.now()
-    const timeSinceLastSubmission = now - lastSubmissionTime
-    
-    // Check minimum interval between submissions
-    if (timeSinceLastSubmission < MIN_SUBMISSION_INTERVAL) {
-      const remainingTime = Math.ceil((MIN_SUBMISSION_INTERVAL - timeSinceLastSubmission) / 1000)
-      throw new Error(`Please wait ${remainingTime} seconds before submitting again`)
-    }
-    
-    // Check submission count in time window
-    if (submissionCount >= RATE_LIMIT_SUBMISSIONS) {
-      const timeWindowStart = now - RATE_LIMIT_WINDOW
-      if (lastSubmissionTime > timeWindowStart) {
-        const remainingTime = Math.ceil((RATE_LIMIT_WINDOW - (now - timeWindowStart)) / 1000)
-        throw new Error(`Rate limit exceeded. Please wait ${remainingTime} seconds`)
-      } else {
-        // Reset counter if window has passed
-        setSubmissionCount(0)
-      }
-    }
-  }
-
-  useEffect(() => {
-    if (isAnalyzing) {
-      setProgress(0)
-      const startTime = Date.now()
-      
-      progressInterval.current = setInterval(() => {
-        const elapsed = Date.now() - startTime
-        
-        // Start fast, then slow down gradually
-        let progressPercent
-        if (elapsed < 10000) {
-          // First 10 seconds: 0% to 70%
-          progressPercent = (elapsed / 10000) * 70
-        } else if (elapsed < 20000) {
-          // 10-20 seconds: 70% to 90%
-          const remaining = elapsed - 10000
-          progressPercent = 70 + (remaining / 10000) * 20
-        } else {
-          // After 20 seconds: 90% to 98% (very slow)
-          const extraTime = elapsed - 20000
-          const slowProgress = Math.min(extraTime / 10000, 8) // Additional 8% over 10 seconds
-          progressPercent = 90 + slowProgress
-        }
-        
-        setProgress(progressPercent)
-      }, 100)
-    } else {
-      setProgress(0)
-      if (progressInterval.current) clearInterval(progressInterval.current)
-    }
-    return () => {
-      if (progressInterval.current) clearInterval(progressInterval.current)
-    }
-  }, [isAnalyzing])
-
-  const generateChallenge = () => {
-    const challenges = [
-      { question: 'What is 2 + 3?', answer: '5' },
-      { question: 'What color is the sky?', answer: 'blue' },
-      { question: 'How many days in a week?', answer: '7' },
-      { question: 'What is the opposite of hot?', answer: 'cold' },
-      { question: 'What do you call a baby dog?', answer: 'puppy' }
-    ]
-    return challenges[Math.floor(Math.random() * challenges.length)]
-  }
-
-  const validateInput = (input) => {
-    const trimmed = input.trim()
-    
-    // Check minimum length
-    if (trimmed.length < 10) {
-      throw new Error('Please provide a more detailed description (at least 10 characters)')
-    }
-    
-    // Check maximum length
-    if (trimmed.length > 1000) {
-      throw new Error('Description too long. Please keep it under 1000 characters')
-    }
-    
-    // Check for repetitive patterns (spam detection)
-    const words = trimmed.toLowerCase().split(/\s+/)
-    const uniqueWords = new Set(words)
-    const repetitionRatio = uniqueWords.size / words.length
-    
-    if (words.length > 20 && repetitionRatio < 0.3) {
-      setSuspiciousActivity(prev => prev + 1)
-      throw new Error('Please provide a more natural description')
-    }
-    
-    // Check for suspicious patterns
-    const suspiciousPatterns = [
-      /(.)\1{5,}/, // Repeated characters
-      /(.)\1{3,}/g, // Multiple repeated characters
-      /(.)\1{2,}/g, // Triple repeated characters
-    ]
-    
-    for (const pattern of suspiciousPatterns) {
-      if (pattern.test(trimmed)) {
-        setSuspiciousActivity(prev => prev + 1)
-        throw new Error('Please provide a more natural description')
-      }
-    }
-    
-    return trimmed
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    
-    if (!inputValue.trim()) {
-      setError('Please describe what you want to build')
-      return
-    }
-
-    // Check for suspicious activity and trigger challenge
-    if (suspiciousActivity >= 2) {
-      setShowChallenge(true)
-      setError('Please complete the verification challenge')
-      return
-    }
-
-    // Validate input
-    let validatedInput
-    try {
-      validatedInput = validateInput(inputValue)
-    } catch (validationError) {
-      setError(validationError.message)
-      return
-    }
-
-    try {
-      checkRateLimit()
-    } catch (rateLimitError) {
-      setError(rateLimitError.message)
-      return
-    }
-
-    setIsAnalyzing(true)
-    setError('')
-    setProgress(0)
-
-    try {
-      const results = await analyzeUserRequirements(validatedInput)
-      setProgress(100)
-      
-      // Wait for progress bar animation to complete
-      setTimeout(() => {
-        setIsAnalyzing(false)
-        setAiResults(results)
-        setActiveTab('results')
-        
-        // Add a small delay before scrolling to let the user see the completion
-        setTimeout(() => {
-          const element = document.getElementById('ai-results')
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth' })
-          }
-        }, 200)
-      }, 700)
-      
-    } catch (err) {
-      setError(err.message || 'Failed to analyze requirements')
-      setIsAnalyzing(false)
-    } finally {
-      setLastSubmissionTime(Date.now())
-      setSubmissionCount(prev => prev + 1)
-    }
-  }
-
-  const handleCopyPlan = async () => {
-    try {
-      const markdownPlan = generateMarkdownPlan(aiResults)
-      await navigator.clipboard.writeText(markdownPlan)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (error) {
-      logger.error('Failed to copy plan:', error)
-    }
-  }
 
   // Group resources by category
   const groupedResources = aiResults ? aiResults.recommendedResources.reduce((acc, resource) => {
@@ -248,7 +164,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
       ) : (
         /* Expanded Centered Widget */
         <Portal>
-          <div className="fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[1200px] max-h-[90vh] min-w-[900px] min-h-[600px] border-radius-[32px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden p-0 transition-all duration-500 ease-in-out opacity-100 scale-100"
+          <div className="fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[1200px] max-h-[90vh] min-w-[900px] min-h-[600px] border-radius-[32px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden p-0 transition-all duration-700 ease-out opacity-100 scale-100"
             style={{ borderRadius: '32px' }}
             data-widget="ai-search">
             <button
@@ -270,7 +186,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
               {/* Tabs */}
               <div className="flex space-x-3 mb-6">
                 <button
-                  onClick={() => setActiveTab('search')}
+                  onClick={startNewSearch}
                   className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
                     activeTab === 'search' 
                       ? 'border-white/50 text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]' 
@@ -278,6 +194,16 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                   }`}
                 >
                   Search
+                </button>
+                <button
+                  onClick={() => setActiveTab('history')}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
+                    activeTab === 'history' 
+                      ? 'border-white/50 text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]' 
+                      : 'border-gray-600/50 text-gray-300 hover:border-white hover:text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
+                  }`}
+                >
+                  History ({cachedPlans.length})
                 </button>
                 {aiResults && (
                   <>
@@ -289,7 +215,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                           : 'border-gray-600/50 text-gray-300 hover:border-white hover:text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
                       }`}
                     >
-                      Results
+                      Analysis
                     </button>
                     <button
                       onClick={() => setActiveTab('plan')}
@@ -314,54 +240,70 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                       <p className="text-gray-400 mb-6">Describe your project and get AI-powered recommendations for Cardano tools and development approaches.</p>
                     </div>
                     
-                    <form onSubmit={handleSubmit} className="relative">
-                                              <div className={`relative w-full rounded-full border border-gray-700 bg-card-bg/50 backdrop-blur-md pl-10 pr-8 py-4 transition-all duration-300`}>
-                        {/* Progress Bar */}
-                        {isAnalyzing && (
-                          <div className="absolute inset-0 z-0 rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-white/40 via-white/80 to-white transition-all duration-500 shadow-[0_0_30px_rgba(255,255,255,1.0),0_0_60px_rgba(255,255,255,0.4)]"
-                              style={{ width: `${progress}%`, minWidth: progress > 0 ? '8px' : 0 }}
-                            />
-                          </div>
-                        )}
-                        {/* Search Icon */}
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
-                          <Bot className="h-5 w-5 text-gray-400" />
-                        </div>
-                        {/* Input Field */}
-                        <input
-                          type="text"
-                          value={inputValue}
-                          onChange={(e) => setInputValue(e.target.value)}
-                          placeholder="What are you building?"
-                          className="w-full bg-transparent border-none text-white focus:outline-none focus:ring-0 focus:border-none focus:shadow-none transition-all duration-200 text-lg relative z-10 pr-10"
-                          disabled={isAnalyzing}
-                          style={{ 
-                            position: 'relative',
-                            outline: 'none',
-                            boxShadow: 'none',
-                            '::placeholder': {
-                              color: 'rgba(156, 163, 175, 0.3)'
-                            }
-                          }}
-                        />
-                        {/* Submit Button */}
-                        {!isAnalyzing && (
-                          <button
-                            type="submit"
-                            disabled={!inputValue.trim()}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-transparent border border-white/50 text-white px-5 py-5 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-custom-bg disabled:opacity-50 disabled:cursor-not-allowed hover:border-white hover:bg-white/10 hover:scale-105 active:scale-95 z-40 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)]"
-                          >
-                          </button>
-                        )}
-                      </div>
-                    </form>
+                    <AISearchInput
+                      onAnalysisComplete={(results) => {
+                        setAiResults(results)
+                        // Extract meaningful title from results analysis or use generic title
+                        const queryTitle = results.analysis ? 
+                          results.analysis.slice(0, 50) + (results.analysis.length > 50 ? '...' : '') :
+                          'AI Development Plan'
+                        const planId = savePlanToCache(queryTitle, results)
+                        setSelectedPlanId(planId)
+                        setActiveTab('plan')
+                      }}
+                      onLoadingChange={setIsAnalyzing}
+                    />
+                  </div>
+                )}
+
+                {activeTab === 'history' && (
+                  <div className="max-w-4xl mx-auto">
+                    <div className="mb-6">
+                      <h2 className="text-white text-lg font-semibold mb-2">Development Plan History</h2>
+                      <p className="text-gray-400">Previously generated development plans for your projects.</p>
+                    </div>
                     
-                    {/* Error Message */}
-                    {error && (
-                      <div className="mt-3 text-red-400 text-sm text-center">
-                        {error}
+                    {cachedPlans.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Bot size={48} className="text-gray-600 mx-auto mb-4" />
+                        <p className="text-gray-400 text-lg">No development plans saved yet.</p>
+                        <p className="text-gray-500">Create your first analysis to see it here!</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {cachedPlans.map((plan) => (
+                          <div 
+                            key={plan.id} 
+                            onClick={() => loadPlan(plan.id)}
+                            className={`bg-gray-800/50 rounded-lg p-4 border transition-all duration-200 hover:bg-gray-800/70 cursor-pointer ${
+                              selectedPlanId === plan.id ? 'border-cyan-500/50 bg-cyan-500/10' : 'border-gray-700'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <h4 className="text-white font-medium mb-1">{plan.title}</h4>
+                                <p className="text-gray-300 text-sm mb-2">{plan.query}</p>
+                                <div className="flex items-center space-x-4 text-xs text-gray-400">
+                                  <span>{new Date(plan.timestamp).toLocaleDateString()}</span>
+                                  <span>{new Date(plan.timestamp).toLocaleTimeString()}</span>
+                                  <span>{plan.results.recommendedResources?.length || 0} tools recommended</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2 ml-4">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deletePlan(plan.id);
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                                  title="Delete plan"
+                                >
+                                  <X size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -464,7 +406,17 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                       {activeTab === 'plan' && (
                         <div className="p-6">
                           <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-semibold text-white">Development Plan</h3>
+                            <div>
+                              <h3 className="text-lg font-semibold text-white">Development Plan</h3>
+                              {selectedPlanId && (
+                                <p className="text-gray-400 text-sm mt-1">
+                                  {cachedPlans.find(p => p.id === selectedPlanId) ? 
+                                    `Cached plan from ${new Date(cachedPlans.find(p => p.id === selectedPlanId).timestamp).toLocaleDateString()}` : 
+                                    'Current analysis'
+                                  }
+                                </p>
+                              )}
+                            </div>
                             <button
                               onClick={handleCopyPlan}
                               className="flex items-center space-x-2 px-4 py-2 bg-gray-800/30 text-gray-300 rounded-lg border border-white/50 hover:border-white hover:bg-white/10 transition-all duration-200 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]"
@@ -514,9 +466,14 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                                   <span className="text-gray-400 text-sm">Required Tools:</span>
                                   <div className="flex flex-wrap gap-2 mt-2">
                                     {approach.tools.map((tool, toolIndex) => (
-                                      <span key={toolIndex} className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs">
+                                      <button
+                                        key={toolIndex}
+                                        onClick={() => handleToolClick(tool)}
+                                        className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs hover:bg-cyan-600/20 hover:text-cyan-300 hover:border-cyan-500/30 border border-transparent transition-all duration-200 cursor-pointer"
+                                        title={`Click to view ${tool} details`}
+                                      >
                                         {tool}
-                                      </span>
+                                      </button>
                                     ))}
                                   </div>
                                 </div>
@@ -531,7 +488,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                           <h3 className="text-lg font-semibold text-white mb-6">Recommended Tools</h3>
                           <div className="space-y-4">
                             {aiResults.recommendedResources.map((resource, index) => (
-                              <div key={resource.id} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                              <div key={resource.id} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700" data-resource-id={resource.id}>
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
                                     <div className="flex items-center space-x-3 mb-2">
@@ -579,61 +536,6 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => 
                   </div>
                 )}
               </div>
-
-              {/* Challenge Modal */}
-              {showChallenge && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                  <div className="bg-card-bg border border-gray-700 rounded-lg p-6 max-w-md w-full mx-4">
-                    <h3 className="text-lg font-semibold text-white mb-4">Verification Required</h3>
-                    <p className="text-gray-300 mb-4">Please answer this question to continue:</p>
-                    <div className="mb-4">
-                      <p className="text-white font-medium">{generateChallenge().question}</p>
-                    </div>
-                    <input
-                      type="text"
-                      value={challengeAnswer}
-                      onChange={(e) => setChallengeAnswer(e.target.value)}
-                      placeholder="Your answer..."
-                      className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-white"
-                      style={{
-                        '::placeholder': {
-                          color: 'rgba(156, 163, 175, 0.3)'
-                        }
-                      }}
-                    />
-                    <div className="flex gap-3 mt-4">
-                      <button
-                        onClick={() => {
-                          const challenge = generateChallenge()
-                          if (challengeAnswer.toLowerCase().trim() === challenge.answer.toLowerCase()) {
-                            setShowChallenge(false)
-                            setChallengeAnswer('')
-                            setSuspiciousActivity(0)
-                            setError('')
-                            // Retry the submission
-                            handleSubmit({ preventDefault: () => {} })
-                          } else {
-                            setError('Incorrect answer. Please try again.')
-                          }
-                        }}
-                        className="flex-1 bg-gradient-to-r from-emerald-400 to-white text-black px-4 py-2 rounded font-semibold hover:from-emerald-500 hover:to-white transition-all duration-200 border border-white/50 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]"
-                      >
-                        Submit
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowChallenge(false)
-                          setChallengeAnswer('')
-                          setError('')
-                        }}
-                        className="flex-1 bg-gray-600/30 text-white px-4 py-2 rounded font-semibold hover:bg-gray-500/50 transition-all duration-200 border border-gray-600/50 hover:border-gray-500"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </Portal>

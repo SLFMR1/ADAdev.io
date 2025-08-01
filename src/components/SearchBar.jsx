@@ -77,56 +77,6 @@ const SearchBar = ({
           />
         </div>
       </div>
-
-      {/* Active filters display */}
-      {(searchTerm || selectedCategory !== 'All' || sortBy !== 'category' || filterBy !== 'all') && (
-        <div className="flex flex-wrap gap-2 text-sm">
-          {searchTerm && (
-            <span className="inline-flex items-center px-3 py-2 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
-              "{searchTerm}"
-              <button
-                onClick={() => setSearchTerm('')}
-                className="ml-2 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
-              >
-                ×
-              </button>
-            </span>
-          )}
-          {selectedCategory !== 'All' && (
-            <span className="inline-flex items-center px-3 py-2 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
-              {selectedCategory}
-              <button
-                onClick={() => setSelectedCategory('All')}
-                className="ml-2 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
-              >
-                ×
-              </button>
-            </span>
-          )}
-          {sortBy !== 'category' && (
-            <span className="inline-flex items-center px-3 py-2 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
-              Sort: {sortBy === 'activity' ? 'Activity High-Low' : 'Name A-Z'}
-              <button
-                onClick={() => setSortBy('category')}
-                className="ml-2 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
-              >
-                ×
-              </button>
-            </span>
-          )}
-          {filterBy !== 'all' && (
-            <span className="inline-flex items-center px-3 py-2 rounded-full bg-gray-800 text-gray-300 border border-gray-700">
-              {filterBy.charAt(0).toUpperCase() + filterBy.slice(1)}
-              <button
-                onClick={() => setFilterBy('all')}
-                className="ml-2 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
-              >
-                ×
-              </button>
-            </span>
-          )}
-        </div>
-      )}
     </div>
   )
 }

@@ -350,8 +350,7 @@ export const cardanoResources = {
         "Unity SDK",
         "NFT integration",
         "Game development",
-        "Blockchain integration",
-        "NMKR API"
+        "NMKR API Integration"
       ],
       "website": "https://www.futurefest.io/",
       "social": {

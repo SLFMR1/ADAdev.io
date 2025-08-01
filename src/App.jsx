@@ -691,7 +691,7 @@ function App() {
       });
       
       // For activity sorting, return as single group
-      return { 'Active Projects': sorted };
+      return { 'Activity Ranked': sorted };
     } else {
       // Default: sort by category A-Z
       const grouped = {};
@@ -841,7 +841,7 @@ function App() {
                     Developer Resources
                   </h2>
                   <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed mb-12">
-                    Comprehensive collection of tools, APIs, and libraries for building on Cardano
+                    A comprehensive collection of tools, APIs, and libraries for building on Cardano
                   </p>
                   <div className="max-w-3xl mx-auto mb-16">
                     <SearchBar

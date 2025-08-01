@@ -251,7 +251,7 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
           {isAnalyzing && (
             <div className="absolute inset-0 z-0 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-white/40 via-white/80 to-white transition-all duration-500 shadow-[0_0_30px_rgba(255,255,255,1.0),0_0_60px_rgba(255,255,255,0.4)]"
+                className="h-full rounded-full bg-gradient-to-r from-transparent to-teal-400/85 transition-all duration-500 shadow-[0_0_30px_rgba(45,212,191,0.85),0_0_60px_rgba(45,212,191,0.4)]"
                 style={{ width: `${progress}%`, minWidth: progress > 0 ? '8px' : 0 }}
               />
             </div>
@@ -279,7 +279,7 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
             <button
               type="submit"
               disabled={!inputValue.trim() || isTyping}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 text-black px-5 py-5 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-custom-bg disabled:opacity-50 disabled:cursor-not-allowed hover:from-emerald-500 hover:via-cyan-500 hover:to-sky-500 hover:scale-105 active:scale-95 z-40 shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)]"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-transparent border border-white/50 text-white px-5 py-5 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-custom-bg disabled:opacity-50 disabled:cursor-not-allowed hover:border-white hover:bg-white/10 hover:scale-105 active:scale-95 z-40 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)]"
             >
             </button>
           )}

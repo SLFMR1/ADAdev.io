@@ -358,6 +358,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
   // Period changes are now handled instantly via preloaded data in the dropdown onChange handler
 
+
   // Handle click outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -716,7 +717,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         <Portal>
           <div
             ref={widgetRef}
-            className="dev-activity-widget fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[75vw] max-w-[1600px] max-h-[90vh] min-w-[900px] min-h-[650px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden transition-all duration-500 ease-in-out opacity-100 scale-100"
+            className="dev-activity-widget fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[75vw] max-w-[1600px] max-h-[90vh] min-w-[900px] min-h-[650px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden transition-all duration-700 ease-out opacity-100 scale-100"
             style={{ borderRadius: '32px' }}
             data-widget="development-activity"
           >
