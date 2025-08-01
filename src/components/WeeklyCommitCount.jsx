@@ -16,12 +16,12 @@ const WeeklyCommitCount = ({ resource }) => {
         setLoading(true)
         
         // Use the same historical data approach as ResourceCard
-        // Fetch monthly data (4weeks period maps to 'monthly' in the API)
+        // Fetch 4-week data (maps to 'monthly' period in the API)
         const data = await fetchGitHubUpdates(resource, '4weeks')
         
         if (data && data.commitsPerWeek !== undefined) {
-          // commitsPerWeek from monthly period represents total commits in ~28 days
-          // This is effectively commits per month since monthly period = 28 days
+          // commitsPerWeek from 4-week period represents total commits in 4 complete weeks
+          // This gives us a good monthly activity indicator
           const commits = data.commitsPerWeek || 0
           setCommitsPerMonth(commits)
           // Register this data with the global context for sorting (with error handling)

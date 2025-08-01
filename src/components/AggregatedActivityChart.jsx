@@ -1,23 +1,9 @@
 import React, { useState, forwardRef } from 'react'
 import Portal from './Portal'
+import { getWeekStart } from '../utils/weekCalculation'
+import { generateChartPoints, validateNodeCount } from '../utils/chartDataUtils'
 
-// Helper to generate line chart points from data
-const getLineChartPoints = (data, width, height, padding, rightPadding) => {
-  if (!data || data.length === 0) return ''
-  
-  // Ensure we have valid data
-  const validData = data.filter(w => w && typeof w.count === 'number' && !isNaN(w.count))
-  if (validData.length === 0) return ''
-  
-  const max = Math.max(...validData.map(w => w.count), 1)
-  const stepX = validData.length > 1 ? (width - padding - rightPadding) / (validData.length - 1) : 0
-  
-  return validData.map((w, i) => {
-    const x = padding + i * stepX
-    const y = height - padding - (w.count / max) * (height - 2 * padding)
-    return `${x},${y}`
-  }).join(' ')
-}
+// Use centralized chart point generation - removed duplicate function
 
 const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 300, padding = 40, rightPadding, period, screenshotMode = false, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' } }, svgRef) => {
   // Use more left padding in screenshot mode
@@ -55,7 +41,11 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
   
   console.log('AggregatedActivityChart - screenshotMode:', screenshotMode, 'effectivePadding:', effectivePadding, 'effectiveWidth:', effectiveWidth)
   
-  const chartPoints = getLineChartPoints(weeklyData, effectiveWidth, height, effectivePadding, effectiveRightPadding)
+  // Use centralized chart point generation
+  const chartPoints = generateChartPoints(weeklyData, effectiveWidth, height, effectivePadding, effectiveRightPadding)
+  
+  // Validate node count for the period
+  validateNodeCount(weeklyData, period, 'AggregatedActivityChart')
   
   // X-axis label logic - improved for 3 years
   let lastMonth = ''
@@ -96,10 +86,15 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
     if (period === '12months' && w.label) {
       label = w.label
     } else {
-      const month = new Date(w.weekStart).toLocaleString('default', { month: 'short' })
-      const year = new Date(w.weekStart).getFullYear()
-      const endOfWeek = new Date(w.weekStart)
-      endOfWeek.setDate(endOfWeek.getDate() + 6)
+      const weekStartDate = new Date(w.weekStart)
+      const month = weekStartDate.toLocaleString('default', { month: 'short' })
+      const year = weekStartDate.getFullYear()
+      
+      // Use centralized week calculation to ensure consistency with server
+      const correctWeekStart = getWeekStart(weekStartDate)
+      
+      const correctEndOfWeek = new Date(correctWeekStart)
+      correctEndOfWeek.setDate(correctWeekStart.getDate() + 6)
       
       // Improved label for different periods
       if (period === 'current') {
@@ -109,13 +104,13 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         const dayOfMonth = date.getDate()
         label = `${dayName}, ${month} ${dayOfMonth}`
       } else if (period === '3years') {
-        label = `${w.weekStart}–${endOfWeek.toISOString().slice(0, 10)} (${month} ${year})`
+        label = `${correctWeekStart.toISOString().slice(0, 10)}–${correctEndOfWeek.toISOString().slice(0, 10)} (${month} ${year})`
       } else if (period === '52weeks') {
         const weekNumber = weekIdx + 1
-        label = `Week ${weekNumber} (${w.weekStart}–${endOfWeek.toISOString().slice(0, 10)}, ${month} ${year})`
+        label = `Week ${weekNumber} (${correctWeekStart.toISOString().slice(0, 10)}–${correctEndOfWeek.toISOString().slice(0, 10)}, ${month} ${year})`
       } else {
         const weekNumber = weekIdx + 1
-        label = `Week ${weekNumber} (${w.weekStart}–${endOfWeek.toISOString().slice(0, 10)}, ${month})`
+        label = `Week ${weekNumber} (${correctWeekStart.toISOString().slice(0, 10)}–${correctEndOfWeek.toISOString().slice(0, 10)}, ${month})`
       }
     }
     

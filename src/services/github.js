@@ -292,10 +292,9 @@ class GitHubService {
           const weekStart = new Date(today)
           weekStart.setDate(today.getDate() - (resourceData.weeklyCounts.length - 1 - index) * 7)
           
-          // Adjust to Monday of that week
+          // Adjust to Sunday of that week (GitHub standard)
           const dayOfWeek = weekStart.getDay()
-          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-          weekStart.setDate(weekStart.getDate() - daysToMonday)
+          weekStart.setDate(weekStart.getDate() - dayOfWeek)
           
           return {
             weekStart: weekStart.toISOString().slice(0, 10),

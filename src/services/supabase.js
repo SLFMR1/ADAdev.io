@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
 const logger = require('../utils/logger')
+import { getISOWeekNumber, getWeekStart } from '../utils/weekCalculation.js'
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL
@@ -66,7 +67,7 @@ class GitHubActivityService {
         .map(week => {
           const date = new Date(week.weekStart)
           const year = date.getFullYear()
-          const weekNumber = this.getWeekNumber(date)
+          const weekNumber = this.getISOWeekNumber(date)
           
           return {
             resource_id: resourceId,
@@ -509,32 +510,22 @@ class GitHubActivityService {
   }
 
   /**
+   * Get week start date for a given date
+   * @param {Date} date - Date object
+   * @returns {string} - ISO date string for week start (Sunday)
+   */
+  getWeekStart(date) {
+    const weekStart = getWeekStart(date)
+    return weekStart.toLocaleDateString('en-CA') // YYYY-MM-DD format in local timezone
+  }
+
+  /**
    * Get ISO week number for a date
    * @param {Date} date - Date object
    * @returns {number} - ISO week number (1-53)
    */
   getISOWeekNumber(date) {
-    const d = new Date(date)
-    d.setHours(0, 0, 0, 0)
-    // Thursday in current week decides the year
-    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
-    // January 4 is always in week 1
-    const week1 = new Date(d.getFullYear(), 0, 4)
-    // Adjust to Thursday in week 1 and count number of weeks from date to week1
-    return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
-  }
-
-  /**
-   * Get week start date for a given date
-   * @param {Date} date - Date object
-   * @returns {string} - ISO date string for week start (Monday)
-   */
-  getWeekStart(date) {
-    const d = new Date(date)
-    const day = d.getDay()
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
-    const monday = new Date(d.setDate(diff))
-    return monday.toISOString().split('T')[0]
+    return getISOWeekNumber(date)
   }
 
   /**

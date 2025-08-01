@@ -1,33 +1,22 @@
 import React, { useState, useEffect } from 'react'
 import { fetchGitHubUpdates } from '../services/github'
-// Removed hybridDataFetcher and supabase imports - using server API instead
 import { TrendingUp, Calendar, GitCommit } from 'lucide-react'
 import logger from '../utils/logger-frontend'
 import Portal from './Portal'
+import { getWeekStart, getCurrentWeekStart } from '../utils/weekCalculation'
+import { 
+  RESOURCE_CARD_PERIOD_MAPPING,
+  getPeriodConfig,
+  validateNodeCount,
+  getCacheTTL,
+  usesHybridData,
+  getServerPeriod
+} from '../utils/chartDataUtils'
+import { ChartDataCache } from '../utils/cacheUtils'
 
 // Removed Supabase client initialization - using server API instead
 
-// Helper to generate line chart points from weekly data
-const getLineChartPoints = (data, width, height, padding) => {
-  if (!data || data.length === 0) {
-    return ''
-  }
-  
-  // Ensure we have valid numeric values
-  const validData = data.map(item => {
-    const count = typeof item === 'object' ? (item.count || 0) : (item || 0)
-    return Math.max(0, isNaN(count) ? 0 : count)
-  })
-  
-  const max = Math.max(...validData, 1)
-  const stepX = (width - 2 * padding) / (validData.length - 1 || 1)
-  const points = validData.map((count, i) => {
-    const x = padding + i * stepX
-    const y = height - padding - (count / max) * (height - 2 * padding)
-    return `${x},${y}`
-  }).join(' ')
-  return points
-}
+// Use centralized chart point generation - removed duplicate function
 
 // NOTE: Synthetic data generation functions removed - using only accurate hybrid data
 
@@ -42,13 +31,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   })
   const [error, setError] = useState(null)
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
-  // Map selectedPeriod to weeks directly (no internal state needed)
-  const periodToWeeks = {
-    '4weeks': 5,
-    '3months': 13,
-    '52weeks': 52,
-    '3years': 156
-  }
+  // Use centralized period configuration - removed duplicate mapping
   
   // Use selectedPeriod directly instead of internal timePeriod state
   // const timePeriod = selectedPeriod // Not needed anymore
@@ -106,10 +89,18 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             setHistoricalMaximums(resourceData.historicalMaximums || {})
             setHistoricalMetadata(resourceData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' })
             
-            // Determine number of weeks based on time period
-            const weeks = periodToWeeks[selectedPeriod] || 4
-            const trimmedData = validWeeklyData.slice(-weeks)
-            setWeeklyData(trimmedData)
+            // Use centralized period configuration
+            const config = getPeriodConfig(selectedPeriod)
+            const weeks = config.weeks
+            
+            // Server now handles current week exclusion consistently, so just take the requested number of weeks
+            // Sort chronologically first
+            let finalData = validWeeklyData.sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+            
+            // Take the exact number of weeks expected for this period (server already excludes current week)
+            finalData = finalData.slice(-weeks);
+            
+            setWeeklyData(finalData)
             
             setIsLoading(false)
             return
@@ -126,21 +117,19 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         // Only set loading state when making API calls
         setIsLoading(true)
         
-        // Determine number of weeks based on time period
-        const weeks = periodToWeeks[selectedPeriod] || 4
+        // Use centralized period configuration
+        const config = getPeriodConfig(selectedPeriod)
+        const weeks = config.weeks
         
-        // Use server API for accurate data with proper current week exclusion
-        logger.log(`🔄 Fetching server API data for ${resource.name} (period: ${selectedPeriod})`)
-        
-        // Map selectedPeriod to server API period format
-        const periodMapping = {
-          '4weeks': '5weeks',
-          '3months': '3months', 
-          '52weeks': '52weeks',
-          '3years': '3years'
+        // Check if this period should use GitHub API (only 7-day period)
+        if (usesHybridData(selectedPeriod)) {
+          logger.log(`🔄 Fetching hybrid data for ${resource.name} (period: ${selectedPeriod})`)
+          // This is the 7-day period that uses GitHub API + DB
+        } else {
+          logger.log(`🔄 Fetching database-only data for ${resource.name} (period: ${selectedPeriod})`)
         }
         
-        const serverPeriod = periodMapping[selectedPeriod] || 'monthly'
+        const serverPeriod = getServerPeriod(selectedPeriod)
         
         // Use the proven server API with resource-specific parameters
         const params = new URLSearchParams({
@@ -166,7 +155,15 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           historicalMetadata: serverData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' }
         }
         
+        // Cache the data using centralized cache
+        ChartDataCache.set('resource', selectedPeriod, resourceData, resource.id)
+        
         logger.log(`✅ Server API data received - sources:`, resourceData.dataSources)
+        
+        // Validate node count for the period
+        if (resourceData.commitsPerWeekDetailed) {
+          validateNodeCount(resourceData.commitsPerWeekDetailed, selectedPeriod, `WeeklyActivityChart-${resource.name}`)
+        }
         
         // Validate and process the response data
         if (resourceData && resourceData.commitsPerWeekDetailed && Array.isArray(resourceData.commitsPerWeekDetailed) && resourceData.commitsPerWeekDetailed.length > 0) {
@@ -213,6 +210,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           // Only use as many weeks as available, up to the requested period
           const trimmedData = validWeeklyData.slice(-weeks)
           setWeeklyData(trimmedData)
+          
+          // Validate final node count
+          validateNodeCount(trimmedData, selectedPeriod, `WeeklyActivityChart-${resource.name}`)
         } else {
           // No valid weekly data available - throw error instead of showing synthetic data
           throw new Error('No accurate weekly data available')
@@ -235,6 +235,29 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     }
     loadActivityData()
   }, [resource, selectedPeriod, preloadedData])
+  
+  // Add cache check at component mount
+  useEffect(() => {
+    const cachedData = ChartDataCache.get('resource', selectedPeriod, resource.id)
+    if (cachedData && !preloadedData) {
+      logger.log(`⚡ Using cached data for ${resource.name}`)
+      // Process cached data same as API response
+      if (cachedData.commitsPerWeekDetailed && Array.isArray(cachedData.commitsPerWeekDetailed)) {
+        const config = getPeriodConfig(selectedPeriod)
+        const weeks = config.weeks
+        const trimmedData = cachedData.commitsPerWeekDetailed.slice(-weeks)
+        
+        setActivityData({
+          currentWeek: trimmedData[trimmedData.length - 1]?.count || 0,
+          repoInfo: cachedData.repoInfo
+        })
+        setWeeklyData(trimmedData)
+        setHistoricalMaximums(cachedData.historicalMaximums || {})
+        setHistoricalMetadata(cachedData.historicalMetadata || {})
+        setIsLoading(false)
+      }
+    }
+  }, [resource.id, selectedPeriod, preloadedData])
 
   if (isLoading) {
     return (
@@ -385,10 +408,14 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       
       const weekNumber = weekIdx + 1;
       const month = weekStartDate.toLocaleString('default', { month: 'short' });
-      const endOfWeek = new Date(weekStartDate);
-      endOfWeek.setDate(weekStartDate.getDate() + 6);
       
-      const label = `Week ${weekNumber} (${week.weekStart}–${endOfWeek.toISOString().slice(0, 10)}, ${month})`;
+      // Always calculate correct Sunday-based week range regardless of stored weekStart
+      const correctWeekStart = getWeekStart(weekStartDate);
+      
+      const correctEndOfWeek = new Date(correctWeekStart);
+      correctEndOfWeek.setDate(correctWeekStart.getDate() + 6);
+      
+      const label = `Week ${weekNumber} (${correctWeekStart.toISOString().slice(0, 10)}–${correctEndOfWeek.toISOString().slice(0, 10)}, ${month})`;
       
       // Get viewport-relative position (don't add scroll offset since tooltip is fixed)
       const rect = e.target.getBoundingClientRect();
@@ -741,8 +768,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   }
                   
                   // For longer periods, use historical maximum with graceful fallback
-                  const periodMapping = { '4weeks': '5weeks', '3months': '3months', '52weeks': '52weeks', '3years': '3years' };
-                  const serverPeriod = periodMapping[selectedPeriod] || selectedPeriod;
+                  const serverPeriod = getServerPeriod(selectedPeriod);
                   let historicalMax = historicalMaximums[serverPeriod];
                   
                   // Smart handling of insufficient historical data
@@ -758,8 +784,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 background: (() => {
                   const isLongerPeriod = selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
                   if (isLongerPeriod) {
-                    const periodMapping = { '4weeks': '5weeks', '3months': '3months', '52weeks': '52weeks', '3years': '3years' };
-                    const serverPeriod = periodMapping[selectedPeriod] || selectedPeriod;
+                    const serverPeriod = getServerPeriod(selectedPeriod);
                     const historicalMax = historicalMaximums[serverPeriod];
                     
                     // Subtle visual hint for insufficient data
@@ -779,8 +804,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               {(() => {
                 const isLongerPeriod = selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
                 if (isLongerPeriod) {
-                  const periodMapping = { '4weeks': '5weeks', '3months': '3months', '52weeks': '52weeks', '3years': '3years' };
-                  const serverPeriod = periodMapping[selectedPeriod] || selectedPeriod;
+                  const serverPeriod = getServerPeriod(selectedPeriod);
                   const currentTotal = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
                   let historicalMax = historicalMaximums[serverPeriod];
                   
@@ -807,8 +831,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               }`}>
                 {(() => {
                   const currentTotal = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
-                  const periodMapping = { '4weeks': '5weeks', '3months': '3months', '52weeks': '52weeks', '3years': '3years' };
-                  const serverPeriod = periodMapping[selectedPeriod] || selectedPeriod;
+                  const serverPeriod = getServerPeriod(selectedPeriod);
                   const originalHistoricalMax = historicalMaximums[serverPeriod];
                   
                   if (historicalMetadata.dataQuality === 'high' && originalHistoricalMax && originalHistoricalMax > 0) {

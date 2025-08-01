@@ -13,13 +13,18 @@ import html2canvas from 'html2canvas'
 import { createGlobalGradientBackground } from '../utils/logger-frontend.js'
 import { createIsolatedScreenshot, shareToX, generateTweetText } from '../utils/screenshotUtils'
 import { fetchGitHubUpdates } from '../services/github'
-import { createClient } from '@supabase/supabase-js'
 import logger from '../utils/logger-frontend'
+import { 
+  RESOURCE_CARD_PERIOD_OPTIONS,
+  RESOURCE_CARD_PERIOD_MAPPING,
+  getPeriodConfig,
+  validateNodeCount,
+  getCacheTTL,
+  getServerPeriod
+} from '../utils/chartDataUtils'
+import { ChartDataCache } from '../utils/cacheUtils'
 
-// Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-const supabase = createClient(supabaseUrl, supabaseKey)
+// No direct Supabase client - using server APIs for single source of truth
 
 // Accent color system matching widget sidebar colors
 const accentColors = [
@@ -122,15 +127,8 @@ const ResourceCard = ({ resource, onViewResource }) => {
   const [activityChartError, setActivityChartError] = useState(null)
   const [lastActivityFetch, setLastActivityFetch] = useState(null)
   
-  // Cache timeout for activity chart data (6 hours)
-  const ACTIVITY_CACHE_TIMEOUT = 6 * 60 * 60 * 1000
-
-  // Period options for activity chart
-  const periodOptions = [
-    { key: '4weeks', label: 'Last 4 Weeks' },
-    { key: '3months', label: 'Last 3 Months' },
-    { key: '52weeks', label: 'Last 1 Year' }
-  ]
+  // Use centralized period options and caching
+  const periodOptions = RESOURCE_CARD_PERIOD_OPTIONS
   
   // Preload activity chart data for all periods using fast server API
   const preloadActivityChartData = useCallback(async () => {
@@ -138,9 +136,13 @@ const ResourceCard = ({ resource, onViewResource }) => {
       return
     }
     
-    // Check if we have recent cached data
-    if (lastActivityFetch && (Date.now() - lastActivityFetch < ACTIVITY_CACHE_TIMEOUT) && Object.keys(activityChartData).length > 0) {
-      logger.log(`⚡ Using cached activity chart data for ${resource.name}`)
+    // Check centralized cache first
+    const hasValidCache = periodOptions.every(period => 
+      ChartDataCache.has('resource', period.key, resource.id)
+    )
+    
+    if (hasValidCache) {
+      logger.log(`⚡ All periods cached for ${resource.name}`)
       return
     }
     
@@ -162,14 +164,8 @@ const ResourceCard = ({ resource, onViewResource }) => {
       // Fetch data for each period using the server API
       for (const period of periods) {
         try {
-          // Map ResourceCard periods to server API periods
-          const periodMapping = {
-            '4weeks': '5weeks',
-            '3months': '3months', 
-            '52weeks': '52weeks'
-          }
-          
-          const serverPeriod = periodMapping[period] || period
+          // Map ResourceCard periods to server periods
+          const serverPeriod = RESOURCE_CARD_PERIOD_MAPPING[period] || period
           
           // Build query parameters for specific resource
           const params = new URLSearchParams({
@@ -187,16 +183,23 @@ const ResourceCard = ({ resource, onViewResource }) => {
           const data = await response.json()
           
           if (data && data.weeklyData && Array.isArray(data.weeklyData)) {
-            preloadedData[period] = {
+            const periodData = {
               commitsPerWeekDetailed: data.weeklyData,
               commitsPerWeek: data.weeklyData[data.weeklyData.length - 1]?.count || 0,
               commitsPerMonth: [], // Not used in charts, keeping for compatibility
               repoInfo: data.repoInfo || null,
               dataSources: { database: true, github: false }, // Server API uses database-only
-              historicalMaximums: data.historicalMaximums || {}, // Include historical maximums for performance indicators
-              historicalMetadata: data.historicalMetadata || {} // Include metadata for data quality indicators
+              historicalMaximums: data.historicalMaximums || {},
+              historicalMetadata: data.historicalMetadata || {}
             }
+            
+            // Store in centralized cache
+            ChartDataCache.set('resource', period, periodData, resource.id)
+            preloadedData[period] = periodData
             hasValidData = true
+            
+            // Validate node count
+            validateNodeCount(data.weeklyData, period, `ResourceCard-${resource.name}`)
             console.log(`📊 ${period} server API data for ${resource.name}:`, {
               weeklyDataLength: data.weeklyData?.length || 0,
               sampleWeeks: data.weeklyData?.slice(0, 3),
@@ -220,9 +223,9 @@ const ResourceCard = ({ resource, onViewResource }) => {
         setActivityChartData(preloadedData)
         setLastActivityFetch(Date.now())
         console.log('📦 Preloaded server API data structure:', preloadedData)
-        logger.log(`📦 Activity chart data preloaded for ${resource.name} with ${Object.keys(preloadedData).length} periods (server API approach)`)
+        logger.log(`📦 Activity chart data preloaded for ${resource.name} with ${Object.keys(preloadedData).length} periods`)
       } else {
-        throw new Error('No valid server API chart data received for any period')
+        throw new Error('No valid chart data received for any period')
       }
       
     } catch (error) {
@@ -231,7 +234,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
     } finally {
       setIsLoadingActivityChart(false)
     }
-  }, [resource, isLoadingActivityChart, lastActivityFetch, activityChartData, ACTIVITY_CACHE_TIMEOUT])
+  }, [resource, isLoadingActivityChart, lastActivityFetch, activityChartData])
 
   const IconComponent = categoryIconComponents[resource.category] || categoryIconComponents.default;
 
@@ -686,9 +689,9 @@ const ResourceCard = ({ resource, onViewResource }) => {
                         })
                         setSelectedPeriod(newPeriod)
                         
-                        // If we don't have preloaded chart data for this period, trigger a server API load
-                        if (!activityChartData[newPeriod] && resource.social?.github) {
-                          logger.log(`🔄 Loading missing server API chart period data: ${newPeriod}`)
+                        // Check centralized cache for missing period data
+                        if (!ChartDataCache.has('resource', newPeriod, resource.id) && resource.social?.github) {
+                          logger.log(`🔄 Loading missing chart period data: ${newPeriod}`)
                           // Only show loading if we have no data for any period
                           const hasAnyData = Object.keys(activityChartData).length > 0
                           if (!hasAnyData) {

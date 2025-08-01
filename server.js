@@ -6,7 +6,7 @@ const cors = require('cors')
 const compression = require('compression')
 const OpenAI = require('openai')
 const { createClient } = require('@supabase/supabase-js')
-const { getISOWeekNumber } = require('./utils/weekCalculation')
+const { getISOWeekNumber, getWeekStart, getCurrentWeekStart, isCurrentWeek } = require('./utils/weekCalculation.js')
 // Removed hybridDataFetcher imports - using unified server API approach
 
 const app = express()
@@ -313,9 +313,7 @@ const storeWeeklyActivity = async (resource, weeklyData) => {
     }
     
     const now = new Date()
-    const currentWeekStart = new Date(now)
-    currentWeekStart.setDate(now.getDate() - now.getDay())
-    currentWeekStart.setHours(0, 0, 0, 0)
+    const currentWeekStart = getCurrentWeekStart()
     
     // Separate current week from completed weeks
     const currentWeekData = []
@@ -333,7 +331,7 @@ const storeWeeklyActivity = async (resource, weeklyData) => {
           week_start: week.weekStart,
           commit_count: week.count,
           year: week.year || weekStartDate.getFullYear(),
-          week_number: week.week || Math.ceil((weekStartDate.getDate() + weekStartDate.getDay()) / 7),
+          week_number: week.week || getISOWeekNumber(weekStartDate),
           fetched_at: now.toISOString(),
           is_current_week: isCurrentWeek
         }
@@ -405,10 +403,8 @@ const verifyDataStored = async (resource, expectedWeeks) => {
     
     // Get current week start (Sunday) to exclude incomplete current week from verification
     const now = new Date()
-    const currentWeekStart = new Date(now)
-    currentWeekStart.setDate(now.getDate() - now.getDay())
-    currentWeekStart.setHours(0, 0, 0, 0)
-    const currentWeekKey = currentWeekStart.toISOString().slice(0, 10)
+    const currentWeekStart = getCurrentWeekStart()
+    const currentWeekKey = currentWeekStart.toISOString().slice(0, 10) // Use UTC ISO format consistently with frontend
     
     // Query database for stored data (excluding current week)
     const { data, error, count } = await supabase
@@ -458,10 +454,8 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
     
     // Get current week start (Sunday) to exclude incomplete current week
     const now = new Date()
-    const currentWeekStart = new Date(now)
-    currentWeekStart.setDate(now.getDate() - now.getDay())
-    currentWeekStart.setHours(0, 0, 0, 0)
-    const currentWeekKey = currentWeekStart.toISOString().slice(0, 10)
+    const currentWeekStart = getCurrentWeekStart()
+    const currentWeekKey = currentWeekStart.toISOString().slice(0, 10) // Use UTC ISO format consistently with frontend
     
     const { data, error } = await supabase
       .from('github_activity')
@@ -495,20 +489,15 @@ const processCommitsToWeekly = (commits) => {
       return
     }
     
-    const weekStart = new Date(date)
-    weekStart.setDate(date.getDate() - date.getDay())
-    weekStart.setHours(0, 0, 0, 0)
+    const weekStart = getWeekStart(date)
     
-    const weekKey = weekStart.toISOString().slice(0, 10)
+    const weekKey = weekStart.toISOString().slice(0, 10) // Use UTC ISO format consistently with frontend
     weeklyData.set(weekKey, (weeklyData.get(weekKey) || 0) + 1)
   })
   
   // Get current week start (Sunday) to exclude incomplete current week
-  const now = new Date()
-  const currentWeekStart = new Date(now)
-  currentWeekStart.setDate(now.getDate() - now.getDay())
-  currentWeekStart.setHours(0, 0, 0, 0)
-  const currentWeekKey = currentWeekStart.toISOString().slice(0, 10)
+  const currentWeekStart = getCurrentWeekStart()
+  const currentWeekKey = currentWeekStart.toISOString().slice(0, 10) // Use UTC ISO format consistently with frontend
   
   return Array.from(weeklyData.entries())
     .filter(([weekStart, count]) => {
@@ -727,9 +716,7 @@ const getHistoricalActivity = async (resource, startDate, endDate) => {
     console.log(`✅ Using cached database data for ${resource.name} (${dbData.length} weeks)`);
     
     const nowForMapping = new Date()
-    const currentWeekStartForMapping = new Date(nowForMapping)
-    currentWeekStartForMapping.setDate(nowForMapping.getDate() - nowForMapping.getDay())
-    currentWeekStartForMapping.setHours(0, 0, 0, 0)
+    const currentWeekStartForMapping = getCurrentWeekStart()
     
     const mappedData = dbData.map(row => {
       const weekStartDate = new Date(row.week_start)
@@ -765,9 +752,7 @@ const getHistoricalActivity = async (resource, startDate, endDate) => {
     // Enhanced staleness checking with current week handling
     const now = Date.now()
     const startDateTime = new Date(startDate).getTime()
-    const currentWeekStart = new Date()
-    currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay())
-    currentWeekStart.setHours(0, 0, 0, 0)
+    const currentWeekStart = getCurrentWeekStart()
     
     // Check if we have any current week data that needs refreshing
     const hasCurrentWeekData = finalData.some(week => week.isCurrentWeek)
@@ -936,10 +921,8 @@ const calculateHistoricalMaximums = async (resource) => {
 
     // Calculate current week start to exclude incomplete current week (consistent with other functions)
     const now = new Date()
-    const currentWeekStart = new Date(now)
-    currentWeekStart.setDate(now.getDate() - now.getDay())
-    currentWeekStart.setHours(0, 0, 0, 0)
-    const currentWeekKey = currentWeekStart.toISOString().slice(0, 10)
+    const currentWeekStart = getCurrentWeekStart()
+    const currentWeekKey = currentWeekStart.toISOString().slice(0, 10) // Use UTC ISO format consistently with frontend
 
     const { data, error } = await supabase
       .from('github_activity')

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Activity, Share2, Loader2 } from 'lucide-react';
+import { Activity, Share2, Loader2, GitCommit } from 'lucide-react';
 import { cardanoResources } from '../data/resources';
 import logger from '../utils/logger-frontend';
 import html2canvas from 'html2canvas';
@@ -14,14 +14,17 @@ import {
   generateTweetText, 
   getTop5HandlesOrNames 
 } from '../utils/screenshotUtils';
+import { getWeekStart, getCurrentWeekStart } from '../utils/weekCalculation';
+import { 
+  PERIOD_OPTIONS,
+  transformChartData,
+  validateNodeCount,
+  getPeriodConfig
+} from '../utils/chartDataUtils';
+import { ChartDataCache } from '../utils/cacheUtils';
 
-const periodOptions = [
-  { key: 'current', label: 'Last 7 Days', weeks: 1 },
-  { key: '5weeks', label: 'Last 4 Weeks', weeks: 4 },
-  { key: '3months', label: 'Last 3 Months', weeks: 13 },
-  { key: '52weeks', label: 'Last 12 Months', weeks: 52 },
-  { key: '3years', label: 'Last 3 Years', weeks: 156 }
-];
+// Use centralized period options
+const periodOptions = PERIOD_OPTIONS;
 
 // Skeleton loading component
 const SkeletonLoader = ({ className = "" }) => (
@@ -107,14 +110,9 @@ const accentColors = [
 
 const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onCollapse, onNavigateToResource, animationState }) => {
   const [activityData, setActivityData] = useState(null);
-  const [preloadedData, setPreloadedData] = useState({}); // Store preloaded data by view mode
   
-  // Smart loading state - only show loading when no data is available
-  const [isLoading, setIsLoading] = useState(() => {
-    // Check if we have any existing data to determine initial loading state
-    const hasExistingData = Object.keys(preloadedData).length > 0 || activityData !== null;
-    return !hasExistingData;
-  });
+  // Smart loading state - only show loading when no cached data is available
+  const [isLoading, setIsLoading] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
   const [hasDataLoadError, setHasDataLoadError] = useState(false);
   
@@ -122,9 +120,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   const [accentColorIndex, setAccentColorIndex] = useState(() => {
     try {
       const saved = localStorage.getItem('developmentActivityWidget.accentColor');
-      return saved !== null ? parseInt(saved) : 0; // Always default to 0 (white)
+      return saved !== null ? parseInt(saved) : 0;
     } catch {
-      return 0; // Default to white
+      return 0;
     }
   });
   
@@ -147,15 +145,13 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [screenshotMode, setScreenshotMode] = useState(false);
   const [error, setError] = useState(null);
-  const [lastFetchTime, setLastFetchTime] = useState({});
   
   const widgetRef = useRef(null);
   const chartRef = useRef(null);
   const leaderboardRef = useRef(null);
   const chartSvgRef = useRef(null);
 
-  // Client-side cache optimized for GitHub activity patterns (data changes infrequently)
-  const CACHE_TIMEOUT = 6 * 60 * 60 * 1000; // 6 hours
+  // Use centralized caching - TTL is now determined per period in chartDataUtils
 
   // View mode options for dropdown
   const viewModeOptions = [
@@ -180,39 +176,30 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       
       console.log(`🔍 DEBUG: loadActivityData called - viewMode: ${currentViewMode}, period: ${currentPeriod}, forceRefresh: ${forceRefresh}`);
       
-      // Check if we have preloaded data for instant switching
-      const viewModeCache = preloadedData[currentViewMode];
-      const lastFetch = lastFetchTime[currentViewMode];
+      // Check centralized cache first
+      const cachedData = ChartDataCache.get(currentViewMode, currentPeriod);
       
-      console.log(`🔍 DEBUG: Cache check - viewModeCache exists: ${!!viewModeCache}, lastFetch: ${lastFetch}, cacheValid: ${lastFetch && (Date.now() - lastFetch < CACHE_TIMEOUT)}`);
+      console.log(`🔍 DEBUG: Cache check - cachedData exists: ${!!cachedData}`);
       
-      if (!forceRefresh && viewModeCache && lastFetch && (Date.now() - lastFetch < CACHE_TIMEOUT)) {
-        console.log('⚡ INSTANT SWITCH: Using preloaded data!');
-        if (viewModeCache.preloadedPeriods && viewModeCache.preloadedPeriods[currentPeriod]) {
-          const periodData = { ...viewModeCache.preloadedPeriods[currentPeriod], period: currentPeriod, viewMode: currentViewMode };
-          console.log(`🔍 DEBUG: Setting cached data - dailyLeaderboard: ${periodData.dailyLeaderboard?.length || 0}, weeklyLeaderboard: ${periodData.weeklyLeaderboard?.length || 0}`);
-          setActivityData(periodData);
-          
-          // Dispatch event for other components
-          const event = new CustomEvent('activityDataUpdated', {
-            detail: periodData.metrics?.daily || periodData.metrics?.weekly
-          });
-          document.dispatchEvent(event);
-          
-          setIsLoading(false);
-          setError(null); // Clear any previous errors
-          return;
-        } else {
-          console.log(`🔍 DEBUG: No preloaded period data for ${currentPeriod}`);
-        }
+      if (!forceRefresh && cachedData) {
+        console.log('⚡ INSTANT SWITCH: Using cached data!');
+        const periodData = { ...cachedData, period: currentPeriod, viewMode: currentViewMode };
+        console.log(`🔍 DEBUG: Setting cached data - dailyLeaderboard: ${periodData.dailyLeaderboard?.length || 0}, weeklyLeaderboard: ${periodData.weeklyLeaderboard?.length || 0}`);
+        setActivityData(periodData);
+        
+        // Dispatch event for other components
+        const event = new CustomEvent('activityDataUpdated', {
+          detail: periodData.metrics?.daily || periodData.metrics?.weekly
+        });
+        document.dispatchEvent(event);
+        
+        setIsLoading(false);
+        setError(null);
+        return;
       }
 
-      // Smart loading state - only show loading when we truly have no data to display
-      const hasAnyData = activityData || (preloadedData[currentViewMode] && preloadedData[currentViewMode].preloadedPeriods);
-      const hasCurrentPeriodData = hasAnyData && preloadedData[currentViewMode]?.preloadedPeriods?.[currentPeriod];
-      
-      // Only show loading if we have no data at all for current view mode and period
-      if (!hasCurrentPeriodData) {
+      // Smart loading state - only show loading when we have no cached data
+      if (!ChartDataCache.has(currentViewMode, currentPeriod)) {
         setIsLoading(true);
       }
       setError(null);
@@ -235,36 +222,27 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       console.log(`🔍 DEBUG: API response received - hasDaily: ${!!data.dailyLeaderboard}, hasWeekly: ${!!data.weeklyLeaderboard}, hasPreloaded: ${!!data.preloadedPeriods}`);
       
       if (data && (data.dailyLeaderboard || data.weeklyLeaderboard || data.preloadedPeriods)) {
-        // Store preloaded data by view mode
-        setPreloadedData(prev => ({
-          ...prev,
-          [currentViewMode]: { ...data, viewMode: currentViewMode }
-        }));
-        setLastFetchTime(prev => ({
-          ...prev,
-          [currentViewMode]: Date.now()
-        }));
+        // Store all periods in centralized cache
+        if (data.preloadedPeriods) {
+          Object.entries(data.preloadedPeriods).forEach(([periodKey, periodData]) => {
+            ChartDataCache.set(currentViewMode, periodKey, periodData);
+          });
+        }
         
         // Set current period data
         let currentData;
         if (data.preloadedPeriods && data.preloadedPeriods[currentPeriod]) {
           currentData = { ...data.preloadedPeriods[currentPeriod], period: currentPeriod, viewMode: currentViewMode };
         } else {
-          // Fallback to main response structure
           currentData = { ...data, period: currentPeriod, viewMode: currentViewMode };
+          // Cache single period data too
+          ChartDataCache.set(currentViewMode, currentPeriod, data);
         }
         
         console.log(`🔍 DEBUG: Setting API data - currentData dailyLeaderboard: ${currentData.dailyLeaderboard?.length || 0}, weeklyLeaderboard: ${currentData.weeklyLeaderboard?.length || 0}`);
         
-        // Use functional update to ensure we don't lose data during rapid switches
-        setActivityData(prevData => {
-          // If we have existing data for a different view mode, preserve it temporarily
-          if (prevData && prevData.viewMode !== currentViewMode) {
-            console.log(`🔍 DEBUG: View mode changed from ${prevData.viewMode} to ${currentViewMode}, updating data`);
-          }
-          return currentData;
-        });
-        setError(null); // Clear any previous errors
+        setActivityData(currentData);
+        setError(null);
         setHasDataLoadError(false);
         
         // Dispatch event for other components
@@ -295,7 +273,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         loadActivityData.controller = null;
       }
     }
-  }, [viewMode, selectedPeriod, preloadedData, lastFetchTime, CACHE_TIMEOUT]);
+  }, [viewMode, selectedPeriod]);
 
   // Load data on mount or when first expanded - optimized for server cache
   useEffect(() => {
@@ -303,22 +281,17 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     
     // Add a small delay to prevent rapid-fire calls during animation
     const timer = setTimeout(() => {
-      const lastFetch = lastFetchTime[viewMode];
-      const needsData = !activityData || !lastFetch || (Date.now() - lastFetch >= CACHE_TIMEOUT);
+      // Check centralized cache for current view mode and period
+      const cachedData = ChartDataCache.get(viewMode, selectedPeriod);
       
-      if (needsData) {
-        // Check if we have any cached data for this view mode first
-        const cachedData = preloadedData[viewMode];
-        if (cachedData && cachedData.preloadedPeriods && cachedData.preloadedPeriods[selectedPeriod]) {
-          console.log('📦 Widget expanded - using existing cached data');
-          const periodData = { ...cachedData.preloadedPeriods[selectedPeriod], period: selectedPeriod, viewMode: viewMode };
-          setActivityData(periodData);
-          setIsLoading(false);
-        } else {
-          // Server has preloaded all periods data in cache, so this should be very fast
-          console.log('📦 Widget expanded - loading from server cache (all periods preloaded)');
-          loadActivityData();
-        }
+      if (cachedData) {
+        console.log('📦 Widget expanded - using cached data');
+        const periodData = { ...cachedData, period: selectedPeriod, viewMode: viewMode };
+        setActivityData(periodData);
+        setIsLoading(false);
+      } else {
+        console.log('📦 Widget expanded - loading from server');
+        loadActivityData();
       }
     }, 100); // Small delay to let animation settle
     
@@ -339,31 +312,33 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   const viewModeRef = useRef(viewMode);
   
   useEffect(() => {
-    // Only trigger if viewMode actually changed (not on initial mount)
-    if (isExpanded && viewMode && viewModeRef.current && viewModeRef.current !== viewMode) {
-      console.log(`🔄 View mode changed from ${viewModeRef.current} to ${viewMode}`);
-      
-      // Add small delay to prevent conflicts with animation
-      const timer = setTimeout(() => {
-        // Check if we have cached data for the new view mode
-        const cachedData = preloadedData[viewMode];
-        if (cachedData && cachedData.preloadedPeriods && cachedData.preloadedPeriods[selectedPeriod]) {
-          console.log('⚡ Using cached data for view mode switch');
-          const periodData = { ...cachedData.preloadedPeriods[selectedPeriod], period: selectedPeriod, viewMode: viewMode };
-          setActivityData(periodData);
-          setIsLoading(false);
-        } else {
-          console.log('🔄 Loading fresh data for new view mode...');
-          loadActivityData(true); // Force refresh
-        }
-      }, 50);
-      
-      return () => clearTimeout(timer);
-    }
-    
-    // Update ref
+    // Update ref first to prevent stale references
+    const previousViewMode = viewModeRef.current;
     viewModeRef.current = viewMode;
-  }, [viewMode, isExpanded]);
+    
+    // Only trigger if viewMode actually changed (not on initial mount)
+    if (isExpanded && viewMode && previousViewMode && previousViewMode !== viewMode) {
+      console.log(`🔄 View mode changed from ${previousViewMode} to ${viewMode}`);
+      
+      // Check centralized cache for new view mode
+      const cachedData = ChartDataCache.get(viewMode, selectedPeriod);
+      if (cachedData) {
+        console.log('⚡ Using cached data for view mode switch');
+        const periodData = { ...cachedData, period: selectedPeriod, viewMode: viewMode };
+        setActivityData(periodData);
+        setIsLoading(false);
+        
+        // Dispatch event for other components
+        const event = new CustomEvent('activityDataUpdated', {
+          detail: periodData.metrics?.daily || periodData.metrics?.weekly
+        });
+        document.dispatchEvent(event);
+      } else {
+        console.log('🔄 Loading fresh data for new view mode...');
+        loadActivityData(true);
+      }
+    }
+  }, [viewMode, isExpanded, selectedPeriod, loadActivityData]);
 
   // Listen for accent color changes from other components
   useEffect(() => {
@@ -426,96 +401,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     }
   }, [selectedPeriod, screenshotMode]);
 
-  // Helper function to transform chart data to the format expected by AggregatedActivityChart
-  const transformChartData = useCallback((chartData, isDaily = false) => {
-    if (!chartData || chartData.length === 0) return [];
-    
-    if (isDaily) {
-      // For daily data (7-day period), create daily data points
-      const aggregatedData = [];
-      const maxDays = Math.max(...chartData.map(item => item.dailyCounts?.length || 0));
-      const today = new Date();
-      
-      for (let day = 0; day < maxDays; day++) {
-        const totalCount = chartData.reduce((sum, item) => sum + (item.dailyCounts?.[day] || 0), 0);
-        // Calculate the correct date for each day (going backwards from today)
-        const dayDate = new Date(today);
-        dayDate.setDate(today.getDate() - (maxDays - 1 - day));
-        
-        aggregatedData.push({
-          count: totalCount,
-          weekStart: dayDate.toISOString().slice(0, 10)
-        });
-      }
-      return aggregatedData;
-    } else {
-      // For weekly data, use actual database weekStart dates instead of synthetic generation
-      const aggregatedData = [];
-      
-      // Get all unique weekStart dates from all resources' weeklyData
-      const allWeekStartsSet = new Set();
-      
-      chartData.forEach(item => {
-        if (item.weeklyData && Array.isArray(item.weeklyData)) {
-          item.weeklyData.forEach(weekData => {
-            if (weekData && weekData.weekStart) {
-              allWeekStartsSet.add(weekData.weekStart);
-            }
-          });
-        }
-      });
-      
-      // Convert to sorted array (chronological order)
-      const allWeekStarts = Array.from(allWeekStartsSet).sort();
-      
-      // If no actual database dates available, fall back to synthetic generation for backward compatibility
-      if (allWeekStarts.length === 0) {
-        console.warn('No actual database weekStart dates found, falling back to synthetic generation');
-        const maxWeeks = Math.max(...chartData.map(item => item.weeklyCounts?.length || 0));
-        const today = new Date();
-        
-        for (let week = 0; week < maxWeeks; week++) {
-          const totalCount = chartData.reduce((sum, item) => sum + (item.weeklyCounts?.[week] || 0), 0);
-          
-          // Calculate the start of each week (going backwards from current week)
-          const weekStart = new Date(today);
-          weekStart.setDate(today.getDate() - (maxWeeks - 1 - week) * 7);
-          
-          // Adjust to Monday of that week
-          const dayOfWeek = weekStart.getDay();
-          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-          weekStart.setDate(weekStart.getDate() - daysToMonday);
-          
-          aggregatedData.push({
-            count: totalCount,
-            weekStart: weekStart.toISOString().slice(0, 10)
-          });
-        }
-      } else {
-        // Use actual database dates
-        allWeekStarts.forEach(weekStart => {
-          let totalCount = 0;
-          
-          // Sum commits for this specific week across all resources
-          chartData.forEach(item => {
-            if (item.weeklyData && Array.isArray(item.weeklyData)) {
-              const weekData = item.weeklyData.find(w => w.weekStart === weekStart);
-              if (weekData && typeof weekData.count === 'number') {
-                totalCount += weekData.count;
-              }
-            }
-          });
-          
-          aggregatedData.push({
-            count: totalCount,
-            weekStart: weekStart
-          });
-        });
-      }
-      
-      return aggregatedData;
-    }
-  }, []);
+  // Use centralized data transformation - removed 180 lines of duplicate logic
 
   // Get current period data based on selection
   const currentPeriodData = useMemo(() => {
@@ -532,31 +418,21 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     
     console.log(`🔍 DEBUG: currentPeriodData - period: ${selectedPeriod}, dailyLeaderboard: ${dailyLeaderboard.length}, weeklyLeaderboard: ${weeklyLeaderboard.length}, dailyChartData: ${dailyChartData.length}, weeklyChartData: ${weeklyChartData.length}`);
     
-    // Get period configuration
-    const getPeriodConfig = (period) => {
-      switch (period) {
-        case 'current': 
-          return { label: 'Last 7 Days', isDaily: true };
-        case 'monthly': 
-          return { label: 'Last 28 Days', isDaily: false };
-        case '3months': 
-          return { label: 'Last 3 Months', isDaily: false };
-        case '52weeks': 
-          return { label: 'Last 12 Months', isDaily: false };
-        case '3years': 
-          return { label: 'Last 3 Years', isDaily: false };
-        default: 
-          return { label: 'Last 7 Days', isDaily: true };
-      }
-    };
-
-    const { label: periodLabel, isDaily } = getPeriodConfig(selectedPeriod);
+    // Use centralized period configuration
+    const config = getPeriodConfig(selectedPeriod);
+    const isDaily = config.isDaily;
+    const periodLabel = config.label;
     
     // Use appropriate data based on period type
-    const chartData = isDaily ? dailyChartData : weeklyChartData;
+    const rawChartData = isDaily ? dailyChartData : weeklyChartData;
     const leaderboard = isDaily ? dailyLeaderboard : weeklyLeaderboard;
     
-    const transformedChartData = transformChartData(chartData, isDaily);
+    // Use centralized data transformation
+    const transformedChartData = transformChartData(rawChartData, selectedPeriod, 'DevelopmentActivityWidget');
+    
+    // Validate node count
+    validateNodeCount(transformedChartData, selectedPeriod, 'DevelopmentActivityWidget');
+    
     console.log(`🔍 DEBUG: currentPeriodData result - leaderboard: ${leaderboard.length}, transformedChartData: ${transformedChartData.length}, isDaily: ${isDaily}`);
     
     return {
@@ -566,7 +442,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       periodLabel,
       isDaily
     };
-  }, [activityData, selectedPeriod, transformChartData]);
+  }, [activityData, selectedPeriod, viewMode]);
 
   // Get activity level
   const getActivityLevel = (commitsPerWeek) => {
@@ -705,6 +581,55 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
   const { leaderboard, chartData, metrics, periodLabel, isDaily } = currentPeriodData || {};
 
+  // Memoized calculation for 7-day period historical maximum (performance optimized)
+  const weeklyHistoricalMax = useMemo(() => {
+    if (selectedPeriod !== 'current' || !chartData) {
+      return null;
+    }
+    
+    let maxWeekTotal = 0;
+    // For 7-day view, chartData contains daily data points, so sum them to get current week total
+    // For consistency with historical data which represents weekly totals
+    const currentWeekTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
+    
+    
+    // Use only the longest available period for consistent comparison
+    // Priority: 3years > 52weeks > 3months > 5weeks
+    const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
+    
+    for (const period of periodsToCheck) {
+      const cachedPeriodData = ChartDataCache.get(viewMode, period);
+      if (cachedPeriodData && cachedPeriodData.weeklyChartData) {
+        // Use the already-aggregated weekly data, not the raw resource data
+        const transformedData = transformChartData(cachedPeriodData.weeklyChartData, period, 'PerformanceIndicator');
+        
+        if (transformedData && transformedData.length > 0) {
+          // Find maximum from the aggregated weekly totals (same as what the chart shows)
+          const periodMaxCommits = Math.max(...transformedData.map(w => w.count || 0));
+          maxWeekTotal = Math.max(maxWeekTotal, periodMaxCommits);
+          
+          console.log(`📊 Using ${period} data for 7-day comparison (${transformedData.length} weeks), found max: ${periodMaxCommits}`);
+        }
+        
+        // Use only the first (longest) available period
+        break;
+      }
+    }
+    
+    // If no historical data found, use current week as baseline (will show 100%)
+    if (maxWeekTotal === 0) {
+      console.log('📊 No historical weekly data found for 7-day comparison, using current week as baseline');
+      return currentWeekTotal || 1;
+    }
+    
+    // Include current week in comparison - if it's a new record, it becomes the new max
+    const trueHistoricalMax = Math.max(maxWeekTotal, currentWeekTotal);
+    
+    console.log(`📊 7-day historical max calculation: historicalMax=${maxWeekTotal}, currentWeek=${currentWeekTotal}, finalMax=${trueHistoricalMax}`);
+    
+    return trueHistoricalMax;
+  }, [selectedPeriod, chartData, viewMode]);
+
   // Current accent color
   const currentAccentColor = accentColors[accentColorIndex];
 
@@ -739,7 +664,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         <Portal>
           <div
             ref={widgetRef}
-            className="dev-activity-widget fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[90vh] min-w-[900px] min-h-[650px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden widget-crossfade-enter-active"
+            className="dev-activity-widget fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[95vh] min-w-[900px] min-h-[700px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden widget-crossfade-enter-active"
             style={{ borderRadius: '32px' }}
             data-widget="development-activity"
           >
@@ -772,19 +697,15 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
                             } catch {}
                             
-                            // Check if we have preloaded data for instant switching
-                            const viewModeCache = preloadedData[viewMode];
-                            if (viewModeCache && viewModeCache.preloadedPeriods && viewModeCache.preloadedPeriods[newPeriod]) {
-                              console.log('✅ Using preloaded data for instant period switch!');
+                            // Check centralized cache for instant switching
+                            const cachedData = ChartDataCache.get(viewMode, newPeriod);
+                            if (cachedData) {
+                              console.log('✅ Using cached data for instant period switch!');
                               
-                              // Update activity data with preloaded data
-                              const periodData = { ...viewModeCache.preloadedPeriods[newPeriod], period: newPeriod, viewMode: viewMode };
+                              // Update activity data with cached data
+                              const periodData = { ...cachedData, period: newPeriod, viewMode: viewMode };
                               
-                              // Use functional update to prevent race conditions
-                              setActivityData(prevData => {
-                                console.log(`🔍 DEBUG: Period switch - updating from ${prevData?.period || 'none'} to ${newPeriod}`);
-                                return periodData;
-                              });
+                              setActivityData(periodData);
                               
                               // Dispatch event for other components
                               const event = new CustomEvent('activityDataUpdated', {
@@ -794,8 +715,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               
                               console.log(`⚡ INSTANT SWITCH COMPLETE: Now showing ${newPeriod} with ${periodData.dailyLeaderboard?.length || periodData.weeklyLeaderboard?.length || 0} resources`);
                             } else {
-                              console.log('⏳ No preloaded data available, will load from cache or API...');
-                              // Don't force reload here, let the effect handle it
+                              console.log('⏳ No cached data available, will load from API...');
+                              loadActivityData();
                             }
                           }}
                           options={periodOptions}
@@ -805,11 +726,13 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                         <PeriodDropdown
                           value={viewMode}
                           onChange={(newViewMode) => {
-                            console.log(`🔄 View mode changing from ${viewMode} to ${newViewMode}`);
-                            setViewMode(newViewMode);
-                            try {
-                              localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
-                            } catch {}
+                            if (newViewMode !== viewMode) {
+                              console.log(`🔄 View mode changing from ${viewMode} to ${newViewMode}`);
+                              setViewMode(newViewMode);
+                              try {
+                                localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
+                              } catch {}
+                            }
                           }}
                           options={viewModeOptions}
                           placeholder="Select view mode..."
@@ -1037,8 +960,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 <AggregatedActivityChart
                                   weeklyData={chartData}
                                   width={700}
-                                  height={380}
-                                  padding={40}
+                                  height={315}
+                                  padding={10}
                                   period={selectedPeriod}
                                   screenshotMode={screenshotMode}
                                   accentColor={currentAccentColor}
@@ -1209,45 +1132,86 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                   </div>
                 </div>
                 
-                  {/* Global Activity Level Indicator - placed at bottom like WeeklyActivityChart */}
-                {!screenshotMode && currentPeriodData && chartData && chartData.length > 0 && (
-                  <div className="mt-6 space-y-3">
-                    {/* Activity Level Indicator */}
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-3 h-3 rounded-full ${
-                        (() => {
-                          const currentActivity = chartData[chartData.length - 1]?.count || 0;
-                          if (currentActivity >= 20) return 'bg-red-500';
-                          if (currentActivity >= 10) return 'bg-orange-500';
-                          if (currentActivity >= 5) return 'bg-yellow-500';
-                          if (currentActivity >= 2) return 'bg-green-500';
-                          return 'bg-gray-500';
-                        })()
-                      }`}></div>
+              )}
+              
+              {/* Global Performance Indicator */}
+              {!screenshotMode && currentPeriodData && chartData && chartData.length > 0 && (
+                <div className="bg-gray-800/50 rounded-lg p-3 mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-col">
                       <span className="text-gray-400 text-xs">
+                        {selectedPeriod === 'current' ? 'Current 7-Day Total' : 
+                         selectedPeriod === '5weeks' ? 'Current 4-Week Total' : 
+                         selectedPeriod === '3months' ? 'Current 3-Month Total' : 
+                         selectedPeriod === '52weeks' ? 'Current 12-Month Total' : 
+                         selectedPeriod === '3years' ? 'Current 3-Year Total' : 'Current Period Total'}
+                      </span>
+                      {selectedPeriod !== 'current' && (
+                        <span className="text-gray-500 text-xs mt-0.5">
+                          vs. best {selectedPeriod === '5weeks' ? '4-week' : 
+                                       selectedPeriod === '3months' ? '3-month' : 
+                                       selectedPeriod === '52weeks' ? '12-month' : 
+                                       selectedPeriod === '3years' ? '3-year' : ''} period
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <GitCommit size={12} style={{ color: currentAccentColor.hex }} />
+                      <span className="font-bold text-lg" style={{ color: currentAccentColor.hex }}>
                         {(() => {
-                          const currentActivity = chartData[chartData.length - 1]?.count || 0;
-                          return getActivityLevel(currentActivity);
-                        })()} Global Activity
+                          if (selectedPeriod === 'current') {
+                            // For 7-day period, show total commits across all 7 days
+                            return chartData.reduce((total, item) => total + (item.count || 0), 0);
+                          } else {
+                            // For longer periods, show total commits across all weeks
+                            return chartData.reduce((total, item) => total + (item.count || 0), 0);
+                          }
+                        })()}
                       </span>
                     </div>
-                    
-                    {/* Info */}
-                    <div className="text-xs text-gray-500">
-                      <p>
-                        {viewMode === 'organization' 
-                          ? `Global activity based on commits across ${metrics?.totalActiveRepos || 0} active repositories in ${leaderboard?.length || 0} organizations. Shows ${isDaily ? 'daily' : 'weekly'} aggregated data for the current period.`
-                          : `Global activity based on commits across ${metrics?.totalActiveRepos || 0} active repositories. Shows ${isDaily ? 'daily' : 'weekly'} aggregated data for the current period.`
-                        }
-                      </p>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="relative">
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="h-2 rounded-full transition-all duration-500 ease-out"
+                        style={{ 
+                          width: (() => {
+                            if (selectedPeriod === 'current') {
+                              // For 7-day period (1 week), use memoized historical maximum
+                              const currentValue = chartData.reduce((total, item) => total + (item.count || 0), 0);
+                              const historicalMax = weeklyHistoricalMax || 1;
+                              return `${Math.min(100, Math.max(0, (currentValue / historicalMax) * 100))}%`;
+                            }
+                            
+                            const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
+                            const historicalMax = metrics?.historicalMax || currentTotal * 1.2;
+                            const percentage = (currentTotal / historicalMax) * 100;
+                            return `${Math.min(100, Math.max(0, Math.round(percentage)))}%`;
+                          })(),
+                          background: `linear-gradient(to right, ${currentAccentColor.hex}, ${currentAccentColor.hex}dd)`,
+                          boxShadow: `0 0 8px rgba(${currentAccentColor.rgb}, 0.3)`
+                        }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-400 mt-1">
+                      <span>0</span>
+                      <span>
+                        {(() => {
+                          if (selectedPeriod === 'current') {
+                            // For 7-day period, use memoized historical maximum
+                            return weeklyHistoricalMax || 1;
+                          }
+                          const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
+                          return metrics?.historicalMax || Math.round(currentTotal * 1.2);
+                        })()}
+                      </span>
                     </div>
                   </div>
-                )}
-              )
-                
-              
-              
-              </div>
+                </div>
+              )}
+</div>
             </div>
           </div>
         </Portal>
