@@ -77,6 +77,21 @@ const getSocialIcon = (platform) => {
   }
 }
 
+// Helper function to convert YouTube URL to embeddable format
+const getYouTubeEmbedUrl = (url) => {
+  if (!url) return null
+  
+  const regex = /(?:youtu\.be\/|youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+  const match = url.match(regex)
+  
+  if (match && match[1]) {
+    // Return embed URL with 720p quality parameter
+    return `https://www.youtube.com/embed/${match[1]}?hd=1&vq=hd720&rel=0`
+  }
+  
+  return null
+}
+
 const ResourceCard = ({ resource, onViewResource }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState('about')
@@ -496,14 +511,16 @@ const ResourceCard = ({ resource, onViewResource }) => {
       className={`relative bg-card-bg/50 backdrop-blur-md border border-gray-800 rounded-xl p-4 transition-all duration-300 ease-out transform-gpu shadow-lg hover:shadow-2xl cursor-pointer ${
         !isExpanded ? 'hover:scale-[1.07]' : ''
       } ${
-        isExpanded && activeTab === 'activity' ? 'col-span-2' : ''
+        isExpanded && (activeTab === 'activity' || activeTab === 'video') ? 'col-span-2' : ''
       }`}
       style={{
         height: isExpanded ? 'auto' : '6rem',
-        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '28rem' : '32rem') : (screenshotMode ? '42rem' : '46rem')) : isExpanded ? (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) : undefined,
+        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '28rem' : '32rem') : (screenshotMode ? '42rem' : '46rem')) : 
+                   isExpanded && activeTab === 'video' ? '35rem' : 
+                   isExpanded ? (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) : undefined,
         transform: isExpanded ? (window.innerWidth < 1024 ? 'scale(1)' : 'scale(1.03)') : 'scale(1)',
-        marginBottom: isExpanded && activeTab === 'activity' ? '2rem' : undefined,
-        marginTop: isExpanded && activeTab === 'activity' ? '2rem' : undefined,
+        marginBottom: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? '2rem' : undefined,
+        marginTop: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? '2rem' : undefined,
       }}
     >
       {/* Collapsed View */}
@@ -526,7 +543,9 @@ const ResourceCard = ({ resource, onViewResource }) => {
       <div className={`absolute top-0 left-0 w-full p-4 transition-all duration-300 ease-out ${
         isExpanded ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
       }`} style={{ 
-        minHeight: activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '27rem' : '31rem') : (screenshotMode ? '41rem' : '45rem')) : (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem'))
+        minHeight: activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '27rem' : '31rem') : (screenshotMode ? '41rem' : '45rem')) : 
+                   activeTab === 'video' ? '34rem' : 
+                   (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem'))
       }}>
         <div className="flex flex-col min-h-full">
           {/* Header */}
@@ -549,7 +568,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                   <img 
                     src={resource.logo} 
                     alt={`${resource.name} logo`} 
-                    className={`h-10 object-contain ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} 
+                    className={`h-10 object-contain ${screenshotMode ? 'w-auto max-w-none' : 'w-28'}`} 
                   />
                 ) : (
                   <PlaceholderLogo className={`h-10 ${screenshotMode ? 'w-auto max-w-none' : 'w-24'}`} />
@@ -573,6 +592,9 @@ const ResourceCard = ({ resource, onViewResource }) => {
             <TabButton tabName="about">About</TabButton>
             <TabButton tabName="solutions">Solutions</TabButton>
             <TabButton tabName="links">Links</TabButton>
+            {resource.video && (
+              <TabButton tabName="video">Video</TabButton>
+            )}
             {resource.social?.github && (
               <TabButton tabName="updates">Updates</TabButton>
             )}
@@ -585,9 +607,9 @@ const ResourceCard = ({ resource, onViewResource }) => {
           <div className={`flex-grow overflow-hidden text-sm text-gray-300 pr-2 ${activeTab === 'updates' || activeTab === 'activity' ? 'overflow-y-auto' : ''}`}>
             {activeTab === 'about' && <p>{resource.fullDescription || resource.description}</p>}
             {activeTab === 'solutions' && (
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-2">
                 {resource.keySolutions.map((solution) => (
-                  <span key={solution} className="bg-gray-800 text-gray-300 px-2 py-1 rounded-full border border-gray-700 text-xs">
+                  <span key={solution} className="border border-gray-400/25 bg-gray-400/10 backdrop-blur-sm text-gray-300 px-3 py-1.5 rounded-full text-sm font-medium hover:border-gray-500 transition-all duration-200">
                     {solution}
                   </span>
                 ))}
@@ -600,11 +622,30 @@ const ResourceCard = ({ resource, onViewResource }) => {
                      <ExternalLink size={14} /> <span>Website</span>
                    </a>
                 )}
+                {resource.docs && (
+                   <a href={resource.docs} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 hover:text-gray-300">
+                     <BookOpen size={14} /> <span>Documentation</span>
+                   </a>
+                )}
                 {resource.social && Object.entries(resource.social).map(([platform, url]) => (
                   <a key={platform} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 hover:text-gray-300 capitalize">
                     {getSocialIcon(platform)} <span>{platform}</span>
                   </a>
                 ))}
+              </div>
+            )}
+                        {activeTab === 'video' && resource.video && (
+              <div className="pb-8">
+                <div className="relative mx-auto" style={{ width: '720px', height: '405px' /* 720p 16:9 ratio */ }}>
+                  <iframe
+                    src={getYouTubeEmbedUrl(resource.video)}
+                    title={`${resource.name} video`}
+                    className="absolute top-0 left-0 w-full h-full rounded border border-gray-700"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                </div>
               </div>
             )}
             {activeTab === 'updates' && resource.social?.github && (

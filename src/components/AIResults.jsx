@@ -88,8 +88,8 @@ const AIResults = ({ aiResults, onOpenWidget }) => {
                     <ResourceCard resource={resource} />
                     
                     {/* AI Recommendation Reason */}
-                    <div className="mt-3 p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
-                      <p className="text-cyan-300 text-xs sm:text-sm">
+                    <div className="mt-3 p-3 bg-white/10 border border-white/20 rounded-lg">
+                      <p className="text-white text-xs sm:text-sm">
                         <strong>Why recommended:</strong> {resource.reason}
                       </p>
                     </div>

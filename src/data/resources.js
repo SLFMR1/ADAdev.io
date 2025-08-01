@@ -514,6 +514,33 @@ export const cardanoResources = {
   ],
   "Minting and NFTs": [
     {
+      "id": 65,
+      "name": "NMKR Studio",
+      "logo": "https://c-ipfs-gw.nmkr.io/ipfs/QmPV5uyMxKJkr28cEgC9aJYDrBAL5NoovXJhfcedMWKNr3",
+      "description": "Mint, manage and sell NFTs or digital assets with NMKR Studio's powerful no code platform, supporting airdropping and custom metadata.",
+      "fullDescription": "NMKR Studio provides a powerful tool for minting, managing, and selling NFTs and other FTs on Cardano. It supports features like airdropping, custom metadata, and a built-in payment gateway to simplify the entire NFT lifecycle.",
+      "keySolutions": [
+        "NFT minting",
+        "Metadata management",
+        "Payment gateway",
+        "Tokenization",
+        "Airdropping"
+      ],
+      "website": "https://nmkr.io/",
+      "social": {
+        "api": "https://studio-api.nmkr.io/swagger/index.html",
+        "x": "https://x.com/nmkr_io",
+        "discord": "https://discord.com/invite/WsEfkqqDMJ"
+      },
+      "docs": "https://docs.nmkr.io/",
+      "video": "https://youtu.be/OK8Zl-PSAJg?si=cDfIplLQQanz0gAk",
+      "category": "Minting and NFTs",
+      "type": "misc",
+      "organization": null,
+      "repository": null,
+      "repo_path": null
+    },
+    {
       "id": 31,
       "name": "NMKR API",
       "logo": "https://c-ipfs-gw.nmkr.io/ipfs/QmQViFeX9XGYzEJ6Jhj6J2M3SktMBbqjTGpr4MYbLvqtFc",
@@ -529,9 +556,10 @@ export const cardanoResources = {
       "website": "https://nmkr.io/",
       "social": {
         "github": "https://github.com/nftmakerio",
-        "docs": "https://docs.nmkr.io/nmkr-studio-api/get-started-with-the-api",
         "api": "https://studio-api.nmkr.io/swagger/index.html"
       },
+      "docs": "https://docs.nmkr.io/nmkr-studio-api/get-started-with-the-api",
+      "video": "https://www.youtube.com/watch?v=IkeQIaOnXR0",
       "category": "Minting and NFTs",
       "type": "organization",
       "organization": "nftmakerio",
@@ -1100,6 +1128,7 @@ export const cardanoResources = {
         "telegram": "https://t.me/masumi_network"
       },
       "docs": "https://docs.masumi.network/",
+      "video": "hhttps://youtu.be/Z4jFkJfrHwQ?si=efPyK-obCcqjnl4d",
       "category": "AI & Machine Learning",
       "type": "organization",
       "organization": "masumi-network",
@@ -1132,6 +1161,7 @@ export const cardanoResources = {
         "telegram": "https://t.me/masumi_network"
       },
       "docs": "https://docs.masumi.network/",
+      "video": "https://www.youtube.com/watch?v=j8GeZM8OTI8",
       "category": "AI & Machine Learning",
       "type": "repository",
       "organization": "masumi-network",
@@ -1164,6 +1194,7 @@ export const cardanoResources = {
         "telegram": "https://t.me/masumi_network"
       },
       "docs": "https://docs.kodosumi.io/",
+      "video": "https://youtu.be/QDllqb3VonQ?si=EfB7RjKLBjtShWXy",
       "category": "AI & Machine Learning",
       "type": "repository",
       "organization": "masumi-network",

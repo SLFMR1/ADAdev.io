@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Bot, X, FileText, ExternalLink, Copy, Check, Sparkles } from 'lucide-react'
+import { Bot, X, FileText, ExternalLink, Copy, Check, Sparkles, Eye } from 'lucide-react'
 import { generateMarkdownPlan } from '../services/ai'
 import logger from '../utils/logger-frontend'
 import Portal from './Portal'
@@ -7,14 +7,84 @@ import AISearchInput from './AISearchInput'
 
 const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, animationState }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [aiResults, setAiResults] = useState(null)
-  const [activeTab, setActiveTab] = useState('search')
+  const [aiResults, setAiResults] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aiSearchWidget.results')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aiSearchWidget.activeTab')
+      return saved || 'search'
+    } catch {
+      return 'search'
+    }
+  })
   const [copied, setCopied] = useState(false)
   const [cachedPlans, setCachedPlans] = useState([])
-  const [selectedPlanId, setSelectedPlanId] = useState(null)
+  const [selectedPlanId, setSelectedPlanId] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aiSearchWidget.selectedPlanId')
+      return saved || null
+    } catch {
+      return null
+    }
+  })
   const progressInterval = useRef(null)
 
   // Cache management functions
+  const generatePlanTitle = (query, results) => {
+    // Try to extract a meaningful project name from the query
+    
+    // Common project patterns
+    const patterns = [
+      /build(?:ing)?\s+(?:a\s+)?(.+?)(?:\s+(?:on|for|using|with)\s+cardano|$)/i,
+      /creat(?:e|ing)\s+(?:a\s+)?(.+?)(?:\s+(?:on|for|using|with)\s+cardano|$)/i,
+      /develop(?:ing)?\s+(?:a\s+)?(.+?)(?:\s+(?:on|for|using|with)\s+cardano|$)/i,
+      /mak(?:e|ing)\s+(?:a\s+)?(.+?)(?:\s+(?:on|for|using|with)\s+cardano|$)/i,
+      /(.+?)\s+(?:dapp|application|app|platform|system|protocol)/i,
+      /(.+?)\s+smart\s+contract/i,
+      /(.+?)\s+(?:nft|token|wallet)/i
+    ]
+    
+    for (const pattern of patterns) {
+      const match = query.match(pattern)
+      if (match && match[1]) {
+        let title = match[1].trim()
+        // Clean up common words
+        title = title.replace(/^(?:a|an|the)\s+/i, '')
+        title = title.replace(/\s+(?:smart\s+contract|dapp|application|app|platform|system|protocol|nft|token|wallet)$/i, '')
+        
+        // Capitalize first letter of each word
+        title = title.split(' ').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ')
+        
+        if (title.length > 3) {
+          return title.length > 30 ? title.slice(0, 30) + '...' : title
+        }
+      }
+    }
+    
+    // If no pattern matches, try to identify project type from recommended resources
+    if (results?.recommendedResources?.length > 0) {
+      const categories = results.recommendedResources.map(r => r.category)
+      if (categories.includes('Minting and NFTs')) return 'NFT Project'
+      if (categories.includes('Wallets & User Tools')) return 'Wallet Project'
+      if (categories.includes('AI & Machine Learning')) return 'AI Project'
+      if (categories.includes('Oracles & External Data')) return 'Oracle Project'
+      if (categories.includes('Privacy & Zero-Knowledge')) return 'Privacy Project'
+      if (categories.includes('Identity & Authentication')) return 'Identity Project'
+      if (categories.includes('Governance & DAOs')) return 'DAO Project'
+    }
+    
+    // Final fallback
+    return 'Cardano Project'
+  }
+
   const savePlanToCache = (query, results) => {
     const planId = Date.now().toString()
     const newPlan = {
@@ -22,7 +92,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
       timestamp: Date.now(),
       query: query.trim(),
       results: results,
-      title: query.slice(0, 50) + (query.length > 50 ? '...' : '')
+      title: generatePlanTitle(query, results)
     }
     
     try {
@@ -84,6 +154,41 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
     loadCachedPlans()
   }, [])
 
+  // Persist aiResults to localStorage when it changes
+  useEffect(() => {
+    try {
+      if (aiResults) {
+        localStorage.setItem('aiSearchWidget.results', JSON.stringify(aiResults))
+      } else {
+        localStorage.removeItem('aiSearchWidget.results')
+      }
+    } catch (error) {
+      console.error('Failed to persist aiResults:', error)
+    }
+  }, [aiResults])
+
+  // Persist activeTab to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('aiSearchWidget.activeTab', activeTab)
+    } catch (error) {
+      console.error('Failed to persist activeTab:', error)
+    }
+  }, [activeTab])
+
+  // Persist selectedPlanId to localStorage when it changes
+  useEffect(() => {
+    try {
+      if (selectedPlanId) {
+        localStorage.setItem('aiSearchWidget.selectedPlanId', selectedPlanId)
+      } else {
+        localStorage.removeItem('aiSearchWidget.selectedPlanId')
+      }
+    } catch (error) {
+      console.error('Failed to persist selectedPlanId:', error)
+    }
+  }, [selectedPlanId])
+
   // Function to handle clicking on a tool name in the development plan
   const handleToolClick = (toolName) => {
     // Switch to tools tab
@@ -110,6 +215,35 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
         }
       }
     }, 150)
+  }
+
+  // Function to handle "View Details" click - scrolls to ResourceCard in main resources section
+  const handleViewDetails = (resource) => {
+    // Close the AI widget
+    onCollapse()
+    
+    // Wait a moment for the widget to close, then use the custom event system to expand the ResourceCard
+    setTimeout(() => {
+      const tabRequestEvent = new CustomEvent('resourceCardTabRequest', {
+        detail: {
+          resourceId: resource.id,
+          resourceName: resource.name,
+          tabName: 'about'
+        }
+      })
+      document.dispatchEvent(tabRequestEvent)
+      
+      // Add highlight effect after expansion
+      setTimeout(() => {
+        const resourceElement = document.querySelector(`[data-resource-id="${resource.id}"], [data-resource-name="${resource.name}"]`)
+        if (resourceElement) {
+          resourceElement.style.boxShadow = '0 0 30px rgba(255, 255, 255, 0.3)'
+          setTimeout(() => {
+            resourceElement.style.boxShadow = ''
+          }, 3000)
+        }
+      }, 800)
+    }, 300)
   }
 
   const handleCopyPlan = async () => {
@@ -188,8 +322,8 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                   onClick={startNewSearch}
                   className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
                     activeTab === 'search' 
-                      ? 'border-white/50 text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]' 
-                      : 'border-gray-600/50 text-gray-300 hover:border-white hover:text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
+                      ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]' 
+                      : 'border-gray-600/50 text-gray-300 hover:border-cyan-500 hover:text-cyan-300 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
                   }`}
                 >
                   Search
@@ -198,8 +332,8 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                   onClick={() => setActiveTab('history')}
                   className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
                     activeTab === 'history' 
-                      ? 'border-white/50 text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]' 
-                      : 'border-gray-600/50 text-gray-300 hover:border-white hover:text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
+                      ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]' 
+                      : 'border-gray-600/50 text-gray-300 hover:border-cyan-500 hover:text-cyan-300 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
                   }`}
                 >
                   History ({cachedPlans.length})
@@ -210,8 +344,8 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                       onClick={() => setActiveTab('results')}
                       className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
                         activeTab === 'results' 
-                          ? 'border-white/50 text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]' 
-                          : 'border-gray-600/50 text-gray-300 hover:border-white hover:text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
+                          ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]' 
+                          : 'border-gray-600/50 text-gray-300 hover:border-cyan-500 hover:text-cyan-300 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
                       }`}
                     >
                       Analysis
@@ -220,8 +354,8 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                       onClick={() => setActiveTab('plan')}
                       className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
                         activeTab === 'plan' 
-                          ? 'border-white/50 text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]' 
-                          : 'border-gray-600/50 text-gray-300 hover:border-white hover:text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
+                          ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]' 
+                          : 'border-gray-600/50 text-gray-300 hover:border-cyan-500 hover:text-cyan-300 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
                       }`}
                     >
                       Development Plan
@@ -240,13 +374,9 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                     </div>
                     
                     <AISearchInput
-                      onAnalysisComplete={(results) => {
+                      onAnalysisComplete={(results, originalQuery) => {
                         setAiResults(results)
-                        // Extract meaningful title from results analysis or use generic title
-                        const queryTitle = results.analysis ? 
-                          results.analysis.slice(0, 50) + (results.analysis.length > 50 ? '...' : '') :
-                          'AI Development Plan'
-                        const planId = savePlanToCache(queryTitle, results)
+                        const planId = savePlanToCache(originalQuery, results)
                         setSelectedPlanId(planId)
                         setActiveTab('plan')
                       }}
@@ -341,12 +471,12 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                                 <p className="text-gray-400 text-sm mb-3">
                                   <strong>Why recommended:</strong> {resource.reason}
                                 </p>
-                                <div className="flex items-center space-x-4 text-sm">
+                                <div className="flex flex-wrap gap-2 text-sm">
                                   <a
                                     href={resource.website}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-white hover:text-gray-300 transition-colors"
+                                    className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs hover:bg-cyan-600/20 hover:text-cyan-300 hover:border-cyan-500/30 border border-transparent transition-all duration-200"
                                   >
                                     Visit Website
                                   </a>
@@ -355,11 +485,18 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                                       href={resource.docs}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-white hover:text-gray-300 transition-colors"
+                                      className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs hover:bg-cyan-600/20 hover:text-cyan-300 hover:border-cyan-500/30 border border-transparent transition-all duration-200"
                                     >
                                       Documentation
                                     </a>
                                   )}
+                                  <button
+                                    onClick={() => handleViewDetails(resource)}
+                                    className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs hover:bg-cyan-600/20 hover:text-cyan-300 hover:border-cyan-500/30 border border-transparent transition-all duration-200 flex items-center space-x-1"
+                                  >
+                                    <Eye size={12} />
+                                    <span>View Details</span>
+                                  </button>
                                 </div>
                               </div>
                             ))}
@@ -373,14 +510,14 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                 {(activeTab === 'plan' || activeTab === 'tools') && aiResults && (
                   <div className="flex h-[calc(90vh-200px)]">
                     {/* Tabs */}
-                    <div className="w-64 border-r border-gray-700 bg-gray-900/50">
+                    <div className="w-64 border-r border-gray-700">
                       <div className="p-4">
                         <button
                           onClick={() => setActiveTab('plan')}
                           className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 border ${
                             activeTab === 'plan'
-                              ? 'border-white/50 text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
-                              : 'border-gray-600/50 text-gray-400 hover:border-white hover:text-white hover:bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
+                              ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]'
+                              : 'border-gray-600/50 text-gray-400 hover:border-cyan-500 hover:text-cyan-300 hover:bg-cyan-600/10 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
                           }`}
                         >
                           <FileText size={16} className="inline mr-2" />
@@ -390,8 +527,8 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                           onClick={() => setActiveTab('tools')}
                           className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 border mt-2 ${
                             activeTab === 'tools'
-                              ? 'border-white/50 text-white shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
-                              : 'border-gray-600/50 text-gray-400 hover:border-white hover:text-white hover:bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]'
+                              ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]'
+                              : 'border-gray-600/50 text-gray-400 hover:border-cyan-500 hover:text-cyan-300 hover:bg-cyan-600/10 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
                           }`}
                         >
                           <Bot size={16} className="inline mr-2" />
@@ -504,12 +641,12 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                                     <p className="text-gray-400 text-sm mb-3">
                                       <strong>Why recommended:</strong> {resource.reason}
                                     </p>
-                                    <div className="flex items-center space-x-4 text-sm">
+                                    <div className="flex flex-wrap gap-2 text-sm">
                                       <a
                                         href={resource.website}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                                        className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs hover:bg-cyan-600/20 hover:text-cyan-300 hover:border-cyan-500/30 border border-transparent transition-all duration-200"
                                       >
                                         Visit Website
                                       </a>
@@ -518,11 +655,18 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                                           href={resource.docs}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                                          className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs hover:bg-cyan-600/20 hover:text-cyan-300 hover:border-cyan-500/30 border border-transparent transition-all duration-200"
                                         >
                                           Documentation
                                         </a>
                                       )}
+                                      <button
+                                        onClick={() => handleViewDetails(resource)}
+                                        className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs hover:bg-cyan-600/20 hover:text-cyan-300 hover:border-cyan-500/30 border border-transparent transition-all duration-200 flex items-center space-x-1"
+                                      >
+                                        <Eye size={12} />
+                                        <span>View Card</span>
+                                      </button>
                                     </div>
                                   </div>
                                 </div>

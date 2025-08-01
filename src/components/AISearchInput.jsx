@@ -213,7 +213,7 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
       // Wait for progress bar animation to complete (500ms) plus a small delay for visual feedback
       setTimeout(() => {
         setIsAnalyzing(false)
-        onAnalysisComplete?.(results)
+        onAnalysisComplete?.(results, validatedInput)
         
         // Add a small delay before scrolling to let the user see the completion
         setTimeout(() => {

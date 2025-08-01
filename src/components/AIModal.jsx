@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Copy, Check, X, FileText, Bot, Sparkles } from 'lucide-react'
+import { Copy, Check, X, FileText, Bot, Sparkles, Eye } from 'lucide-react'
 import { generateMarkdownPlan } from '../services/ai'
 import logger from '../utils/logger-frontend'
 
@@ -16,6 +16,35 @@ const AIWidget = ({ aiResults, onClose }) => {
     } catch (error) {
       logger.error('Failed to copy plan:', error)
     }
+  }
+
+  // Function to handle "View Details" click - scrolls to ResourceCard in main resources section
+  const handleViewDetails = (resource) => {
+    // Close the AI modal
+    onClose()
+    
+    // Wait a moment for the modal to close, then use the custom event system to expand the ResourceCard
+    setTimeout(() => {
+      const tabRequestEvent = new CustomEvent('resourceCardTabRequest', {
+        detail: {
+          resourceId: resource.id,
+          resourceName: resource.name,
+          tabName: 'about'
+        }
+      })
+      document.dispatchEvent(tabRequestEvent)
+      
+      // Add highlight effect after expansion
+      setTimeout(() => {
+        const resourceElement = document.querySelector(`[data-resource-id="${resource.id}"], [data-resource-name="${resource.name}"]`)
+        if (resourceElement) {
+          resourceElement.style.boxShadow = '0 0 30px rgba(255, 255, 255, 0.3)'
+          setTimeout(() => {
+            resourceElement.style.boxShadow = ''
+          }, 3000)
+        }
+      }, 800)
+    }, 300)
   }
 
   const { analysis, recommendedResources, developmentPlan } = aiResults
@@ -47,7 +76,7 @@ const AIWidget = ({ aiResults, onClose }) => {
                 className={`flex-1 lg:w-full text-left px-4 py-3 rounded-lg transition-colors touch-target ${
                   activeTab === 'plan'
                     ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                    : 'text-gray-400 hover:text-cyan-300 hover:bg-cyan-600/20'
                 }`}
               >
                 <FileText size={16} className="inline mr-2" />
@@ -58,7 +87,7 @@ const AIWidget = ({ aiResults, onClose }) => {
                 className={`flex-1 lg:w-full text-left px-4 py-3 rounded-lg transition-colors touch-target ${
                   activeTab === 'tools'
                     ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                    : 'text-gray-400 hover:text-cyan-300 hover:bg-cyan-600/20'
                 }`}
               >
                 <Sparkles size={16} className="inline mr-2" />
@@ -156,12 +185,12 @@ const AIWidget = ({ aiResults, onClose }) => {
                           <p className="text-gray-400 text-xs sm:text-sm mb-3">
                             <strong>Why recommended:</strong> {resource.reason}
                           </p>
-                          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 text-xs sm:text-sm">
+                          <div className="flex flex-wrap gap-2 text-xs sm:text-sm">
                             <a
                               href={resource.website}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-cyan-400 hover:text-cyan-300 transition-colors touch-target"
+                              className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs hover:bg-cyan-600/20 hover:text-cyan-300 hover:border-cyan-500/30 border border-transparent transition-all duration-200 touch-target"
                             >
                               Visit Website
                             </a>
@@ -170,11 +199,18 @@ const AIWidget = ({ aiResults, onClose }) => {
                                 href={resource.docs}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-cyan-400 hover:text-cyan-300 transition-colors touch-target"
+                                className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs hover:bg-cyan-600/20 hover:text-cyan-300 hover:border-cyan-500/30 border border-transparent transition-all duration-200 touch-target"
                               >
                                 Documentation
                               </a>
                             )}
+                            <button
+                              onClick={() => handleViewDetails(resource)}
+                              className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs hover:bg-cyan-600/20 hover:text-cyan-300 hover:border-cyan-500/30 border border-transparent transition-all duration-200 flex items-center space-x-1 touch-target"
+                            >
+                              <Eye size={12} />
+                              <span>View Card</span>
+                            </button>
                           </div>
                         </div>
                       </div>
