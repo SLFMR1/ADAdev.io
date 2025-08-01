@@ -102,7 +102,8 @@ const ResourceCard = ({ resource, onViewResource }) => {
   
   // Activity chart data preloading (separate from GitHubUpdates)
   const [activityChartData, setActivityChartData] = useState({})
-  const [isLoadingActivityChart, setIsLoadingActivityChart] = useState(false) // Only show loading when actually fetching data
+  // Smart loading state - only show loading when no cached data exists and we need to fetch
+  const [isLoadingActivityChart, setIsLoadingActivityChart] = useState(false)
   const [activityChartError, setActivityChartError] = useState(null)
   const [lastActivityFetch, setLastActivityFetch] = useState(null)
   
@@ -128,7 +129,11 @@ const ResourceCard = ({ resource, onViewResource }) => {
       return
     }
     
-    setIsLoadingActivityChart(true)
+    // Only show loading if we don't have any cached data at all
+    const hasAnyCachedData = Object.keys(activityChartData).length > 0
+    if (!hasAnyCachedData) {
+      setIsLoadingActivityChart(true)
+    }
     setActivityChartError(null)
     
     try {
@@ -231,9 +236,15 @@ const ResourceCard = ({ resource, onViewResource }) => {
         // Scroll to card when switching tabs to ensure it stays visible
         if (isExpanded) {
           if (tabName === 'activity') {
-            console.log(`🎯 Activity tab clicked for ${resource.name}, starting preload...`)
-            // Preload activity chart data when activity tab is selected
-            preloadActivityChartData()
+            console.log(`🎯 Activity tab clicked for ${resource.name}, checking data...`)
+            // Only preload if we don't have cached data
+            const hasAnyCachedData = Object.keys(activityChartData).length > 0
+            if (!hasAnyCachedData) {
+              console.log(`Loading activity chart data for ${resource.name}...`)
+              preloadActivityChartData()
+            } else {
+              console.log(`Using existing cached data for ${resource.name}`)
+            }
             // Single scroll after complete expansion
             setTimeout(() => scrollToCard(), 600);
           } else {
@@ -329,8 +340,12 @@ const ResourceCard = ({ resource, onViewResource }) => {
           
           // Smooth scroll to the card when any tab is selected externally
           if (tabName === 'activity') {
-            // Preload activity chart data when activity tab is selected externally
-            preloadActivityChartData()
+            // Only preload if we don't have cached data
+            const hasAnyCachedData = Object.keys(activityChartData).length > 0
+            if (!hasAnyCachedData) {
+              console.log(`Loading activity chart data for ${resource.name} (external request)...`)
+              preloadActivityChartData()
+            }
             // Single scroll after complete expansion
             setTimeout(() => scrollToCard(), 800);
           } else {
@@ -633,6 +648,11 @@ const ResourceCard = ({ resource, onViewResource }) => {
                         // If we don't have preloaded chart data for this period, trigger a server API load
                         if (!activityChartData[newPeriod] && resource.social?.github) {
                           logger.log(`🔄 Loading missing server API chart period data: ${newPeriod}`)
+                          // Only show loading if we have no data for any period
+                          const hasAnyData = Object.keys(activityChartData).length > 0
+                          if (!hasAnyData) {
+                            setIsLoadingActivityChart(true)
+                          }
                           preloadActivityChartData()
                         }
                       }}

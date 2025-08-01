@@ -36,7 +36,10 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const [weeklyData, setWeeklyData] = useState([])
   const [historicalMaximums, setHistoricalMaximums] = useState({})
   const [historicalMetadata, setHistoricalMetadata] = useState({ hasHistoricalData: false, dataQuality: 'fallback' })
-  const [isLoading, setIsLoading] = useState(false) // Start with false - only show loading when making API calls
+  // Smart loading state - don't show loading if we have preloaded data
+  const [isLoading, setIsLoading] = useState(() => {
+    return !preloadedData || preloadedData.error
+  })
   const [error, setError] = useState(null)
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
   // Map selectedPeriod to weeks directly (no internal state needed)

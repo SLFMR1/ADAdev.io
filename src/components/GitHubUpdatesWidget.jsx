@@ -16,9 +16,10 @@ import { cardanoResources } from '../data/resources'
 import logger from '../utils/logger-frontend'
 import Portal from './Portal'
 
-const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => {
+const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, animationState }) => {
   const [githubData, setGithubData] = useState([])
-  const [isLoading, setIsLoading] = useState(false) // Start with false - only show loading when actually fetching fresh data
+  // Smart loading state - start with true, will be set to false once cache is loaded or data is fetched
+  const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('releases')
   const [collapseTimeout, setCollapseTimeout] = useState(null)
   const [rateLimitExhausted, setRateLimitExhausted] = useState(false)
@@ -120,6 +121,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
             logger.log(`🔄 Refresh needed: ${needsRefresh ? 'Yes' : 'No'}`)
             setGithubData(cachedResults)
             setLastFetchTime(now)
+            setIsLoading(false) // Cache loaded, no need to show loading
             
             // If refresh needed, trigger background update
             if (needsRefresh && isExpanded) {
@@ -134,6 +136,8 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
         logger.error('❌ Error loading content cache:', error)
         localStorage.removeItem(CONTENT_CACHE_KEY)
       }
+      // No cache found, but don't show loading until widget is actually expanded
+      setIsLoading(false)
       return false
     }
     
@@ -498,7 +502,9 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
       </div>
       ) : (
     <Portal>
-          <div className="fixed z-[9999] p-4 left-1/2 top-1/2 w-[700px] max-w-[95vw] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg" style={{transform: 'translate(-50%, -50%)'}} data-widget="github-updates">
+          <div className={`fixed z-[9999] p-4 left-1/2 top-1/2 w-[700px] max-w-[95vw] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg ${
+            (animationState === 'closing') ? 'animate-modal-exit' : 'animate-modal-enter'
+          }`} style={{transform: 'translate(-50%, -50%)'}} data-widget="github-updates">
         <button
           className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white transition-all duration-200"
           onClick={onCollapse}

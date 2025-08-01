@@ -302,6 +302,10 @@ function App() {
   const [showAIWidget, setShowAIWidget] = useState(false);
   const [isAILoading, setIsAILoading] = useState(false);
   const [expanded, setExpanded] = useState(null);
+  
+  // Animation state management for smooth widget transitions
+  const [animationState, setAnimationState] = useState('idle'); // 'idle', 'closing', 'opening'
+  const [nextWidget, setNextWidget] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [viewingResourceCard, setViewingResourceCard] = useState(false);
   const [navigationSource, setNavigationSource] = useState(null); // 'leaderboard', 'widget', or null
@@ -457,7 +461,7 @@ function App() {
   const handleRevert = () => {
     if (navigationSource === 'leaderboard') {
       // If came from leaderboard, reopen the Development Activity widget
-      setExpanded('dev');
+      handleWidgetTransition('dev');
       setViewingResourceCard(false);
       setNavigationSource(null);
     } else {
@@ -475,12 +479,40 @@ function App() {
       setExpanded(null);
       setNavigationSource(null);
     } else {
-      setExpanded(widgetKey);
+      handleWidgetTransition(widgetKey);
       setNavigationSource('widget');
     }
   };
 
   // Function to navigate to a specific resource card
+  // Smooth widget transition handler
+  const handleWidgetTransition = (newWidget) => {
+    if (expanded === newWidget) return; // Already showing this widget
+    
+    if (!expanded) {
+      // No widget currently open, just open the new one
+      setExpanded(newWidget);
+      return;
+    }
+    
+    // Sequential animation: close current -> open new
+    setAnimationState('closing');
+    setNextWidget(newWidget);
+    
+    // Close current widget with animation
+    setTimeout(() => {
+      setExpanded(null);
+      setAnimationState('opening');
+      
+      // Open new widget after close animation completes
+      setTimeout(() => {
+        setExpanded(nextWidget);
+        setAnimationState('idle');
+        setNextWidget(null);
+      }, 50); // Small delay to ensure clean state transition
+    }, 300); // Match modal exit animation duration
+  };
+
   const navigateToResourceCard = (resourceId, resourceName) => {
     console.log(`🎯 Navigating to resource: ${resourceName} (ID: ${resourceId})`);
     
@@ -523,6 +555,7 @@ function App() {
       onExpand: () => {},
       onCollapse: () => setExpanded(null),
       isAnyExpanded: true,
+      animationState: animationState, // Pass animation state to widgets
     };
 
     const renderWidget = () => {

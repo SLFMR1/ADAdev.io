@@ -105,10 +105,16 @@ const accentColors = [
   { name: 'Dawn Blue', hex: '#4C6FFF', rgb: '76, 111, 255' }
 ];
 
-const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onCollapse, onNavigateToResource }) => {
+const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onCollapse, onNavigateToResource, animationState }) => {
   const [activityData, setActivityData] = useState(null);
   const [preloadedData, setPreloadedData] = useState({}); // Store preloaded data by view mode
-  const [isLoading, setIsLoading] = useState(false); // Start with false - only show loading when fetching fresh data
+  
+  // Smart loading state - only show loading when no data is available
+  const [isLoading, setIsLoading] = useState(() => {
+    // Check if we have any existing data to determine initial loading state
+    const hasExistingData = Object.keys(preloadedData).length > 0 || activityData !== null;
+    return !hasExistingData;
+  });
   const [isSharing, setIsSharing] = useState(false);
   const [hasDataLoadError, setHasDataLoadError] = useState(false);
   
@@ -201,9 +207,12 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         }
       }
 
-      // Only set loading if we don't have any existing data or cached data to prevent flickering
-      const hasAnyData = activityData || (preloadedData[currentViewMode] && Object.keys(preloadedData[currentViewMode]).length > 0);
-      if (!hasAnyData) {
+      // Smart loading state - only show loading when we truly have no data to display
+      const hasAnyData = activityData || (preloadedData[currentViewMode] && preloadedData[currentViewMode].preloadedPeriods);
+      const hasCurrentPeriodData = hasAnyData && preloadedData[currentViewMode]?.preloadedPeriods?.[currentPeriod];
+      
+      // Only show loading if we have no data at all for current view mode and period
+      if (!hasCurrentPeriodData) {
         setIsLoading(true);
       }
       setError(null);
@@ -730,7 +739,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         <Portal>
           <div
             ref={widgetRef}
-            className="dev-activity-widget fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[90vh] min-w-[900px] min-h-[650px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden animate-modal-enter"
+            className={`dev-activity-widget fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[90vh] min-w-[900px] min-h-[650px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden ${
+              (animationState === 'closing') ? 'animate-modal-exit' : 'animate-modal-enter'
+            }`}
             style={{ borderRadius: '32px' }}
             data-widget="development-activity"
           >
