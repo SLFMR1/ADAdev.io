@@ -874,6 +874,17 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 validWeeklyData[validWeeklyData.length - 1]?.count || 0}
             </span>
             <span className="text-gray-400 text-xs">commits</span>
+            {(selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && isNewRecord && (
+              <span 
+                className="text-xs font-medium px-2 py-0.5 rounded ml-2"
+                style={{ 
+                  color: accentColor.hex,
+                  backgroundColor: `rgba(${accentColor.rgb}, 0.1)`
+                }}
+              >
+                new record
+              </span>
+            )}
           </div>
         </div>
 
@@ -913,40 +924,13 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               {(() => {
                 const isLongerPeriod = selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
                 if (isLongerPeriod) {
-                  return weeklyHistoricalMax || 1;
+                  return `${weeklyHistoricalMax || 1} (historical peak)`;
                 } else {
                   return maxCommits;
                 }
               })()}
             </span>
           </div>
-          {/* Dynamic progress information with new record indicator */}
-          {(selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && (
-            <div className="text-center mt-2">
-              <div className="flex items-center justify-center space-x-2">
-                <span className="text-xs text-gray-400">
-                  {(() => {
-                    const currentTotal = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
-                    const historicalMax = weeklyHistoricalMax || 1;
-                    const percentage = Math.round((currentTotal / historicalMax) * 100);
-                    return `${percentage}% of historical peak (${historicalMax} commits)`;
-                  })()}
-                </span>
-                {isNewRecord && (
-                  <span 
-                    className="text-xs font-medium px-1 py-0.5 rounded"
-                    style={{ 
-                      color: accentColor.hex,
-                      backgroundColor: `rgba(${accentColor.rgb}, 0.1)`,
-                      border: `1px solid rgba(${accentColor.rgb}, 0.2)`
-                    }}
-                  >
-                    • new record
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
