@@ -51,28 +51,28 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
             </div>
 
             {/* Icon buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 text-gray-400">
+            <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-24 text-gray-400">
                 <button 
                   onClick={() => {
                     // Trigger Development Activity widget expansion
                     const event = new CustomEvent('expandWidget', { 
-                      detail: { widgetKey: 'development-activity' } 
+                      detail: { widgetKey: 'dev' } 
                     })
                     document.dispatchEvent(event)
                   }}
-                  className="flex items-center space-x-2 group cursor-pointer transition-all duration-200 hover:scale-105"
+                  className="flex items-center group cursor-pointer transition-all duration-200 hover:scale-105 overflow-hidden w-5 sm:w-6 hover:w-auto"
                 >
-                  <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-[#C8F560] transition-all duration-200 drop-shadow-[0_0_8px_rgba(200,245,96,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(200,245,96,0.5)]" />
-                  <span className="text-xs sm:text-sm text-white group-hover:text-white group-hover:scale-107 transition-all duration-200">Real-time Ecosystem Pulse</span>
+                  <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-[#C8F560] transition-all duration-200 drop-shadow-[0_0_8px_rgba(200,245,96,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(200,245,96,0.5)] flex-shrink-0" />
+                  <span className="text-xs sm:text-sm text-white opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap ml-2">Real-time Ecosystem Pulse</span>
                 </button>
                 <button 
                   onClick={scrollToResources}
-                  className="flex items-center space-x-2 group cursor-pointer transition-all duration-200 hover:scale-105"
+                  className="flex items-center group cursor-pointer transition-all duration-200 hover:scale-105 overflow-hidden w-5 sm:w-6 hover:w-auto"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 transition-all duration-200 drop-shadow-[0_0_8px_rgba(248,113,113,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(248,113,113,0.5)]">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 transition-all duration-200 drop-shadow-[0_0_8px_rgba(248,113,113,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(248,113,113,0.5)] flex-shrink-0">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                   </svg>
-                  <span className="text-xs sm:text-sm text-white group-hover:text-white group-hover:scale-107 transition-all duration-200">Curated Dev Resources</span>
+                  <span className="text-xs sm:text-sm text-white opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap ml-2">Curated Dev Resources</span>
                 </button>
                 <button 
                   onClick={() => {
@@ -82,10 +82,10 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
                     })
                     document.dispatchEvent(event)
                   }}
-                  className="flex items-center space-x-2 group cursor-pointer transition-all duration-200 hover:scale-105"
+                  className="flex items-center group cursor-pointer transition-all duration-200 hover:scale-105 overflow-hidden w-5 sm:w-6 hover:w-auto"
                 >
-                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-teal-400 transition-all duration-200 drop-shadow-[0_0_8px_rgba(20,184,166,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(20,184,166,0.5)]" />
-                  <span className="text-xs sm:text-sm text-white group-hover:text-white group-hover:scale-107 transition-all duration-200">Personalized Development Plans</span>
+                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-teal-400 transition-all duration-200 drop-shadow-[0_0_8px_rgba(20,184,166,0.3)] group-hover:drop-shadow-[0_0_12px_rgba(20,184,166,0.5)] flex-shrink-0" />
+                  <span className="text-xs sm:text-sm text-white opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap ml-2">Personalized Development Plans</span>
                 </button>
               </div>
 

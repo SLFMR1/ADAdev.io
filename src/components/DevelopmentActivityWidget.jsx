@@ -1208,7 +1208,45 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     </div>
                   </div>
                 </div>
+                
+                  {/* Global Activity Level Indicator - placed at bottom like WeeklyActivityChart */}
+                {!screenshotMode && currentPeriodData && chartData && chartData.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    {/* Activity Level Indicator */}
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-3 h-3 rounded-full ${
+                        (() => {
+                          const currentActivity = chartData[chartData.length - 1]?.count || 0;
+                          if (currentActivity >= 20) return 'bg-red-500';
+                          if (currentActivity >= 10) return 'bg-orange-500';
+                          if (currentActivity >= 5) return 'bg-yellow-500';
+                          if (currentActivity >= 2) return 'bg-green-500';
+                          return 'bg-gray-500';
+                        })()
+                      }`}></div>
+                      <span className="text-gray-400 text-xs">
+                        {(() => {
+                          const currentActivity = chartData[chartData.length - 1]?.count || 0;
+                          return getActivityLevel(currentActivity);
+                        })()} Global Activity
+                      </span>
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="text-xs text-gray-500">
+                      <p>
+                        {viewMode === 'organization' 
+                          ? `Global activity based on commits across ${metrics?.totalActiveRepos || 0} active repositories in ${leaderboard?.length || 0} organizations. Shows ${isDaily ? 'daily' : 'weekly'} aggregated data for the current period.`
+                          : `Global activity based on commits across ${metrics?.totalActiveRepos || 0} active repositories. Shows ${isDaily ? 'daily' : 'weekly'} aggregated data for the current period.`
+                        }
+                      </p>
+                    </div>
+                  </div>
                 )}
+              )
+                
+              
+              
               </div>
             </div>
           </div>
