@@ -17,6 +17,15 @@ export const PERIOD_CONFIGS = {
     useHybridData: true, // Only period that uses DB + GitHub API
     cacheTTL: 2 * 60 * 60 * 1000 // 2 hours for hybrid data
   },
+  '4weeks': {
+    key: '4weeks',
+    label: 'Last 4 Weeks',
+    weeks: 4, // ResourceCard wants 4 weeks displayed
+    isDaily: false,
+    serverPeriod: '5weeks', // Maps to server's 5weeks endpoint
+    useHybridData: false, // Database only
+    cacheTTL: 24 * 60 * 60 * 1000 // 24 hours
+  },
   '5weeks': {
     key: '5weeks',
     label: 'Last 4 Weeks',

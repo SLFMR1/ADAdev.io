@@ -630,6 +630,31 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     return trueHistoricalMax;
   }, [selectedPeriod, chartData, viewMode]);
 
+  // Check if current week is a new record
+  const isNewRecord = useMemo(() => {
+    if (selectedPeriod !== 'current' || !chartData || !weeklyHistoricalMax) {
+      return false;
+    }
+    const currentWeekTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
+    
+    // Get historical max (without current week)
+    let historicalMax = 0;
+    const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
+    
+    for (const period of periodsToCheck) {
+      const cachedPeriodData = ChartDataCache.get(viewMode, period);
+      if (cachedPeriodData && cachedPeriodData.weeklyChartData) {
+        const transformedData = transformChartData(cachedPeriodData.weeklyChartData, period, 'RecordCheck');
+        if (transformedData && transformedData.length > 0) {
+          historicalMax = Math.max(...transformedData.map(w => w.count || 0));
+          break;
+        }
+      }
+    }
+    
+    return currentWeekTotal > historicalMax;
+  }, [selectedPeriod, chartData, viewMode, weeklyHistoricalMax]);
+
   // Current accent color
   const currentAccentColor = accentColors[accentColorIndex];
 
@@ -1145,6 +1170,14 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                          selectedPeriod === '3months' ? 'Current 3-Month Total' : 
                          selectedPeriod === '52weeks' ? 'Current 12-Month Total' : 
                          selectedPeriod === '3years' ? 'Current 3-Year Total' : 'Current Period Total'}
+                        {selectedPeriod === 'current' && isNewRecord && (
+                          <span 
+                            className="ml-2 text-xs opacity-75"
+                            style={{ color: currentAccentColor.hex }}
+                          >
+                            • new record
+                          </span>
+                        )}
                       </span>
                       {selectedPeriod !== 'current' && (
                         <span className="text-gray-500 text-xs mt-0.5">
