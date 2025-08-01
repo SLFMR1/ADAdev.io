@@ -502,9 +502,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, 
       </div>
       ) : (
     <Portal>
-          <div className={`fixed z-[9999] p-4 left-1/2 top-1/2 w-[700px] max-w-[95vw] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg ${
-            (animationState === 'closing') ? 'animate-modal-exit' : 'animate-modal-enter'
-          }`} style={{transform: 'translate(-50%, -50%)'}} data-widget="github-updates">
+          <div className="fixed z-[9999] p-4 left-1/2 top-1/2 w-[700px] max-w-[95vw] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg widget-crossfade-enter-active" style={{transform: 'translate(-50%, -50%)'}} data-widget="github-updates">
         <button
           className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white transition-all duration-200"
           onClick={onCollapse}

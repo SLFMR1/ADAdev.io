@@ -739,9 +739,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         <Portal>
           <div
             ref={widgetRef}
-            className={`dev-activity-widget fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[90vh] min-w-[900px] min-h-[650px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden ${
-              (animationState === 'closing') ? 'animate-modal-exit' : 'animate-modal-enter'
-            }`}
+            className="dev-activity-widget fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[90vh] min-w-[900px] min-h-[650px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden widget-crossfade-enter-active"
             style={{ borderRadius: '32px' }}
             data-widget="development-activity"
           >

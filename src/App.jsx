@@ -304,8 +304,7 @@ function App() {
   const [expanded, setExpanded] = useState(null);
   
   // Animation state management for smooth widget transitions
-  const [animationState, setAnimationState] = useState('idle'); // 'idle', 'closing', 'opening'
-  const [nextWidget, setNextWidget] = useState(null);
+  // Removed animationState and nextWidget - no longer needed for smooth crossfade transitions
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [viewingResourceCard, setViewingResourceCard] = useState(false);
   const [navigationSource, setNavigationSource] = useState(null); // 'leaderboard', 'widget', or null
@@ -485,32 +484,13 @@ function App() {
   };
 
   // Function to navigate to a specific resource card
-  // Smooth widget transition handler
+  // Smooth widget transition handler - immediate crossfade
   const handleWidgetTransition = (newWidget) => {
     if (expanded === newWidget) return; // Already showing this widget
     
-    if (!expanded) {
-      // No widget currently open, just open the new one
-      setExpanded(newWidget);
-      return;
-    }
-    
-    // Sequential animation: close current -> open new
-    setAnimationState('closing');
-    setNextWidget(newWidget);
-    
-    // Close current widget with animation
-    setTimeout(() => {
-      setExpanded(null);
-      setAnimationState('opening');
-      
-      // Open new widget after close animation completes
-      setTimeout(() => {
-        setExpanded(nextWidget);
-        setAnimationState('idle');
-        setNextWidget(null);
-      }, 50); // Small delay to ensure clean state transition
-    }, 300); // Match modal exit animation duration
+    // Direct widget replacement for buttery smooth transitions
+    // CSS will handle the crossfade animation
+    setExpanded(newWidget);
   };
 
   const navigateToResourceCard = (resourceId, resourceName) => {
@@ -554,8 +534,7 @@ function App() {
       isExpanded: true,
       onExpand: () => {},
       onCollapse: () => setExpanded(null),
-      isAnyExpanded: true,
-      animationState: animationState, // Pass animation state to widgets
+      isAnyExpanded: true
     };
 
     const renderWidget = () => {

@@ -164,9 +164,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
       ) : (
         /* Expanded Centered Widget */
         <Portal>
-          <div className={`fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[90vw] max-w-[1200px] max-h-[90vh] min-w-[900px] min-h-[600px] border-radius-[32px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden p-0 ${
-            (animationState === 'closing') ? 'animate-modal-exit' : 'animate-modal-enter'
-          }`} style={{ borderRadius: '32px' }}
+          <div className="fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[90vw] max-w-[1200px] max-h-[90vh] min-w-[900px] min-h-[600px] border-radius-[32px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden p-0 widget-crossfade-enter-active" style={{ borderRadius: '32px' }}
             data-widget="ai-search">
             <button
               className="absolute top-6 right-6 z-50 text-gray-400 hover:text-white transition-all duration-200"
