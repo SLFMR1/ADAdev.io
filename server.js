@@ -2308,6 +2308,32 @@ Respond with valid JSON in this exact format:
     
     try {
       analysisResult = JSON.parse(aiResponse)
+      
+      // Map AI-recommended resources to actual resources from resources.js to preserve correct URLs
+      if (analysisResult.recommendedResources) {
+        analysisResult.recommendedResources = analysisResult.recommendedResources
+          .map(aiResource => {
+            // Find the actual resource by name or ID
+            const actualResource = resources.find(r => 
+              r.name === aiResource.name || 
+              r.id === aiResource.id ||
+              r.name.toLowerCase() === aiResource.name.toLowerCase()
+            )
+            
+            if (actualResource) {
+              // Use actual resource data with AI analysis
+              return {
+                ...actualResource, // This preserves the correct website and docs URLs
+                priority: aiResource.priority || 'medium',
+                reason: aiResource.reason || 'Recommended for your use case'
+              }
+            }
+            
+            // If no exact match found, return null to filter out
+            return null
+          })
+          .filter(resource => resource !== null) // Remove unmatched resources
+      }
     } catch (parseError) {
       // Fallback response
       const fallbackResources = resources.slice(0, 5).map(resource => ({
