@@ -108,7 +108,7 @@ const accentColors = [
 const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onCollapse, onNavigateToResource }) => {
   const [activityData, setActivityData] = useState(null);
   const [preloadedData, setPreloadedData] = useState({}); // Store preloaded data by view mode
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Start with false - only show loading when fetching fresh data
   const [isSharing, setIsSharing] = useState(false);
   const [hasDataLoadError, setHasDataLoadError] = useState(false);
   
@@ -201,8 +201,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         }
       }
 
-      // Only set loading if we don't have any existing data to prevent flickering
-      if (!activityData) {
+      // Only set loading if we don't have any existing data or cached data to prevent flickering
+      const hasAnyData = activityData || (preloadedData[currentViewMode] && Object.keys(preloadedData[currentViewMode]).length > 0);
+      if (!hasAnyData) {
         setIsLoading(true);
       }
       setError(null);
@@ -289,24 +290,31 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
   // Load data on mount or when first expanded - optimized for server cache
   useEffect(() => {
-    const lastFetch = lastFetchTime[viewMode];
-    const needsData = !activityData || !lastFetch || (Date.now() - lastFetch >= CACHE_TIMEOUT);
+    if (!isExpanded) return;
     
-    if (isExpanded && needsData) {
-      // Check if we have any cached data for this view mode first
-      const cachedData = preloadedData[viewMode];
-      if (cachedData && cachedData.preloadedPeriods && cachedData.preloadedPeriods[selectedPeriod]) {
-        console.log('📦 Widget expanded - using existing cached data');
-        const periodData = { ...cachedData.preloadedPeriods[selectedPeriod], period: selectedPeriod, viewMode: viewMode };
-        setActivityData(periodData);
-        setIsLoading(false);
-      } else {
-        // Server has preloaded all periods data in cache, so this should be very fast
-        console.log('📦 Widget expanded - loading from server cache (all periods preloaded)');
-        loadActivityData();
+    // Add a small delay to prevent rapid-fire calls during animation
+    const timer = setTimeout(() => {
+      const lastFetch = lastFetchTime[viewMode];
+      const needsData = !activityData || !lastFetch || (Date.now() - lastFetch >= CACHE_TIMEOUT);
+      
+      if (needsData) {
+        // Check if we have any cached data for this view mode first
+        const cachedData = preloadedData[viewMode];
+        if (cachedData && cachedData.preloadedPeriods && cachedData.preloadedPeriods[selectedPeriod]) {
+          console.log('📦 Widget expanded - using existing cached data');
+          const periodData = { ...cachedData.preloadedPeriods[selectedPeriod], period: selectedPeriod, viewMode: viewMode };
+          setActivityData(periodData);
+          setIsLoading(false);
+        } else {
+          // Server has preloaded all periods data in cache, so this should be very fast
+          console.log('📦 Widget expanded - loading from server cache (all periods preloaded)');
+          loadActivityData();
+        }
       }
-    }
-  }, [isExpanded, viewMode, selectedPeriod, preloadedData]);
+    }, 100); // Small delay to let animation settle
+    
+    return () => clearTimeout(timer);
+  }, [isExpanded]);
 
   // Cleanup: Cancel any pending requests when component unmounts
   useEffect(() => {
@@ -326,22 +334,27 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     if (isExpanded && viewMode && viewModeRef.current && viewModeRef.current !== viewMode) {
       console.log(`🔄 View mode changed from ${viewModeRef.current} to ${viewMode}`);
       
-      // Check if we have cached data for the new view mode
-      const cachedData = preloadedData[viewMode];
-      if (cachedData && cachedData.preloadedPeriods && cachedData.preloadedPeriods[selectedPeriod]) {
-        console.log('⚡ Using cached data for view mode switch');
-        const periodData = { ...cachedData.preloadedPeriods[selectedPeriod], period: selectedPeriod, viewMode: viewMode };
-        setActivityData(periodData);
-        setIsLoading(false);
-      } else {
-        console.log('🔄 Loading fresh data for new view mode...');
-        loadActivityData(true); // Force refresh
-      }
+      // Add small delay to prevent conflicts with animation
+      const timer = setTimeout(() => {
+        // Check if we have cached data for the new view mode
+        const cachedData = preloadedData[viewMode];
+        if (cachedData && cachedData.preloadedPeriods && cachedData.preloadedPeriods[selectedPeriod]) {
+          console.log('⚡ Using cached data for view mode switch');
+          const periodData = { ...cachedData.preloadedPeriods[selectedPeriod], period: selectedPeriod, viewMode: viewMode };
+          setActivityData(periodData);
+          setIsLoading(false);
+        } else {
+          console.log('🔄 Loading fresh data for new view mode...');
+          loadActivityData(true); // Force refresh
+        }
+      }, 50);
+      
+      return () => clearTimeout(timer);
     }
     
     // Update ref
     viewModeRef.current = viewMode;
-  }, [viewMode, isExpanded, selectedPeriod, preloadedData]);
+  }, [viewMode, isExpanded]);
 
   // Listen for accent color changes from other components
   useEffect(() => {
@@ -717,7 +730,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         <Portal>
           <div
             ref={widgetRef}
-            className="dev-activity-widget fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[75vw] max-w-[1600px] max-h-[90vh] min-w-[900px] min-h-[650px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden transition-all duration-700 ease-out opacity-100 scale-100"
+            className="dev-activity-widget fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[90vh] min-w-[900px] min-h-[650px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden animate-modal-enter"
             style={{ borderRadius: '32px' }}
             data-widget="development-activity"
           >

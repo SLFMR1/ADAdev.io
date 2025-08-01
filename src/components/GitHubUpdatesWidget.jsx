@@ -18,7 +18,7 @@ import Portal from './Portal'
 
 const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) => {
   const [githubData, setGithubData] = useState([])
-  const [isLoading, setIsLoading] = useState(false) // Start with false - will be set to true only when actually loading
+  const [isLoading, setIsLoading] = useState(false) // Start with false - only show loading when actually fetching fresh data
   const [activeTab, setActiveTab] = useState('releases')
   const [collapseTimeout, setCollapseTimeout] = useState(null)
   const [rateLimitExhausted, setRateLimitExhausted] = useState(false)
@@ -415,18 +415,13 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
   }, [githubData.length, lastFetchTime, ACTIVE_HOURS_REFRESH, PASSIVE_HOURS_REFRESH])
 
   useEffect(() => {
-    // Add a small delay to ensure resource cards have loaded first
     console.log('🎯 WIDGET DEBUG: useEffect triggered, isExpanded:', isExpanded)
-    const timer = setTimeout(() => {
-      if (isExpanded) {
-        console.log('🔄 WIDGET DEBUG: Starting data load')
-        logger.log(`🔄 Widget: Starting data load`)
-        loadGitHubData() // Will use cache if available
-      }
-    }, 1000)
-    
-    return () => clearTimeout(timer)
-  }, [isExpanded, loadGitHubData])
+    if (isExpanded) {
+      console.log('🔄 WIDGET DEBUG: Starting data load')
+      logger.log(`🔄 Widget: Starting data load`)
+      loadGitHubData() // Will use cache if available
+    }
+  }, [isExpanded])
   
   // Auto-refresh every 5 minutes when widget is expanded
   useEffect(() => {
@@ -438,7 +433,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
     }, ACTIVE_HOURS_REFRESH) // Use content-aware refresh timing
     
     return () => clearInterval(refreshInterval)
-  }, [isExpanded])
+  }, [isExpanded, ACTIVE_HOURS_REFRESH])
 
   // Get total update count
   const totalUpdates = githubData.reduce((total, data) => {
@@ -503,7 +498,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }
       </div>
       ) : (
     <Portal>
-          <div className="fixed z-[9999] p-4 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] max-w-[95vw] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg transition-all duration-700 ease-out opacity-100 scale-100" data-widget="github-updates">
+          <div className="fixed z-[9999] p-4 left-1/2 top-1/2 w-[700px] max-w-[95vw] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg" style={{transform: 'translate(-50%, -50%)'}} data-widget="github-updates">
         <button
           className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white transition-all duration-200"
           onClick={onCollapse}

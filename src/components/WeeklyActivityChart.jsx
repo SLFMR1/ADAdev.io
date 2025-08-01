@@ -36,7 +36,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const [weeklyData, setWeeklyData] = useState([])
   const [historicalMaximums, setHistoricalMaximums] = useState({})
   const [historicalMetadata, setHistoricalMetadata] = useState({ hasHistoricalData: false, dataQuality: 'fallback' })
-  const [isLoading, setIsLoading] = useState(!preloadedData || preloadedData.error)
+  const [isLoading, setIsLoading] = useState(false) // Start with false - only show loading when making API calls
   const [error, setError] = useState(null)
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
   // Map selectedPeriod to weeks directly (no internal state needed)
@@ -59,7 +59,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         if (preloadedData && !preloadedData.error) {
           logger.log(`⚡ Using preloaded data for ${resource.name} (period: ${selectedPeriod})`)
           console.log('WeeklyActivityChart received preloaded data:', preloadedData)
-          // Don't set loading state here - component should start unloaded when preloaded data exists
+          // Use preloaded data immediately without loading state
           
           // Process preloaded data the same way as fetched data
           const resourceData = preloadedData

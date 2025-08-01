@@ -186,7 +186,7 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded }) 
       ) : (
         /* Expanded Centered Widget */
         <Portal>
-          <div ref={modalRef} className="fixed z-[9999] p-4 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[441px] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg max-h-[93.5vh] overflow-y-auto pb-6 transition-all duration-700 ease-out opacity-100 scale-100" data-widget="add-resource">
+          <div ref={modalRef} className="fixed z-[9999] p-4 left-1/2 top-1/2 w-[441px] bg-card-bg/50 border border-gray-800 rounded-xl shadow-lg max-h-[93.5vh] overflow-y-auto pb-6 animate-modal-enter" data-widget="add-resource">
               <button
                 className="absolute top-4 right-4 z-50 text-gray-400 hover:text-white transition-all duration-200"
                 onClick={onCollapse}

@@ -102,7 +102,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
   
   // Activity chart data preloading (separate from GitHubUpdates)
   const [activityChartData, setActivityChartData] = useState({})
-  const [isLoadingActivityChart, setIsLoadingActivityChart] = useState(false)
+  const [isLoadingActivityChart, setIsLoadingActivityChart] = useState(false) // Only show loading when actually fetching data
   const [activityChartError, setActivityChartError] = useState(null)
   const [lastActivityFetch, setLastActivityFetch] = useState(null)
   
