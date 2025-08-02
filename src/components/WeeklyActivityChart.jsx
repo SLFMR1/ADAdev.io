@@ -485,16 +485,35 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         return;
       }
       
-      const weekNumber = weekIdx + 1;
-      const month = weekStartDate.toLocaleString('default', { month: 'short' });
-      
       // Always calculate correct Sunday-based week range regardless of stored weekStart
       const correctWeekStart = getWeekStart(weekStartDate);
-      
       const correctEndOfWeek = new Date(correctWeekStart);
       correctEndOfWeek.setDate(correctWeekStart.getDate() + 6);
       
-      const label = `Week ${weekNumber} (${correctWeekStart.toISOString().slice(0, 10)}–${correctEndOfWeek.toISOString().slice(0, 10)}, ${month})`;
+      // Format dates nicely
+      const formatDate = (date) => {
+        return date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        });
+      };
+      
+      const startDate = formatDate(correctWeekStart);
+      const endDate = formatDate(correctEndOfWeek);
+      const weekNumber = weekIdx + 1;
+      
+      // Create period-appropriate labels
+      let periodLabel = '';
+      if (selectedPeriod === 'current') {
+        periodLabel = `Day ${weekNumber}`;
+      } else if (selectedPeriod === '4weeks' || selectedPeriod === '5weeks') {
+        periodLabel = `Week ${weekNumber}`;
+      } else {
+        periodLabel = `Week ${weekNumber}`;
+      }
+      
+      const label = `${periodLabel} • ${startDate} – ${endDate}`;
       
       // Get viewport-relative position (don't add scroll offset since tooltip is fixed)
       const rect = e.target.getBoundingClientRect();
@@ -586,16 +605,66 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             {/* Month boundary grid lines */}
             {validWeeklyData.map((w, i) => {
               const weekDate = new Date(w.weekStart);
-              const isMonthStart = weekDate.getDate() <= 7; // first week of month
-              if (!isMonthStart || i === 0) return null
+              const month = weekDate.getMonth();
+              const day = weekDate.getDate();
+              
+              // Only show grid lines for important markers
+              let shouldShowGrid = false;
+              let gridStyle = {};
+              
+              if (selectedPeriod === '3years') {
+                if (month === 0 && day <= 7) {
+                  shouldShowGrid = true;
+                  gridStyle = { strokeDasharray: "6 3", strokeWidth: "1.5", opacity: "0.4" };
+                } else if ([0, 3, 6, 9].includes(month) && day <= 7 && i % 3 === 0) {
+                  shouldShowGrid = true;
+                  gridStyle = { strokeDasharray: "4 2", strokeWidth: "1", opacity: "0.25" };
+                }
+              } else if (selectedPeriod === '52weeks') {
+                if (month === 0 && day <= 7) {
+                  shouldShowGrid = true;
+                  gridStyle = { strokeDasharray: "6 3", strokeWidth: "1.5", opacity: "0.4" };
+                } else if ([0, 3, 6, 9].includes(month) && day <= 7) {
+                  shouldShowGrid = true;
+                  gridStyle = { strokeDasharray: "4 2", strokeWidth: "1", opacity: "0.25" };
+                }
+              } else if (selectedPeriod === '3months') {
+                // Show months and some weeks for 3-month view
+                if (day <= 7) {
+                  shouldShowGrid = true;
+                  gridStyle = { strokeDasharray: "4 2", strokeWidth: "1", opacity: "0.25" };
+                } else if (i % 2 === 0) {
+                  shouldShowGrid = true;
+                  gridStyle = { strokeDasharray: "2 2", strokeWidth: "0.8", opacity: "0.2" };
+                }
+              } else if (selectedPeriod === '4weeks' || selectedPeriod === 'current') {
+                // For 4-week and current views: show all grid lines
+                shouldShowGrid = true;
+                if (day <= 7) {
+                  gridStyle = { strokeDasharray: "4 2", strokeWidth: "1", opacity: "0.25" };
+                } else {
+                  gridStyle = { strokeDasharray: "2 2", strokeWidth: "0.8", opacity: "0.2" };
+                }
+              } else {
+                // For other periods: show months and some weeks
+                if (day <= 7) {
+                  shouldShowGrid = true;
+                  gridStyle = { strokeDasharray: "4 2", strokeWidth: "1", opacity: "0.25" };
+                } else if (i % 2 === 0) {
+                  shouldShowGrid = true;
+                  gridStyle = { strokeDasharray: "2 2", strokeWidth: "0.8", opacity: "0.2" };
+                }
+              }
+              
+              if (!shouldShowGrid) return null;
               
               // Use temporal positioning
               const weeksSinceStart = Math.floor((weekDate.getTime() - expectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
               const normalizedPosition = Math.max(0, Math.min(1, weeksSinceStart / (expectedWeeks - 1)));
-              const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding)
+              const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding);
               
               // Validate coordinates
-              const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding))
+              const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding));
               
               return (
                 <line
@@ -605,9 +674,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   x2={safeX}
                   y2={chartHeight - bottomPadding}
                   stroke={accentColor.hex}
-                  strokeDasharray="4 2"
-                  strokeWidth="1"
-                  opacity="0.25"
+                  {...gridStyle}
                 />
               )
             })}
@@ -715,12 +782,14 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             {/* Smart month/year labels with collision avoidance */}
             {(() => {
               const labels = [];
-              const minLabelSpacing = window.innerWidth < 1024 ? 80 : 120; // Minimum pixels between labels
+              // More lenient spacing for shorter periods
+              const minLabelSpacing = selectedPeriod === '4weeks' || selectedPeriod === 'current' 
+                ? (window.innerWidth < 1024 ? 40 : 50)  // Tighter spacing for short periods
+                : (window.innerWidth < 1024 ? 60 : 80); // Standard spacing for longer periods
               let lastLabelX = -minLabelSpacing;
               
-              // Calculate ideal number of labels based on chart width
-              const maxLabels = Math.floor((chartWidth - 2 * chartPadding) / minLabelSpacing);
-              const labelInterval = Math.max(1, Math.floor(validWeeklyData.length / maxLabels));
+              // Calculate important time markers based on period
+              const importantMarkers = [];
               
               validWeeklyData.forEach((w, i) => {
                 try {
@@ -733,64 +802,107 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding);
                   const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding));
                   
-                  // Check if this position has enough space from the last label
-                  if (safeX - lastLabelX < minLabelSpacing) return;
+                  const month = date.getMonth();
+                  const year = date.getFullYear();
+                  const day = date.getDate();
                   
-                  const isYearStart = date.getMonth() === 0 && date.getDate() <= 7;
-                  const isQuarterStart = [0, 3, 6, 9].includes(date.getMonth()) && date.getDate() <= 7;
-                  
-                  // Prioritize year labels, then quarters for longer periods
-                  let shouldShowLabel = false;
+                  // Determine if this is an important marker
+                  let markerType = null;
                   let labelText = '';
                   let fontSize = window.innerWidth < 1024 ? "11" : "13";
                   let yOffset = 18;
                   
                   if (selectedPeriod === '3years') {
-                    // For 3-year view, show years and quarters
-                    if (isYearStart) {
-                      shouldShowLabel = true;
-                      labelText = date.getFullYear().toString();
+                    // For 3-year view: show years prominently, quarters moderately
+                    if (month === 0 && day <= 7) {
+                      markerType = 'year';
+                      labelText = year.toString();
                       fontSize = window.innerWidth < 1024 ? "14" : "16";
                       yOffset = 32;
-                    } else if (isQuarterStart && i % Math.max(1, Math.floor(labelInterval / 2)) === 0) {
-                      shouldShowLabel = true;
-                      labelText = `Q${Math.floor(date.getMonth() / 3) + 1}`;
+                    } else if ([0, 3, 6, 9].includes(month) && day <= 7 && i % 3 === 0) {
+                      markerType = 'quarter';
+                      labelText = `Q${Math.floor(month / 3) + 1}`;
                     }
                   } else if (selectedPeriod === '52weeks') {
-                    // For 1-year view, show quarters and some months
-                    if (isQuarterStart) {
-                      shouldShowLabel = true;
+                    // For 1-year view: show quarters and key months
+                    if (month === 0 && day <= 7) {
+                      markerType = 'year';
+                      labelText = year.toString();
+                      fontSize = window.innerWidth < 1024 ? "14" : "16";
+                      yOffset = 32;
+                    } else if ([0, 3, 6, 9].includes(month) && day <= 7) {
+                      markerType = 'quarter';
+                      labelText = date.toLocaleString('default', { month: 'short' });
+                    } else if (day <= 7 && i % 4 === 0) {
+                      markerType = 'month';
                       labelText = date.toLocaleString('default', { month: 'short' });
                     }
-                  } else {
-                    // For shorter periods, show months more frequently
-                    const isMonthStart = date.getDate() <= 7;
-                    if (isMonthStart && i % labelInterval === 0) {
-                      shouldShowLabel = true;
+                  } else if (selectedPeriod === '3months') {
+                    // For 3-month view: show months and weeks
+                    if (day <= 7) {
+                      markerType = 'month';
                       labelText = date.toLocaleString('default', { month: 'short' });
+                    } else if (i % 2 === 0) {
+                      markerType = 'week';
+                      labelText = `W${Math.floor(i / 2) + 1}`;
+                    }
+                  } else if (selectedPeriod === '4weeks' || selectedPeriod === 'current') {
+                    // For 4-week and current (7-day) views: show all labels when space allows
+                    if (day <= 7) {
+                      markerType = 'month';
+                      labelText = date.toLocaleString('default', { month: 'short' });
+                    } else {
+                      markerType = 'week';
+                      labelText = `W${i + 1}`;
+                    }
+                  } else {
+                    // For shorter periods: show weeks and key dates
+                    if (day <= 7) {
+                      markerType = 'month';
+                      labelText = date.toLocaleString('default', { month: 'short' });
+                    } else if (i % 2 === 0) {
+                      markerType = 'week';
+                      labelText = `W${Math.floor(i / 2) + 1}`;
                     }
                   }
                   
-                  if (shouldShowLabel) {
-                    lastLabelX = safeX;
+                  if (markerType) {
+                    importantMarkers.push({
+                      x: safeX,
+                      text: labelText,
+                      type: markerType,
+                      fontSize,
+                      yOffset,
+                      priority: markerType === 'year' ? 3 : markerType === 'quarter' ? 2 : 1
+                    });
+                  }
+                } catch (error) {
+                  console.warn(`Error processing marker for week ${i}:`, error);
+                }
+              });
+              
+              // Sort by priority and apply collision detection
+              importantMarkers
+                .sort((a, b) => b.priority - a.priority)
+                .forEach(marker => {
+                  if (marker.x - lastLabelX >= minLabelSpacing) {
+                    lastLabelX = marker.x;
                     labels.push(
                       <text
-                        key={`smart-label-${i}`}
-                        x={safeX}
-                        y={chartHeight - bottomPadding / 2 + yOffset}
-                        fontSize={fontSize}
+                        key={`smart-label-${marker.x}`}
+                        x={marker.x}
+                        y={chartHeight - bottomPadding / 2 + marker.yOffset}
+                        fontSize={marker.fontSize}
                         fill={accentColor.hex}
                         textAnchor="middle"
-                        fontWeight="bold"
+                        fontWeight={marker.type === 'year' ? 'bold' : '500'}
+                        style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
                       >
-                        {labelText}
+                        {marker.text}
                       </text>
                     );
                   }
-                } catch (error) {
-                  console.warn(`Error rendering smart label for week ${i}:`, error);
-                }
-              });
+                });
               
               return labels;
             })()}
@@ -827,14 +939,20 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           {tooltip.show && (
             <Portal>
               <div
-                className="fixed z-[9999] px-2 py-1 rounded bg-gray-900 text-white text-xs border border-white shadow-lg pointer-events-none max-w-xs"
+                className="fixed z-[9999] px-4 py-3 rounded-lg bg-gray-900/95 backdrop-blur-sm text-white text-sm border shadow-xl pointer-events-none max-w-xs"
                 style={{ 
-                  left: Math.min(tooltip.x + 10, window.innerWidth - 250), 
-                  top: Math.max(tooltip.y - 50, 10)
+                  left: Math.min(tooltip.x + 10, window.innerWidth - 280), 
+                  top: Math.max(tooltip.y - 60, 10),
+                  borderColor: accentColor.hex,
+                  boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px ${accentColor.hex}40`
                 }}
               >
-                <div className="font-bold">{tooltip.label}</div>
-                <div>{tooltip.value} commits</div>
+                <div className="font-semibold mb-1" style={{ color: accentColor.hex }}>
+                  {tooltip.value} commits
+                </div>
+                <div className="text-gray-300 text-xs leading-relaxed">
+                  {tooltip.label}
+                </div>
               </div>
             </Portal>
           )}

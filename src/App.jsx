@@ -155,20 +155,7 @@ const SidebarWidgetsContainer = ({ expanded, setExpanded, handleWidgetExpand, is
         </div>
       </div>
       
-      {/* Data Quality Widget */}
-      <div className="relative z-50 w-16 h-16 isolate hover:z-[70]" onClick={() => handleWidgetExpand('quality')}>
-        <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
-          expanded === 'quality' 
-            ? 'border-orange-400/50 shadow-[0_0_20px_rgba(251,146,60,0.4),0_0_40px_rgba(251,146,60,0.2)] z-[70]' 
-            : 'hover:border-orange-400/30 hover:shadow-[0_0_15px_rgba(251,146,60,0.3),0_0_30px_rgba(251,146,60,0.15)]'
-        }`}>
-          <Database size={24} className={`transition-all duration-300 ${
-            expanded === 'quality' 
-              ? 'text-orange-400 drop-shadow-[0_0_12px_rgba(251,146,60,0.8)]' 
-              : 'text-gray-400 group-hover:text-orange-400'
-          }`} />
-        </div>
-      </div>
+
     </div>
   )
 }
@@ -788,6 +775,24 @@ function App() {
       {/* Sidebar Widgets (Desktop) */}
       <div className="relative z-50">
         <SidebarWidgetsContainer expanded={expanded} setExpanded={setExpanded} handleWidgetExpand={handleWidgetExpand} isResourcesSectionActive={isResourcesSectionActive} />
+      </div>
+
+      {/* Hidden Data Quality Button - Bottom Left */}
+      <div className="fixed bottom-0 left-0 z-50 hidden lg:block">
+        <div 
+          className="group relative cursor-pointer transition-all duration-300 hover:translate-x-1"
+          onClick={() => handleWidgetExpand('quality')}
+        >
+          {/* Small visible part */}
+          <div className="w-2 h-8 bg-gray-400/10 border border-gray-400/20 rounded-r-lg shadow-lg transition-all duration-300 group-hover:bg-gray-400/30 group-hover:border-gray-400/40 group-hover:shadow-gray-400/20"></div>
+          
+          {/* Full button that appears on hover */}
+          <div className="absolute left-0 bottom-0 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-0 -translate-x-2">
+            <div className="flex items-center justify-center h-12 w-12 cursor-pointer bg-card-bg/95 rounded-r-xl shadow-2xl transition-all duration-300 group-hover:shadow-[0_0_15px_rgba(156,163,175,0.3),0_0_30px_rgba(156,163,175,0.15)]">
+              <Database size={20} className="text-gray-400 transition-all duration-300 group-hover:text-gray-300 group-hover:drop-shadow-[0_0_8px_rgba(156,163,175,0.8)]" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Desktop Logos - always visible and static */}

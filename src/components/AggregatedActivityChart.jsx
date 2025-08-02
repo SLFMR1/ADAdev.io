@@ -47,36 +47,59 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
   // Validate node count for the period
   validateNodeCount(weeklyData, period, 'AggregatedActivityChart')
   
-  // X-axis label logic - improved for 3 years
-  let lastMonth = ''
+  // X-axis label logic - improved for all periods
   const xLabels = weeklyData.map((w, i) => {
     const date = new Date(w.weekStart)
+    const month = date.getMonth()
+    const year = date.getFullYear()
+    const day = date.getDate()
+    const currentYear = new Date().getFullYear()
+    
+    // Determine important markers based on period
     if (period === '3years') {
-      // Show only for first week of each quarter and handle missing data
-      const month = date.getMonth()
-      const year = date.getFullYear()
-      const currentYear = new Date().getFullYear()
-      
-      // Only show labels for recent years (within 3 years from now)
-      if (year >= currentYear - 2) {
-        // Jan (0), Apr (3), Jul (6), Oct (9)
-        if ((month === 0 || month === 3 || month === 6 || month === 9) && date.getDate() <= 7) {
-          // If January, show year
-          if (month === 0) return { type: 'year', value: String(year).slice(-2) }
-          return { type: 'month', value: date.toLocaleString('default', { month: 'short' }) }
-        }
+      // Show years prominently and quarters moderately
+      if (month === 0 && day <= 7) {
+        return { type: 'year', value: year.toString(), priority: 3 }
+      } else if ([0, 3, 6, 9].includes(month) && day <= 7 && i % 3 === 0) {
+        return { type: 'quarter', value: `Q${Math.floor(month / 3) + 1}`, priority: 2 }
       }
-      return ''
+    } else if (period === '52weeks') {
+      // Show year and quarters for 1-year view
+      if (month === 0 && day <= 7) {
+        return { type: 'year', value: year.toString(), priority: 3 }
+      } else if ([0, 3, 6, 9].includes(month) && day <= 7) {
+        return { type: 'quarter', value: date.toLocaleString('default', { month: 'short' }), priority: 2 }
+      } else if (day <= 7 && i % 4 === 0) {
+        return { type: 'month', value: date.toLocaleString('default', { month: 'short' }), priority: 1 }
+      }
+    } else if (period === '3months') {
+      // Show months and some weeks for 3-month view
+      if (day <= 7) {
+        return { type: 'month', value: date.toLocaleString('default', { month: 'short' }), priority: 2 }
+      } else if (i % 2 === 0) {
+        return { type: 'week', value: `W${Math.floor(i / 2) + 1}`, priority: 1 }
+      }
+    } else if (period === 'current') {
+      // For 7-day view, show day names for all days
+      const dayName = date.toLocaleString('default', { weekday: 'short' })
+      return { type: 'day', value: dayName, priority: 2 }
+    } else if (period === '4weeks' || period === '5weeks') {
+      // For 4-5 week views, show all weeks
+      if (day <= 7) {
+        return { type: 'month', value: date.toLocaleString('default', { month: 'short' }), priority: 2 }
+      } else {
+        return { type: 'week', value: `W${i + 1}`, priority: 1 }
+      }
+    } else {
+      // For other periods, show months and weeks
+      if (day <= 7) {
+        return { type: 'month', value: date.toLocaleString('default', { month: 'short' }), priority: 2 }
+      } else if (i % 2 === 0) {
+        return { type: 'week', value: `W${Math.floor(i / 2) + 1}`, priority: 1 }
+      }
     }
-    if (period === '12months' && w.label) return { type: 'month', value: w.label }
-    // Otherwise, show month for first week of each month
-    const month = date.toLocaleString('default', { month: 'short' })
-    if (month !== lastMonth) {
-      lastMonth = month
-      if (date.getMonth() === 0) return { type: 'year', value: String(date.getFullYear()).slice(-2) }
-      return { type: 'month', value: month }
-    }
-    return ''
+    
+    return null
   })
   
   // Tooltip handlers with viewport-relative positioning
@@ -87,30 +110,44 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
       label = w.label
     } else {
       const weekStartDate = new Date(w.weekStart)
-      const month = weekStartDate.toLocaleString('default', { month: 'short' })
-      const year = weekStartDate.getFullYear()
       
       // Use centralized week calculation to ensure consistency with server
       const correctWeekStart = getWeekStart(weekStartDate)
-      
       const correctEndOfWeek = new Date(correctWeekStart)
       correctEndOfWeek.setDate(correctWeekStart.getDate() + 6)
       
-      // Improved label for different periods
+      // Format dates nicely
+      const formatDate = (date) => {
+        return date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        });
+      };
+      
+      const startDate = formatDate(correctWeekStart);
+      const endDate = formatDate(correctEndOfWeek);
+      
+      // Create period-appropriate labels
       if (period === 'current') {
         // For 7-day period, show the actual date
         const date = new Date(w.weekStart)
-        const dayName = date.toLocaleString('default', { weekday: 'short' })
+        const dayName = date.toLocaleString('default', { weekday: 'long' })
         const dayOfMonth = date.getDate()
-        label = `${dayName}, ${month} ${dayOfMonth}`
+        const month = date.toLocaleString('default', { month: 'short' })
+        label = `${dayName} • ${month} ${dayOfMonth}`
       } else if (period === '3years') {
-        label = `${correctWeekStart.toISOString().slice(0, 10)}–${correctEndOfWeek.toISOString().slice(0, 10)} (${month} ${year})`
+        const weekNumber = weekIdx + 1
+        label = `Week ${weekNumber} • ${startDate} – ${endDate}`
       } else if (period === '52weeks') {
         const weekNumber = weekIdx + 1
-        label = `Week ${weekNumber} (${correctWeekStart.toISOString().slice(0, 10)}–${correctEndOfWeek.toISOString().slice(0, 10)}, ${month} ${year})`
+        label = `Week ${weekNumber} • ${startDate} – ${endDate}`
+      } else if (period === '4weeks' || period === '5weeks') {
+        const weekNumber = weekIdx + 1
+        label = `Week ${weekNumber} • ${startDate} – ${endDate}`
       } else {
         const weekNumber = weekIdx + 1
-        label = `Week ${weekNumber} (${correctWeekStart.toISOString().slice(0, 10)}–${correctEndOfWeek.toISOString().slice(0, 10)}, ${month})`
+        label = `Week ${weekNumber} • ${startDate} – ${endDate}`
       }
     }
     
@@ -189,7 +226,10 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         
         {/* Vertical month boundary grid lines */}
         {xLabels.map((label, i) =>
-          label && typeof label === 'object' && weeklyData.length > 1 && (
+          label && label.type && (
+            // Show all labels for short periods, filter for longer periods
+            (period === 'current' || period === '4weeks' || period === '5weeks' || 
+             ['year', 'quarter', 'month'].includes(label.type)) && (
             <line
               key={`month-grid-${i}`}
               x1={effectivePadding + (i / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
@@ -197,11 +237,11 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
               x2={effectivePadding + (i / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
               y2={height - effectivePadding}
               stroke={accentColor.hex}
-              strokeDasharray="4 2"
-              strokeWidth="1"
-              opacity="0.25"
+              strokeDasharray={label.type === 'year' ? "6 3" : label.type === 'day' ? "2 2" : "4 2"}
+              strokeWidth={label.type === 'year' ? "1.5" : label.type === 'day' ? "0.8" : "1"}
+              opacity={label.type === 'year' ? "0.4" : label.type === 'day' ? "0.2" : "0.25"}
             />
-          )
+          ))
         )}
         {/* Short week tick marks */}
         {weeklyData.map((_, i) => weeklyData.length > 1 && (
@@ -291,35 +331,62 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         })}
         
         {/* X-axis labels */}
-        {xLabels.map((label, i) => label && (
-          typeof label === 'object' ? (
-            <text
-              key={i}
-              x={effectivePadding + (i / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
-              y={height - effectivePadding + (screenshotMode ? 12 : 16)}
-              fontSize={label.type === 'year' ? '15' : '13'}
-              fontWeight={label.type === 'year' ? 'bold' : '500'}
-              fill={accentColor.hex}
-              textAnchor="middle"
-              style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
-            >
-              {label.value}
-            </text>
-          ) : null
-        ))}
+        {(() => {
+          const labels = [];
+          // More lenient spacing for shorter periods
+          const minLabelSpacing = (period === 'current' || period === '4weeks' || period === '5weeks') 
+            ? 40  // Tighter spacing for short periods
+            : 60; // Standard spacing for longer periods
+          let lastLabelX = -minLabelSpacing;
+          
+          // Sort labels by priority and apply collision detection
+          xLabels
+            .map((label, i) => ({ label, index: i }))
+            .filter(item => item.label)
+            .sort((a, b) => (b.label.priority || 0) - (a.label.priority || 0))
+            .forEach(({ label, index }) => {
+              const x = effectivePadding + (index / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding);
+              
+              if (x - lastLabelX >= minLabelSpacing) {
+                lastLabelX = x;
+                labels.push(
+                  <text
+                    key={`x-label-${index}`}
+                    x={x}
+                    y={height - effectivePadding + (screenshotMode ? 12 : 16)}
+                    fontSize={label.type === 'year' ? '15' : label.type === 'quarter' ? '13' : '12'}
+                    fontWeight={label.type === 'year' ? 'bold' : label.type === 'quarter' ? '600' : '500'}
+                    fill={accentColor.hex}
+                    textAnchor="middle"
+                    style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
+                  >
+                    {label.value}
+                  </text>
+                );
+              }
+            });
+          
+          return labels;
+        })()}
       </svg>
       {/* Tooltip using Portal for proper overflow */}
       {tooltip.show && !screenshotMode && (
         <Portal>
           <div
-                            className="fixed z-[10000] px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg pointer-events-none border border-gray-700 max-w-xs"
+            className="fixed z-[10000] px-4 py-3 rounded-lg bg-gray-900/95 backdrop-blur-sm text-white text-sm border shadow-xl pointer-events-none max-w-xs"
             style={{ 
-              left: Math.min(tooltip.x + 10, window.innerWidth - 200), 
-              top: Math.max(tooltip.y - 60, 10)
+              left: Math.min(tooltip.x + 10, window.innerWidth - 280), 
+              top: Math.max(tooltip.y - 60, 10),
+              borderColor: accentColor.hex,
+              boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px ${accentColor.hex}40`
             }}
           >
-            <div className="font-semibold">{tooltip.value} commits</div>
-            <div className="text-gray-400 text-xs">{tooltip.label}</div>
+            <div className="font-semibold mb-1" style={{ color: accentColor.hex }}>
+              {tooltip.value} commits
+            </div>
+            <div className="text-gray-300 text-xs leading-relaxed">
+              {tooltip.label}
+            </div>
           </div>
         </Portal>
       )}
