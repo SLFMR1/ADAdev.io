@@ -40,13 +40,22 @@ const PIPELINE_COLORS = {
  */
 const getResourcesWithGitHub = () => {
   let count = 0
+  let totalResources = 0
+  
   Object.values(cardanoResources).forEach(category => {
     category.forEach(resource => {
-      if (resource.social && resource.social.github) {
+      totalResources++
+      if (resource.social && 
+          resource.social.github && 
+          resource.social.github !== 'n/a' && 
+          resource.social.github !== null &&
+          resource.social.github !== '') {
         count++
       }
     })
   })
+  
+  console.log(`DataQualityDashboard: Found ${count} resources with valid GitHub URLs out of ${totalResources} total resources`)
   return count
 }
 
@@ -170,7 +179,7 @@ const DataQualityDashboard = ({ isVisible = true, onClose }) => {
         const scrollableContent = e.target.closest('.overflow-y-auto');
         
         // Allow scrolling within the dashboard content area
-        if (!dashboardContainer || (dashboardContainer && !scrollableContent)) {
+        if (dashboardContainer && !scrollableContent) {
           e.preventDefault();
           e.stopPropagation();
         }
@@ -182,7 +191,7 @@ const DataQualityDashboard = ({ isVisible = true, onClose }) => {
         const dashboardContainer = e.target.closest('.dashboard-container');
         const scrollableContent = e.target.closest('.overflow-y-auto');
         
-        if (!dashboardContainer || (dashboardContainer && !scrollableContent)) {
+        if (dashboardContainer && !scrollableContent) {
           e.preventDefault();
           e.stopPropagation();
         }
@@ -194,7 +203,7 @@ const DataQualityDashboard = ({ isVisible = true, onClose }) => {
         const dashboardContainer = e.target.closest('.dashboard-container');
         const scrollableContent = e.target.closest('.overflow-y-auto');
         
-        if (!dashboardContainer || (dashboardContainer && !scrollableContent)) {
+        if (dashboardContainer && !scrollableContent) {
           e.preventDefault();
           e.stopPropagation();
         }
@@ -220,18 +229,29 @@ const DataQualityDashboard = ({ isVisible = true, onClose }) => {
    * Computed metrics for pipeline health summary
    */
   const summaryMetrics = useMemo(() => {
-    if (!dashboardData) return null
+    const validResources = getResourcesWithGitHub()
+    
+    if (!dashboardData) {
+      return {
+        totalResources: validResources,
+        pipelineHealth: 0,
+        cacheHitRate: 0,
+        apiErrors: 0,
+        resourcesCovered: 0,
+        criticalIssues: 0,
+        validResources: validResources,
+      }
+    }
 
     const { overview, pipelineMetrics, cacheMetrics, apiMetrics } = dashboardData
-    const validResources = getResourcesWithGitHub()
 
     return {
-      totalResources: overview.totalResources || 0,
+      totalResources: overview?.totalResources || validResources,
       pipelineHealth: pipelineMetrics?.overallHealth || 0,
       cacheHitRate: cacheMetrics?.hitRate || 0,
       apiErrors: apiMetrics?.errorCount || 0,
-      resourcesCovered: overview.resourcesCovered || 0,
-      criticalIssues: overview.criticalIssues || 0,
+      resourcesCovered: overview?.resourcesCovered || 0,
+      criticalIssues: overview?.criticalIssues || 0,
       validResources: validResources,
     }
   }, [dashboardData])
@@ -342,7 +362,22 @@ const DataQualityDashboard = ({ isVisible = true, onClose }) => {
  * Overview Cards Component
  */
 const OverviewCards = ({ metrics, onTriggerBackfill, refreshing }) => {
-  if (!metrics) return null
+  if (!metrics) {
+    // Show skeleton cards when metrics are not available
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {[...Array(4)].map((_, index) => (
+          <div key={index} className="bg-black border border-green-400/30 rounded-lg p-4 font-mono">
+            <div className="animate-pulse">
+              <div className="bg-green-400/10 rounded h-5 mb-2"></div>
+              <div className="bg-green-400/10 rounded h-8 mb-1"></div>
+              <div className="bg-green-400/10 rounded h-3"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   const cards = [
     {
@@ -364,7 +399,7 @@ const OverviewCards = ({ metrics, onTriggerBackfill, refreshing }) => {
       value: `${metrics.resourcesCovered} / ${metrics.validResources}`,
       icon: Database,
       color: 'blue',
-      subtitle: `${Math.round((metrics.resourcesCovered / metrics.validResources) * 100)}% of GitHub-enabled`
+      subtitle: `${metrics.validResources > 0 ? Math.round((metrics.resourcesCovered / metrics.validResources) * 100) : 0}% of GitHub-enabled`
     },
     {
       title: 'API Errors',

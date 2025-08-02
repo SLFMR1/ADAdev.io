@@ -306,7 +306,7 @@ export const cardanoResources = {
       ],
       "website": "https://www.npmjs.com/package/@dotare/cardano-delegation",
       "social": {
-        "github": "n/a"
+        "github": "null"
       },
       "docs": "https://www.npmjs.com/package/@dotare/cardano-delegation",
       "category": "Libraries & Languages",
