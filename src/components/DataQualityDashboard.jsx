@@ -60,6 +60,25 @@ const getResourcesWithGitHub = () => {
 }
 
 /**
+ * Format remaining time for rate limits
+ */
+const formatRemainingTime = (seconds) => {
+  if (!seconds || seconds <= 0) return 'AVAILABLE'
+  
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`
+  } else if (minutes > 0) {
+    return `${minutes}m ${secs}s`
+  } else {
+    return `${secs}s`
+  }
+}
+
+/**
  * Main Data Quality Dashboard Component
  */
 const DataQualityDashboard = ({ isVisible = true, onClose }) => {
@@ -172,58 +191,6 @@ const DataQualityDashboard = ({ isVisible = true, onClose }) => {
     }
   }, [isVisible, fetchDashboardData])
 
-  useEffect(() => {
-    const handleWheel = (e) => {
-      if (isVisible) {
-        const dashboardContainer = e.target.closest('.dashboard-container');
-        const scrollableContent = e.target.closest('.overflow-y-auto');
-        
-        // Allow scrolling within the dashboard content area
-        if (dashboardContainer && !scrollableContent) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }
-    };
-
-    const handleKeyDown = (e) => {
-      if (isVisible && ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) {
-        const dashboardContainer = e.target.closest('.dashboard-container');
-        const scrollableContent = e.target.closest('.overflow-y-auto');
-        
-        if (dashboardContainer && !scrollableContent) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }
-    };
-
-    const handleTouchMove = (e) => {
-      if (isVisible) {
-        const dashboardContainer = e.target.closest('.dashboard-container');
-        const scrollableContent = e.target.closest('.overflow-y-auto');
-        
-        if (dashboardContainer && !scrollableContent) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }
-    };
-
-    if (isVisible) {
-      document.addEventListener('wheel', handleWheel, { passive: false });
-      document.addEventListener('keydown', handleKeyDown, { passive: false });
-      document.addEventListener('touchmove', handleTouchMove, { passive: false });
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('wheel', handleWheel);
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.body.style.overflow = '';
-    };
-  }, [isVisible]);
 
   /**
    * Computed metrics for pipeline health summary
@@ -305,7 +272,7 @@ const DataQualityDashboard = ({ isVisible = true, onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-h-0 overflow-y-auto bg-black" style={{ scrollBehavior: 'smooth', overscrollBehavior: 'auto' }}>
+        <div className="flex-1 min-h-0 overflow-y-auto scrollable-area bg-black" style={{ scrollBehavior: 'smooth', overscrollBehavior: 'auto' }}>
           <div className="p-6">
           {loading && !dashboardData ? (
             <DashboardSkeleton />
@@ -337,6 +304,14 @@ const DataQualityDashboard = ({ isVisible = true, onClose }) => {
                   status={dashboardData.systemStatus}
                   apiMetrics={dashboardData.apiMetrics}
                   backfillOperations={backfillOperations}
+                />
+              </div>
+
+              {/* API Errors List */}
+              <div className="mt-6">
+                <ApiErrorsList 
+                  errors={dashboardData.apiMetrics?.recentErrors || []}
+                  onResourceSelect={setSelectedResource}
                 />
               </div>
             </>
@@ -584,7 +559,7 @@ const CacheHealthChart = ({ data }) => {
       label: 'CACHE_SIZE',
       value: data.activeCacheSize || data.cacheSize || 0,
       icon: Database,
-      description: `CACHED_ITEMS (${data.maxCacheSize || 'UNLIMITED'} MAX)`,
+      description: `${data.utilizationPercentage || 0}% FULL (${data.maxCacheSize || 'UNLIMITED'} MAX)`,
       isCount: true
     },
     {
@@ -667,7 +642,9 @@ const PipelineIssuesList = ({ issues, onResourceSelect, onTriggerBackfill }) => 
     'cache_miss': Clock,
     'db_error': Database,
     'rate_limit': RefreshCw,
-    'timeout': Clock
+    'timeout': Clock,
+    'api_error': AlertTriangle,
+    'cache_full': Database
   }
 
   const issueTypeColors = {
@@ -675,7 +652,9 @@ const PipelineIssuesList = ({ issues, onResourceSelect, onTriggerBackfill }) => 
     'cache_miss': 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
     'db_error': 'text-red-400 bg-red-400/10 border-red-400/30',
     'rate_limit': 'text-orange-400 bg-orange-400/10 border-orange-400/30',
-    'timeout': 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
+    'timeout': 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
+    'api_error': 'text-red-400 bg-red-400/10 border-red-400/30',
+    'cache_full': 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
   }
 
   return (
@@ -747,15 +726,15 @@ const ApiHealthPanel = ({ status, apiMetrics, backfillOperations }) => {
         </div>
         
         {/* Rate Limit Warning */}
-        {status.githubApiStatus === 'error' && (apiMetrics?.rateLimitRemaining || 0) === 0 && (
+        {apiMetrics?.isRateLimited && (
           <div className="mt-2 p-2 bg-yellow-400/10 border border-yellow-400/30 rounded">
             <div className="flex items-center space-x-2">
               <AlertTriangle size={14} className="text-yellow-400" />
               <span className="text-xs text-yellow-400 font-mono">
-                {'>>>'} GITHUB API RATE LIMIT REACHED. METRICS MAY BE OUTDATED. 
-                {apiMetrics?.rateLimitReset && (
+                {'>>>'} GITHUB API RATE LIMITED. METRICS MAY BE OUTDATED.
+                {apiMetrics?.rateLimitResetIn && (
                   <span className="block mt-1">
-                    RESET_TIME: {new Date(apiMetrics.rateLimitReset).toLocaleTimeString()}
+                    RESET_IN: {formatRemainingTime(apiMetrics.rateLimitResetIn)}
                   </span>
                 )}
               </span>
@@ -766,15 +745,19 @@ const ApiHealthPanel = ({ status, apiMetrics, backfillOperations }) => {
         <div className="flex items-center justify-between">
           <span className="text-sm text-green-500 font-mono">RATE_LIMIT_STATUS</span>
           <span className={`text-xs px-2 py-1 rounded border font-mono ${
-            (apiMetrics?.rateLimitRemaining || 0) > 1000
+            apiMetrics?.isRateLimited
+              ? 'bg-red-400/10 text-red-400 border-red-400/30'
+              : (apiMetrics?.rateLimitRemaining || 0) > 1000
               ? 'bg-green-400/10 text-green-400 border-green-400/30'
               : (apiMetrics?.rateLimitRemaining || 0) > 100
               ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30'
               : 'bg-red-400/10 text-red-400 border-red-400/30'
           }`}>
-            {apiMetrics?.rateLimitRemaining !== undefined ? 
-              `${apiMetrics.rateLimitRemaining} REMAINING` : 
-              'CHECKING...'
+            {apiMetrics?.isRateLimited ? 
+              `RESET IN ${formatRemainingTime(apiMetrics?.rateLimitResetIn)}` :
+              apiMetrics?.rateLimitRemaining !== undefined ? 
+                `${apiMetrics.rateLimitRemaining} REMAINING` : 
+                'CHECKING...'
             }
           </span>
         </div>
@@ -878,6 +861,95 @@ const ErrorState = ({ error, onRetry }) => (
     </button>
   </div>
 )
+
+/**
+ * API Errors List Component
+ */
+const ApiErrorsList = ({ errors, onResourceSelect }) => {
+  if (!errors || errors.length === 0) {
+    return (
+      <div className="bg-black border border-green-400/30 rounded-lg p-6 font-mono">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-green-400 tracking-wide">API.ERROR.LOG</h3>
+          <span className="text-xs text-green-600 font-mono">NO ERRORS</span>
+        </div>
+        <div className="flex items-center space-x-2 text-green-400">
+          <CheckCircle size={16} />
+          <span className="text-sm font-mono">{'>>>'} ALL API CALLS OPERATIONAL</span>
+        </div>
+      </div>
+    )
+  }
+
+  const errorTypeColors = {
+    'rate_limit': 'text-orange-400 bg-orange-400/10 border-orange-400/30',
+    'timeout': 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
+    'api_error': 'text-red-400 bg-red-400/10 border-red-400/30',
+    'fetch_error': 'text-red-400 bg-red-400/10 border-red-400/30'
+  }
+
+  const errorTypeIcons = {
+    'rate_limit': RefreshCw,
+    'timeout': Clock,
+    'api_error': AlertTriangle,
+    'fetch_error': AlertTriangle
+  }
+
+  return (
+    <div className="bg-black border border-green-400/30 rounded-lg p-6 font-mono">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-green-400 tracking-wide">API.ERROR.LOG</h3>
+        <span className="text-xs text-green-600 font-mono">LAST {errors.length} ERRORS</span>
+      </div>
+      
+      <div className="space-y-3 max-h-64 overflow-y-auto" style={{ overscrollBehavior: 'auto' }}>
+        {errors.map((error, index) => {
+          const Icon = errorTypeIcons[error.type] || AlertTriangle
+          const colorClass = errorTypeColors[error.type] || 'text-red-400 bg-red-400/10 border-red-400/30'
+          
+          return (
+            <div key={index} className={`flex items-start space-x-3 p-3 rounded border ${colorClass}`}>
+              <Icon size={16} className={`${colorClass.split(' ')[0]} mt-0.5 flex-shrink-0`} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`text-sm font-medium font-mono ${colorClass.split(' ')[0]}`}>
+                    {error.type.toUpperCase().replace('_', ' ')}
+                  </span>
+                  <span className="text-xs text-green-600 font-mono">
+                    {new Date(error.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+                <p className={`text-xs font-mono ${colorClass.split(' ')[0]} mb-1`}>
+                  {'>>>'} {error.error}
+                </p>
+                {error.resource && (
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-mono ${colorClass.split(' ')[0]}`}>
+                      RESOURCE: {error.resource}
+                    </span>
+                    {onResourceSelect && (
+                      <button
+                        onClick={() => onResourceSelect(error.resource)}
+                        className={`text-xs font-mono px-2 py-1 border rounded ${colorClass.split(' ')[0]} ${colorClass.split(' ')[2]} hover:bg-opacity-20 transition-colors`}
+                      >
+                        [ANALYZE]
+                      </button>
+                    )}
+                  </div>
+                )}
+                {error.operation && (
+                  <span className={`text-xs font-mono ${colorClass.split(' ')[0]} block mt-1`}>
+                    OPERATION: {error.operation}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 /**
  * Resource Detail Modal (placeholder)

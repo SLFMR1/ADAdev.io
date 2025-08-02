@@ -38,7 +38,7 @@ let rateLimitResetTime = null
 const CACHE = {
   data: new Map(),
   timestamps: new Map(),
-  maxSize: 1000, // Increased cache size
+  maxSize: 10000, 
   ttl: {
     recent: 6 * 60 * 60 * 1000, // 6 hours for recent data (commits don't change frequently)
     weekly: 12 * 60 * 60 * 1000, // 12 hours for weekly data
@@ -107,7 +107,9 @@ const rateLimitedFetch = async (url, options = {}) => {
     if (!response.ok) {
       consecutiveFailures++
       API_STATS.failedRequests++
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      const error = new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      trackApiError(error, null, 'github_api_request')
+      throw error
     }
     
     // Track successful request and rate limit info
@@ -189,11 +191,31 @@ const resetCacheStats = () => {
 // Reset cache stats every hour
 setInterval(resetCacheStats, 60 * 60 * 1000)
 
-// Simple API stats for dashboard
+// API stats and error tracking for dashboard
 const API_STATS = {
   successfulRequests: 0,
   failedRequests: 0,
-  lastRateLimitRemaining: null
+  lastRateLimitRemaining: null,
+  recentErrors: [] // Store last 50 detailed errors
+}
+
+// Add detailed error tracking
+const trackApiError = (error, resource = null, operation = null) => {
+  const errorEntry = {
+    timestamp: new Date().toISOString(),
+    error: error.message,
+    resource: resource,
+    operation: operation,
+    type: error.message.includes('rate limit') ? 'rate_limit' : 
+          error.message.includes('timeout') ? 'timeout' :
+          error.message.includes('API error') ? 'api_error' : 'fetch_error'
+  }
+  
+  API_STATS.recentErrors.unshift(errorEntry)
+  // Keep only last 50 errors
+  if (API_STATS.recentErrors.length > 50) {
+    API_STATS.recentErrors = API_STATS.recentErrors.slice(0, 50)
+  }
 }
 
 // GitHub API functions
@@ -574,10 +596,13 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
       return []
     }
     
+    // CRITICAL FIX: Use repo_path column to match storage in ensureHistoricalDataCompleteness
+    const repoPath = resource.social?.github?.replace('https://github.com/', '') || resourceIdentifier
+    
     const { data, error } = await supabase
       .from('github_activity')
       .select('*')
-      .eq('resource_id', resourceIdentifier)
+      .eq('repo_path', repoPath)
       .gte('week_start', startDate)
       .lte('week_start', endDate)
       .order('week_start')
@@ -1454,8 +1479,8 @@ app.post('/api/github/global', async (req, res) => {
                 const repos = await fetchOrgRepos(orgName)
                 const allReleases = []
                 
-                // Get releases from first 5 repos to avoid rate limits
-                for (const repo of repos.slice(0, 5)) {
+                // Get releases from all non-fork repos (forks already filtered by fetchOrgRepos)
+                for (const repo of repos) {
                   try {
                     const repoReleases = await fetchRepoReleases(repo.full_name, 3)
                     allReleases.push(...repoReleases.map(release => ({
@@ -1554,7 +1579,7 @@ app.post('/api/github/recent', async (req, res) => {
         
         if (orgName) {
           const repos = await fetchOrgRepos(orgName)
-          const releasePromises = repos.slice(0, 10).map(async repo => {
+          const releasePromises = repos.map(async repo => {
             try {
               const repoReleases = await fetchRepoReleases(repo.full_name, 2)
               return repoReleases.map(release => ({
@@ -2799,8 +2824,8 @@ async function populateUpdatesCache(priority = 'all') {
               const repos = await fetchOrgRepos(orgName)
               const allReleases = []
               
-              // Get releases from first 10 repos to avoid rate limits
-              for (const repo of repos.slice(0, 10)) {
+              // Get releases from all non-fork repos (forks already filtered by fetchOrgRepos)
+              for (const repo of repos) {
                 try {
                   const repoReleases = await fetchRepoReleases(repo.full_name, 5)
                   allReleases.push(...repoReleases.map(release => ({
@@ -3373,9 +3398,14 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
       },
       apiMetrics: {
         rateLimitRemaining: API_STATS.lastRateLimitRemaining || 0,
+        isRateLimited: isRateLimited,
+        rateLimitResetTime: rateLimitResetTime ? rateLimitResetTime.toISOString() : null,
+        rateLimitResetIn: rateLimitResetTime && isRateLimited ? 
+          Math.max(0, Math.ceil((rateLimitResetTime.getTime() - Date.now()) / 1000)) : null,
         errorCount: API_STATS.failedRequests,
         successRate: API_STATS.successfulRequests + API_STATS.failedRequests > 0 ? 
-          Math.round((API_STATS.successfulRequests / (API_STATS.successfulRequests + API_STATS.failedRequests)) * 100) : 0
+          Math.round((API_STATS.successfulRequests / (API_STATS.successfulRequests + API_STATS.failedRequests)) * 100) : 0,
+        recentErrors: API_STATS.recentErrors.slice(0, 25) // Return last 25 errors for dashboard
       },
       pipelineIssues: [],
       recentActivity: [],
@@ -3386,12 +3416,11 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
       }
     }
 
-    // Analyze a sample of resources for performance
-    const sampleSize = Math.min(50, resources.length)
-    const sampleResources = resources.slice(0, sampleSize)
+    // Analyze ALL GitHub resources for enterprise-grade accuracy
+    // No sampling - analyze complete dataset for true metrics
     
     // Analyze pipeline health for GitHub resources only
-    for (const resource of githubResources.slice(0, sampleSize)) {
+    for (const resource of githubResources) {
       try {
         const endDate = new Date().toISOString()
         const startDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString() // Last 3 months
@@ -3434,8 +3463,14 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
         
       } catch (error) {
         console.warn(`Pipeline analysis failed for ${resource.name}: ${error.message}`)
-        // Track as fetch error
+        // Still count as analyzed resource for accurate metrics
+        dashboardMetrics.overview.analyzedResources++
+        dashboardMetrics.overview.averageDataQuality += 0 // Failed analysis = 0% quality
         dashboardMetrics.overview.criticalIssues++
+        
+        // Track the error for API error tracking
+        trackApiError(error, resource.name, 'pipeline_analysis')
+        
         dashboardMetrics.pipelineIssues.push({
           type: 'fetch_error',
           stage: 'Fetch',
@@ -3445,6 +3480,82 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
           severity: 'high'
         })
       }
+    }
+
+    // Add API-level issues to pipeline problems for complete system visibility
+    if (API_STATS.failedRequests > 0) {
+      const errorRate = API_STATS.successfulRequests + API_STATS.failedRequests > 0 ? 
+        Math.round((API_STATS.failedRequests / (API_STATS.successfulRequests + API_STATS.failedRequests)) * 100) : 0
+      
+      if (errorRate > 10) { // More than 10% error rate is concerning
+        dashboardMetrics.pipelineIssues.push({
+          type: 'api_error',
+          stage: 'API',
+          resourceName: 'GitHub API',
+          description: `High API error rate: ${errorRate}% (${API_STATS.failedRequests} failures)`,
+          timestamp: new Date().toISOString(),
+          severity: errorRate > 25 ? 'high' : 'medium'
+        })
+      }
+    }
+
+    // Add rate limit warnings to pipeline issues
+    if (isRateLimited && rateLimitResetTime) {
+      const resetIn = Math.ceil((rateLimitResetTime.getTime() - Date.now()) / 60000) // minutes
+      dashboardMetrics.pipelineIssues.push({
+        type: 'rate_limit',
+        stage: 'API',
+        resourceName: 'GitHub API',
+        description: `Rate limit active, reset in ${resetIn} minutes`,
+        timestamp: new Date().toISOString(),
+        severity: 'medium'
+      })
+    } else if (API_STATS.lastRateLimitRemaining && API_STATS.lastRateLimitRemaining < 100) {
+      dashboardMetrics.pipelineIssues.push({
+        type: 'rate_limit',
+        stage: 'API',
+        resourceName: 'GitHub API',
+        description: `Low rate limit remaining: ${API_STATS.lastRateLimitRemaining} requests`,
+        timestamp: new Date().toISOString(),
+        severity: 'low'
+      })
+    }
+
+    // Add cache-related issues to pipeline problems
+    const cacheUtilization = (CACHE.data.size / CACHE.maxSize) * 100
+    if (cacheUtilization > 95) {
+      dashboardMetrics.pipelineIssues.push({
+        type: 'cache_full',
+        stage: 'Cache',
+        resourceName: 'Memory Cache',
+        description: `Cache nearly full: ${Math.round(cacheUtilization)}% utilization (${CACHE.data.size}/${CACHE.maxSize})`,
+        timestamp: new Date().toISOString(),
+        severity: 'medium'
+      })
+    }
+
+    // Add database performance monitoring
+    try {
+      const dbHealth = await checkDatabaseHealth()
+      if (dbHealth === 'error') {
+        dashboardMetrics.pipelineIssues.push({
+          type: 'db_error',
+          stage: 'Database',
+          resourceName: 'Supabase',
+          description: 'Database connection failed or queries timing out',
+          timestamp: new Date().toISOString(),
+          severity: 'high'
+        })
+      }
+    } catch (dbError) {
+      dashboardMetrics.pipelineIssues.push({
+        type: 'db_error', 
+        stage: 'Database',
+        resourceName: 'Supabase',
+        description: `Database error: ${dbError.message}`,
+        timestamp: new Date().toISOString(),
+        severity: 'high'
+      })
     }
 
     // Calculate real pipeline metrics from actual data analysis
@@ -3479,6 +3590,7 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
         Math.round(cacheUtilization - 90) : 0 // Eviction starts when cache is >90% full
       dashboardMetrics.cacheMetrics.activeCacheSize = CACHE.data.size
       dashboardMetrics.cacheMetrics.maxCacheSize = CACHE.maxSize
+      dashboardMetrics.cacheMetrics.utilizationPercentage = Math.round(cacheUtilization)
       
       // Update GitHub API status based on current state
       if (isRateLimited) {
@@ -3779,19 +3891,19 @@ const startServer = async () => {
           await preloadStartupCache()
           console.log('✅ Step 1/3: Cache preloading completed')
           
-          // Step 2: Check and ensure historical data completeness
+          // Step 2: Check and ensure historical data completeness (github_activity table)
           if (supabase && GITHUB_TOKEN) {
-            console.log('🔍 Step 2/3: Starting historical data completeness check...')
+            console.log('🔍 Step 2/3: Starting historical data completeness check (github_activity table)...')
             await ensureHistoricalDataCompleteness()
-            console.log('✅ Step 2/3: Historical data check completed')
+            console.log('✅ Step 2/3: Historical data check completed (github_activity table)')
           } else {
             console.log('⚠️ Step 2/3: Skipping historical data completeness check (missing Supabase or GitHub token)')
           }
           
-          // Step 3: Initial population of updates cache
-          console.log('🚀 Step 3/3: Starting initial updates cache population...')
+          // Step 3: Initial population of updates cache (github_commits_cache & github_releases_cache)
+          console.log('🚀 Step 3/3: Starting initial updates cache population (commits & releases cache)...')
           await populateUpdatesCache()
-          console.log('✅ Step 3/3: Updates cache population completed')
+          console.log('✅ Step 3/3: Updates cache population completed (commits & releases cache)')
           
           // Set up recurring cache refresh schedules
           console.log('📅 Setting up smart cache refresh schedule:')

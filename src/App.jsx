@@ -361,9 +361,10 @@ function App() {
         const isInGitHubWidget = e.target.closest('[data-widget="github-updates"]');
         const isInAIWidget = e.target.closest('[data-widget="ai-search"]');
         const isInAddWidget = e.target.closest('[data-widget="add-resource"]');
+        const isInQualityWidget = e.target.closest('.dashboard-container');
         
         // If it's in any widget with internal scrolling, let the widget handle its own scrolling
-        if (isInDevWidget || isInGitHubWidget || isInAIWidget || isInAddWidget) {
+        if (isInDevWidget || isInGitHubWidget || isInAIWidget || isInAddWidget || isInQualityWidget) {
           return; // Don't prevent default, let the widget handle it
         }
         
@@ -381,9 +382,10 @@ function App() {
         const isInAIWidget = e.target.closest('[data-widget="ai-search"]');
         const isInAddWidget = e.target.closest('[data-widget="add-resource"]');
         const isInFindDeveloperWidget = e.target.closest('[data-widget="find-developer"]');
+        const isInQualityWidget = e.target.closest('.dashboard-container');
         
         // If it's in any widget with internal scrolling, let the widget handle its own scrolling
-        if (isInDevWidget || isInGitHubWidget || isInAIWidget || isInAddWidget || isInFindDeveloperWidget) {
+        if (isInDevWidget || isInGitHubWidget || isInAIWidget || isInAddWidget || isInFindDeveloperWidget || isInQualityWidget) {
           return; // Don't prevent default, let the widget handle it
         }
         
@@ -401,9 +403,10 @@ function App() {
         const isInAIWidget = e.target.closest('[data-widget="ai-search"]');
         const isInAddWidget = e.target.closest('[data-widget="add-resource"]');
         const isInFindDeveloperWidget = e.target.closest('[data-widget="find-developer"]');
+        const isInQualityWidget = e.target.closest('.dashboard-container');
         
         // If it's in any widget with internal scrolling, let the widget handle its own scrolling
-        if (isInDevWidget || isInGitHubWidget || isInAIWidget || isInAddWidget || isInFindDeveloperWidget) {
+        if (isInDevWidget || isInGitHubWidget || isInAIWidget || isInAddWidget || isInFindDeveloperWidget || isInQualityWidget) {
           return; // Don't prevent default, let the widget handle it
         }
         
