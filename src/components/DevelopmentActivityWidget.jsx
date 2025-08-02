@@ -440,9 +440,39 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       chartData: transformedChartData,
       metrics: isDaily ? activityData.metrics?.daily : activityData.metrics?.weekly,
       periodLabel,
-      isDaily
+      isDaily,
+      rawChartData // Keep raw data for contributing resources
     };
   }, [activityData, selectedPeriod, viewMode]);
+
+  // Extract contributing resources for each data point
+  const contributingResources = useMemo(() => {
+    if (!currentPeriodData?.rawChartData || !currentPeriodData?.chartData) {
+      return null;
+    }
+    
+    const { rawChartData, chartData } = currentPeriodData;
+    
+    // For both organization and repository views, we have individual resource contributions
+    if (rawChartData.length > 0) {
+      return chartData.map((dataPoint, dataIdx) => {
+        const contributors = rawChartData
+          .map(resourceData => {
+            const resourceCount = resourceData.dailyCounts?.[dataIdx] || resourceData.weeklyCounts?.[dataIdx] || 0;
+            return {
+              resource: resourceData.resource,
+              count: resourceCount
+            };
+          })
+          .filter(item => item.count > 0)
+          .sort((a, b) => b.count - a.count);
+        
+        return contributors;
+      });
+    }
+    
+    return null;
+  }, [currentPeriodData, viewMode]);
 
   // Get activity level
   const getActivityLevel = (commitsPerWeek) => {
@@ -990,6 +1020,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                   period={selectedPeriod}
                                   screenshotMode={screenshotMode}
                                   accentColor={currentAccentColor}
+                                  contributingResources={contributingResources}
                                   ref={chartSvgRef}
                                 />
                               </div>

@@ -939,12 +939,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           {tooltip.show && (
             <Portal>
               <div
-                className="fixed z-[9999] px-4 py-3 rounded-lg bg-gray-900/95 backdrop-blur-sm text-white text-sm border shadow-xl pointer-events-none max-w-xs"
+                className="fixed z-[9999] px-4 py-3 rounded-lg bg-gray-900/95 backdrop-blur-sm text-white text-sm shadow-xl pointer-events-none max-w-xs"
                 style={{ 
                   left: Math.min(tooltip.x + 10, window.innerWidth - 280), 
                   top: Math.max(tooltip.y - 60, 10),
-                  borderColor: accentColor.hex,
-                  boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px ${accentColor.hex}40`
+                  boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4)`
                 }}
               >
                 <div className="font-semibold mb-1" style={{ color: accentColor.hex }}>

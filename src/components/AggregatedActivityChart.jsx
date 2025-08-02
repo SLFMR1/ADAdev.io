@@ -5,7 +5,7 @@ import { generateChartPoints, validateNodeCount } from '../utils/chartDataUtils'
 
 // Use centralized chart point generation - removed duplicate function
 
-const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 300, padding = 40, rightPadding, period, screenshotMode = false, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' } }, svgRef) => {
+const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 300, padding = 40, rightPadding, period, screenshotMode = false, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' }, contributingResources = null }, svgRef) => {
   // Use more left padding in screenshot mode
   const effectivePadding = screenshotMode ? 80 : 50;
   const effectiveRightPadding = 30;
@@ -151,6 +151,15 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
       }
     }
     
+    // Get contributing resources for this data point
+    let contributors = [];
+    if (contributingResources && contributingResources[weekIdx]) {
+      contributors = contributingResources[weekIdx]
+        .filter(item => item.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 4); // Show top 4 contributors
+    }
+    
     // Get viewport-relative position - use getBoundingClientRect for fixed positioning
     const rect = e.target.getBoundingClientRect()
     const viewportX = rect.left
@@ -161,7 +170,8 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
       x: viewportX,
       y: viewportY,
       value,
-      label
+      label,
+      contributors
     })
   }
   const handleNodeMouseOut = () => {
@@ -373,20 +383,39 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
       {tooltip.show && !screenshotMode && (
         <Portal>
           <div
-            className="fixed z-[10000] px-4 py-3 rounded-lg bg-gray-900/95 backdrop-blur-sm text-white text-sm border shadow-xl pointer-events-none max-w-xs"
+            className="fixed z-[10000] px-4 py-3 rounded-lg bg-gray-900/95 backdrop-blur-sm text-white text-sm shadow-xl pointer-events-none max-w-xs"
             style={{ 
               left: Math.min(tooltip.x + 10, window.innerWidth - 280), 
               top: Math.max(tooltip.y - 60, 10),
-              borderColor: accentColor.hex,
-              boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px ${accentColor.hex}40`
+              boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4)`
             }}
           >
             <div className="font-semibold mb-1" style={{ color: accentColor.hex }}>
               {tooltip.value} commits
             </div>
-            <div className="text-gray-300 text-xs leading-relaxed">
+            <div className="text-gray-300 text-xs leading-relaxed mb-2">
               {tooltip.label}
             </div>
+            {tooltip.contributors && tooltip.contributors.length > 0 && tooltip.contributors.some(c => c.count > 0) && (
+              <div className="border-t border-gray-700 pt-2">
+                <div className="text-gray-400 text-xs mb-1">Top contributors:</div>
+                {tooltip.contributors.map((contributor, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-gray-300 truncate flex-1 mr-2">
+                      {contributor.resource?.name || contributor.name || `Resource ${idx + 1}`}
+                    </span>
+                    <span className="text-gray-400 font-medium" style={{ color: accentColor.hex }}>
+                      {contributor.count}
+                    </span>
+                  </div>
+                ))}
+                {tooltip.contributors.length >= 4 && (
+                  <div className="text-gray-500 text-xs italic">
+                    +{Math.max(0, tooltip.value - tooltip.contributors.reduce((sum, c) => sum + c.count, 0))} more
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </Portal>
       )}
