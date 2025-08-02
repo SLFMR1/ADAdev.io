@@ -382,7 +382,17 @@ function App() {
       }
     };
 
+    // Clean up function to restore normal scrolling
+    const restoreScrolling = () => {
+      document.removeEventListener('wheel', handleWheel);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.body.style.overflow = '';
+      console.log('🔓 Scroll restrictions cleared');
+    };
+
     if (expanded) {
+      console.log('🔒 Applying scroll restrictions for widget:', expanded);
       // Add event listeners to prevent scrolling
       document.addEventListener('wheel', handleWheel, { passive: false });
       document.addEventListener('keydown', handleKeyDown, { passive: false });
@@ -390,18 +400,22 @@ function App() {
       
       // Add overflow hidden to body
       document.body.style.overflow = 'hidden';
+    } else {
+      // Immediately clear scroll restrictions when no widget is expanded
+      restoreScrolling();
     }
 
-    return () => {
-      // Clean up event listeners
-      document.removeEventListener('wheel', handleWheel);
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('touchmove', handleTouchMove);
-      
-      // Restore body overflow
-      document.body.style.overflow = '';
-    };
+    return restoreScrolling;
   }, [expanded]);
+
+  // Ensure scroll is restored when navigating to resource cards
+  useEffect(() => {
+    if (viewingResourceCard) {
+      // Force clear any lingering scroll restrictions
+      document.body.style.overflow = '';
+      console.log('🔓 Ensuring free scroll for resource card navigation');
+    }
+  }, [viewingResourceCard]);
 
   // Scroll detection for resources section
   useEffect(() => {
@@ -499,31 +513,26 @@ function App() {
     // Close any open widgets first
     setExpanded(null);
     
+    // Immediate surgical cleanup of scroll restrictions to prevent race condition
+    document.body.style.overflow = '';
+    
     // Set viewing state and track navigation source
     setViewingResourceCard(true);
     setNavigationSource('leaderboard');
     
-    // Scroll to resources section
+    // Use the new custom event system for direct navigation to the card
+    // Skip the resources section scroll and go directly to the target card
     setTimeout(() => {
-      const resourcesSection = document.getElementById('resources');
-      if (resourcesSection) {
-        resourcesSection.scrollIntoView({ behavior: 'smooth' });
-        console.log('📜 Scrolled to resources section');
-      }
-      
-      // Use the new custom event system for more reliable tab selection
-      setTimeout(() => {
-        console.log('📡 Dispatching tab request event...');
-        const tabRequestEvent = new CustomEvent('resourceCardTabRequest', {
-          detail: {
-            resourceId,
-            resourceName,
-            tabName: 'activity'
-          }
-        });
-        document.dispatchEvent(tabRequestEvent);
-      }, 600); // Slightly longer delay to ensure scroll is complete
-    }, 100);
+      console.log('📡 Dispatching tab request event for direct navigation...');
+      const tabRequestEvent = new CustomEvent('resourceCardTabRequest', {
+        detail: {
+          resourceId,
+          resourceName,
+          tabName: 'activity'
+        }
+      });
+      document.dispatchEvent(tabRequestEvent);
+    }, 100); // Small delay to ensure widget closes first
   };
 
   // ExpandedWidgetRenderer Component (moved inside App function)

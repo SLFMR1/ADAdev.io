@@ -867,16 +867,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             )}
           </div>
           <div className="flex items-center space-x-1">
-            <GitCommit size={12} style={{ color: accentColor.hex }} />
-            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>
-              {selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years' ? 
-                validWeeklyData.reduce((total, week) => total + (week.count || 0), 0) : 
-                validWeeklyData[validWeeklyData.length - 1]?.count || 0}
-            </span>
-            <span className="text-gray-400 text-xs">commits</span>
             {(selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && isNewRecord && (
               <span 
-                className="text-xs font-medium px-2 py-0.5 rounded ml-2"
+                className="text-xs font-medium px-2 py-0.5 rounded mr-1"
                 style={{ 
                   color: accentColor.hex,
                   backgroundColor: `rgba(${accentColor.rgb}, 0.1)`
@@ -885,6 +878,13 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 new record
               </span>
             )}
+            <GitCommit size={12} style={{ color: accentColor.hex }} />
+            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>
+              {selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years' ? 
+                validWeeklyData.reduce((total, week) => total + (week.count || 0), 0) : 
+                validWeeklyData[validWeeklyData.length - 1]?.count || 0}
+            </span>
+            <span className="text-gray-400 text-xs">commits</span>
           </div>
         </div>
 

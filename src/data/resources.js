@@ -67,16 +67,16 @@ export const cardanoResources = {
       ],
       "website": "https://helios-lang.io/",
       "social": {
-        "github": "https://github.com/Hyperion-BT/helios",
+        "github": "https://github.com/HeliosLang/compiler",
         "discord": "https://discord.gg/XTwPrvB25q",
         "x": "https://x.com/helios_lang"
       },
       "docs": "https://helios-lang.io/docs/learn/intro",
       "category": "Libraries & Languages",
       "type": "repository",
-      "organization": "Hyperion-BT",
-      "repository": "helios",
-      "repo_path": "Hyperion-BT/helios"
+      "organization": "HeliosLang",
+      "repository": "compiler",
+      "repo_path": "HeliosLang/compiler"
     },
     {
       "id": 25,

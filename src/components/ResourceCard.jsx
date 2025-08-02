@@ -322,6 +322,9 @@ const ResourceCard = ({ resource, onViewResource }) => {
         // Add small delay to prevent immediate collapse when opening new cards
         setTimeout(() => {
           setIsExpanded(false)
+          // Ensure scroll freedom is restored when card is closed
+          document.body.style.overflow = ''
+          console.log('🔓 Resource card closed - scroll freedom restored')
         }, 100)
       }
     }
@@ -333,6 +336,12 @@ const ResourceCard = ({ resource, onViewResource }) => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
+  }, [isExpanded])
+
+  // Ensure scroll freedom when card is expanded or collapsed
+  useEffect(() => {
+    // Always ensure scroll is free for resource cards
+    document.body.style.overflow = ''
   }, [isExpanded])
 
   // Handle external tab selection requests
