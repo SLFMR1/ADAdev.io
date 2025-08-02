@@ -6,6 +6,7 @@ import AddResourceWidget from './components/AddResourceWidget';
 import DevelopmentActivityWidget from './components/DevelopmentActivityWidget';
 import AISearchWidget from './components/AISearchWidget';
 import FindDeveloperWidget from './components/FindDeveloperWidget';
+import DataQualityDashboard from './components/DataQualityDashboard';
 import SearchBar from './components/SearchBar';
 import ResourceCard from './components/ResourceCard';
 import AIResults from './components/AIResults';
@@ -14,7 +15,7 @@ import Footer from './components/Footer';
 import { cardanoResources } from './data/resources';
 import { preloadCache, initializeRateLimit } from './services/github';
 import cacheManager from './services/cacheManager';
-import { Activity, Menu, X, Brain, Bot, TrendingUp, Plus, Users } from 'lucide-react';
+import { Activity, Menu, X, Brain, Bot, TrendingUp, Plus, Users, Database } from 'lucide-react';
 import { useCommitData } from './contexts/CommitDataContext';
 
 // Unified Background Overlay Component
@@ -153,6 +154,21 @@ const SidebarWidgetsContainer = ({ expanded, setExpanded, handleWidgetExpand, is
           }`} />
         </div>
       </div>
+      
+      {/* Data Quality Widget */}
+      <div className="relative z-50 w-16 h-16 isolate hover:z-[70]" onClick={() => handleWidgetExpand('quality')}>
+        <div className={`group flex flex-col items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 ${
+          expanded === 'quality' 
+            ? 'border-orange-400/50 shadow-[0_0_20px_rgba(251,146,60,0.4),0_0_40px_rgba(251,146,60,0.2)] z-[70]' 
+            : 'hover:border-orange-400/30 hover:shadow-[0_0_15px_rgba(251,146,60,0.3),0_0_30px_rgba(251,146,60,0.15)]'
+        }`}>
+          <Database size={24} className={`transition-all duration-300 ${
+            expanded === 'quality' 
+              ? 'text-orange-400 drop-shadow-[0_0_12px_rgba(251,146,60,0.8)]' 
+              : 'text-gray-400 group-hover:text-orange-400'
+          }`} />
+        </div>
+      </div>
     </div>
   )
 }
@@ -251,6 +267,20 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
                   <div>
                     <div className="text-white font-medium">Find a Developer</div>
                     <div className="text-gray-400 text-sm">Get help with your project</div>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleWidgetClick('quality')}
+                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                    <Database size={16} className="text-gray-400 group-hover:text-orange-400" />
+                  </div>
+                  <div>
+                    <div className="text-white font-medium">Data Quality</div>
+                    <div className="text-gray-400 text-sm">Monitor system health</div>
                   </div>
                 </div>
               </button>
@@ -558,6 +588,8 @@ function App() {
           return <AddResourceWidget {...widgetProps} />;
         case 'find':
           return <FindDeveloperWidget {...widgetProps} />;
+        case 'quality':
+          return <DataQualityDashboard isVisible={true} onClose={widgetProps.onCollapse} />;
         default:
           return null;
       }
@@ -582,12 +614,14 @@ function App() {
                   </svg>
                 )}
                 {expanded === 'find' && <Users className="h-6 w-6 text-blue-400" />}
+                {expanded === 'quality' && <Database className="h-6 w-6 text-orange-400" />}
                 <h2 className="text-lg sm:text-xl font-bold text-white">
                   {expanded === 'dev' && 'Development Activity'}
                   {expanded === 'github' && 'GitHub Updates'}
                   {expanded === 'ai' && 'AI Development Plan'}
                   {expanded === 'add' && 'Add Resource'}
                   {expanded === 'find' && 'Find a Developer'}
+                  {expanded === 'quality' && 'Data Quality Monitor'}
                 </h2>
               </div>
               <button

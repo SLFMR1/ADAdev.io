@@ -528,6 +528,7 @@ export const cardanoResources = {
       ],
       "website": "https://nmkr.io/",
       "social": {
+        "github": null,
         "api": "https://studio-api.nmkr.io/swagger/index.html",
         "x": "https://x.com/nmkr_io",
         "discord": "https://discord.com/invite/WsEfkqqDMJ"
@@ -604,7 +605,9 @@ export const cardanoResources = {
         "Wallet security"
       ],
       "website": "https://iohk.zendesk.com/hc/en-us/articles/900005141163-Cybersecurity-guidelines-for-Cardano-users",
-      "social": {},
+      "social": {
+        "github": null
+      },
       "category": "Security & Auditing",
       "type": "misc",
       "organization": null,
@@ -627,6 +630,7 @@ export const cardanoResources = {
       ],
       "website": "https://cardanoscan.io/",
       "social": {
+        "github": null,
         "discord": "https://discord.gg/WQFPHNXcz8",
         "x": "https://twitter.com/cardanoscanio"
       },
@@ -650,6 +654,7 @@ export const cardanoResources = {
       ],
       "website": "https://www.xerberus.io/",
       "social": {
+        "github": null,
         "discord": "https://discord.com/invite/YQjWAPZffh",
         "x": "https://x.com/Xerberus_io"
       },
@@ -698,7 +703,9 @@ export const cardanoResources = {
         "Best practices"
       ],
       "website": "https://developers.cardano.org/",
-      "social": {},
+      "social": {
+        "github": null
+      },
       "category": "Education & Documentation",
       "type": "misc",
       "organization": null,
@@ -814,6 +821,7 @@ export const cardanoResources = {
       ],
       "website": "https://vespr.xyz",
       "social": {
+        "github": null,
         "discord": "https://discord.gg/DrjZzDXKbz",
         "x": "https://twitter.com/vesprwallet"
       },
@@ -838,6 +846,7 @@ export const cardanoResources = {
       ],
       "website": "https://typhonwallet.io/",
       "social": {
+        "github": null,
         "x": "https://twitter.com/TyphonWallet"
       },
       "docs": "https://docs.typhonwallet.io/#cip30-dapp-connector",
@@ -885,6 +894,7 @@ export const cardanoResources = {
       ],
       "website": "https://eternl.io/",
       "social": {
+        "github": null,
         "discord": "https://discord.gg/eternlwallet",
         "x": "https://x.com/eternlwallet"
       },
@@ -963,6 +973,7 @@ export const cardanoResources = {
       ],
       "website": "https://iamx.id/",
       "social": {
+        "github": null,
         "discord": "https://discord.com/invite/GhXnsRYRuJ",
         "x": "https://x.com/iamx_id"
       },
@@ -1066,6 +1077,7 @@ export const cardanoResources = {
       ],
       "website": "https://docs.midnight.network/",
       "social": {
+        "github": null,
         "discord": "https://discord.com/invite/midnightnetwork"
       },
       "category": "Privacy & Zero-Knowledge",
@@ -1390,6 +1402,7 @@ export const cardanoResources = {
       ],
       "website": "https://sundae.fi/products/gummiworm",
       "social": {
+        "github": null,
         "discord": "https://discord.gg/Sundae",
         "x": "https://twitter.com/SundaeSwap"
       },
@@ -1415,6 +1428,7 @@ export const cardanoResources = {
       ],
       "website": "https://sundae.fi/products/governance",
       "social": {
+        "github": null,
         "discord": "https://discord.gg/Sundae",
         "x": "https://twitter.com/SundaeSwap"
       },
