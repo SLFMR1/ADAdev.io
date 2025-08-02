@@ -138,7 +138,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
     
     // Check centralized cache first
     const hasValidCache = periodOptions.every(period => 
-      ChartDataCache.has('resource', period.key, resource.id)
+      ChartDataCache.has('repository', period.key, resource.id)
     )
     
     if (hasValidCache) {
@@ -194,7 +194,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
             }
             
             // Store in centralized cache
-            ChartDataCache.set('resource', period, periodData, resource.id)
+            ChartDataCache.set('repository', period, periodData, resource.id)
             preloadedData[period] = periodData
             hasValidData = true
             
@@ -557,7 +557,8 @@ const ResourceCard = ({ resource, onViewResource }) => {
       }`} style={{ 
         minHeight: activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '27rem' : '31rem') : (screenshotMode ? '41rem' : '45rem')) : 
                    activeTab === 'video' ? '34rem' : 
-                   (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem'))
+                   (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')),
+        overflow: 'visible'
       }}>
         <div className="flex flex-col min-h-full">
           {/* Header */}
@@ -762,7 +763,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
               </div>
             )}
             {activeTab === 'activity' && resource.social?.github && (
-              <div ref={chartContainerRef}>
+              <div ref={chartContainerRef} style={{ minHeight: '300px' }}>
                 {isLoadingActivityChart ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>

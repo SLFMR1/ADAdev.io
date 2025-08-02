@@ -9,6 +9,8 @@ const { createClient } = require('@supabase/supabase-js')
 const { getISOWeekNumber, getWeekStart, getCurrentWeekStart, isCurrentWeek } = require('./utils/weekCalculation.js')
 // Removed hybridDataFetcher imports - using unified server API approach
 
+// Use existing data quality functions defined later in the file
+
 const app = express()
 const PORT = process.env.PORT || 3000
 
@@ -41,6 +43,13 @@ const CACHE = {
     recent: 6 * 60 * 60 * 1000, // 6 hours for recent data (commits don't change frequently)
     weekly: 12 * 60 * 60 * 1000, // 12 hours for weekly data
     historical: 24 * 60 * 60 * 1000 // 24 hours for historical data
+  },
+  // Add hit/miss tracking for dashboard metrics
+  stats: {
+    hits: 0,
+    misses: 0,
+    totalRequests: 0,
+    lastReset: Date.now()
   }
 }
 
@@ -97,11 +106,19 @@ const rateLimitedFetch = async (url, options = {}) => {
     
     if (!response.ok) {
       consecutiveFailures++
+      API_STATS.failedRequests++
       throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
     }
     
-    // Reset consecutive failures on success
+    // Track successful request and rate limit info
     consecutiveFailures = 0
+    API_STATS.successfulRequests++
+    
+    const remaining = response.headers.get('x-ratelimit-remaining')
+    if (remaining) {
+      API_STATS.lastRateLimitRemaining = parseInt(remaining)
+    }
+    
     return response
   } catch (error) {
     consecutiveFailures++
@@ -118,8 +135,13 @@ const generateCacheKey = (type, identifier, params = {}) => {
 }
 
 const getCachedData = (key) => {
+  CACHE.stats.totalRequests++
+  
   const timestamp = CACHE.timestamps.get(key)
-  if (!timestamp) return null
+  if (!timestamp) {
+    CACHE.stats.misses++
+    return null
+  }
   
   const now = Date.now()
   const data = CACHE.data.get(key)
@@ -132,9 +154,11 @@ const getCachedData = (key) => {
   if (now - timestamp > ttl) {
     CACHE.data.delete(key)
     CACHE.timestamps.delete(key)
+    CACHE.stats.misses++
     return null
   }
   
+  CACHE.stats.hits++
   return data
 }
 
@@ -150,6 +174,26 @@ const setCachedData = (key, data) => {
   
   CACHE.data.set(key, data)
   CACHE.timestamps.set(key, Date.now())
+}
+
+// Reset cache stats every hour for current performance metrics
+const resetCacheStats = () => {
+  CACHE.stats = {
+    hits: 0,
+    misses: 0,
+    totalRequests: 0,
+    lastReset: Date.now()
+  }
+}
+
+// Reset cache stats every hour
+setInterval(resetCacheStats, 60 * 60 * 1000)
+
+// Simple API stats for dashboard
+const API_STATS = {
+  successfulRequests: 0,
+  failedRequests: 0,
+  lastRateLimitRemaining: null
 }
 
 // GitHub API functions
@@ -263,12 +307,28 @@ const fetchOrgRepos = async (orgName) => {
   if (cached) return cached
   
   try {
-    const url = `${GITHUB_API_BASE}/orgs/${orgName}/repos?type=public&per_page=100`
-    const response = await rateLimitedFetch(url)
-    const repos = await response.json()
+    const allRepos = []
+    let page = 1
     
-    setCachedData(cacheKey, repos)
-    return repos
+    // Fetch all pages of repositories
+    while (true) {
+      const url = `${GITHUB_API_BASE}/orgs/${orgName}/repos?type=public&per_page=100&page=${page}`
+      const response = await rateLimitedFetch(url)
+      const repos = await response.json()
+      
+      if (!Array.isArray(repos) || repos.length === 0) break
+      allRepos.push(...repos)
+      
+      if (repos.length < 100) break // Last page
+      page++
+    }
+    
+    // Filter out forked repositories to avoid including activity from external contributors
+    const originalRepos = allRepos.filter(repo => !repo.fork)
+    console.log(`📦 Organization ${orgName}: ${originalRepos.length} original repositories (${allRepos.length - originalRepos.length} forks excluded)`)
+    
+    setCachedData(cacheKey, originalRepos)
+    return originalRepos
   } catch (error) {
     if (error.message.includes('404')) {
       console.warn(`Organization ${orgName} not found or not accessible`)
@@ -289,7 +349,8 @@ const fetchOrgCommits = async (orgName, since) => {
     
     const allCommits = []
     
-    for (const repo of repos.slice(0, 10)) { // Limit to 10 repos to avoid rate limits
+    // Process all original repositories (excluding forks)
+    for (const repo of repos) {
       try {
         const commits = await fetchRepoCommits(repo.full_name, since)
         if (commits && Array.isArray(commits)) {
@@ -333,9 +394,27 @@ const storeWeeklyActivity = async (resource, weeklyData) => {
   if (!supabase || !weeklyData || weeklyData.length === 0) return
   
   try {
-    // Use resource ID or extract from GitHub URL for both repos and orgs
-    const resourceIdentifier = resource.id || 
-      resource.social?.github?.replace('https://github.com/', '') ||
+    // CRITICAL: Use same extractRepoPath logic as verifyDataStored to ensure identifier consistency
+    const extractRepoPath = (githubUrl) => {
+      if (!githubUrl) return null
+      
+      // Handle organization URLs (e.g., https://github.com/masumi-network)
+      const orgMatch = githubUrl.match(/github\.com\/([^\/]+)$/)
+      if (orgMatch) {
+        return orgMatch[1]
+      }
+      
+      // Handle repository URLs (e.g., https://github.com/owner/repo)
+      const repoMatch = githubUrl.match(/github\.com\/([^\/]+\/[^\/]+)/)
+      if (repoMatch) {
+        return repoMatch[1]
+      }
+      
+      return null
+    }
+    
+    const resourceIdentifier = extractRepoPath(resource.social?.github) || 
+      resource.id?.toString() || 
       resource.name?.toLowerCase().replace(/\s+/g, '-')
     
     if (!resourceIdentifier) {
@@ -358,7 +437,7 @@ const storeWeeklyActivity = async (resource, weeklyData) => {
         
         const weekRecord = {
           resource_id: resourceIdentifier,
-          repo_path: resource.social?.github?.replace('https://github.com/', '') || resourceIdentifier,
+          repo_path: resourceIdentifier, // Use same identifier for consistency
           week_start: week.weekStart,
           commit_count: week.count,
           year: week.year || weekStartDate.getFullYear(),
@@ -454,6 +533,7 @@ const verifyDataStored = async (resource, expectedWeeks) => {
       .from('github_activity')
       .select('*', { count: 'exact' })
       .eq('resource_id', resourceIdentifier)
+      .eq('repo_path', resourceIdentifier) // Add repo_path constraint for consistency
       .gte('week_start', earliestWeek)
       .lte('week_start', latestWeek)
     
@@ -798,8 +878,8 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
     // Calculate how old the OLDEST data in this query is (not the end date)
     const oldestDataAgeInDays = Math.floor((now - startDateTime) / (24 * 60 * 60 * 1000))
     
-    // Historical queries (data older than 14 days) with no current week are immutable
-    if (oldestDataAgeInDays > 14 && !hasCurrentWeekData) {
+    // OPTIMIZATION: Completed weeks (older than 7 days) are immutable - never refresh
+    if (oldestDataAgeInDays > 7 && !hasCurrentWeekData) {
       console.log(`✅ Using historical database data for ${resource.name} (oldest data: ${oldestDataAgeInDays} days old - immutable)`);
       return finalData
     }
@@ -810,20 +890,20 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
       const fetchTime = new Date(latestEntry.fetched_at)
       const fetchAgeHours = Math.floor((now - fetchTime.getTime()) / (60 * 60 * 1000))
       
-      // Recent data staleness thresholds based on current week presence
+      // Optimized staleness thresholds - GitHub activity changes slowly
       let maxAgeHours
       if (hasCurrentWeekData) {
-        maxAgeHours = 2 // Current week: refresh every 2 hours
+        maxAgeHours = 2 // Current week: refresh every 6 hours (was 2)
       } else if (oldestDataAgeInDays <= 1) {
-        maxAgeHours = 4 // Recent completed data: refresh every 4 hours
+        maxAgeHours = 12 // Recent completed data: refresh every 12 hours (was 4)
       } else if (oldestDataAgeInDays <= 7) {
-        maxAgeHours = 6 // Last week: refresh every 6 hours  
+        maxAgeHours = 24 // Last week: refresh every 24 hours (was 6)
       } else {
-        maxAgeHours = 12 // 1-2 weeks old: refresh every 12 hours
+        maxAgeHours = 48 // 1-2 weeks old: refresh every 48 hours (was 12)
       }
       
       if (fetchAgeHours < maxAgeHours) {
-        console.log(`✅ Using recent database data for ${resource.name} (${fetchAgeHours}h old, threshold: ${maxAgeHours}h, currentWeek: ${hasCurrentWeekData})`);
+        console.log(`✅ Using cached database data for ${resource.name} (${fetchAgeHours}h old, threshold: ${maxAgeHours}h, currentWeek: ${hasCurrentWeekData})`);
         return finalData
       }
       
@@ -3076,7 +3156,7 @@ app.get('/api/data-quality/analysis', async (req, res) => {
         
         const weeklyData = await getWeeklyActivity(resource, startDate, endDate)
         
-        // Create gap analysis (simplified version for server-side)
+        // Use the existing server-side analysis functions
         const analysis = {
           resource: {
             id: resource.id,
@@ -3136,7 +3216,8 @@ app.post('/api/data-quality/backfill', async (req, res) => {
       resourceNames = [], 
       priority = 'auto',
       forceRefresh = false,
-      maxConcurrent = 3 
+      maxConcurrent = 3,
+      dateRange = null
     } = req.body
 
     console.log(`🔄 Backfill request: ${resourceIds.length + resourceNames.length} resources, priority: ${priority}`)
@@ -3189,9 +3270,17 @@ app.post('/api/data-quality/backfill', async (req, res) => {
       try {
         console.log(`🔄 Starting backfill for ${resource.name}...`)
         
-        // Calculate date range for backfill (up to 3 years)
-        const endDate = new Date().toISOString()
-        const startDate = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString()
+        // Use provided date range or default to 3 years
+        let startDate, endDate
+        if (dateRange && dateRange.startDate && dateRange.endDate) {
+          startDate = dateRange.startDate
+          endDate = dateRange.endDate
+          console.log(`📅 Using custom date range: ${startDate} to ${endDate}`)
+        } else {
+          endDate = new Date().toISOString()
+          startDate = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString()
+          console.log(`📅 Using default 3-year range: ${startDate} to ${endDate}`)
+        }
         
         // Use existing getHistoricalActivity with forceRefresh flag
         const historicalData = await getHistoricalActivity(resource, startDate, endDate, forceRefresh)
@@ -3272,18 +3361,21 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
         overallHealth: 0      // Will be calculated average
       },
       cacheMetrics: {
-        hitRate: 0,
-        missRate: 0,
+        hitRate: CACHE.stats.totalRequests > 0 ? Math.round((CACHE.stats.hits / CACHE.stats.totalRequests) * 100) : 0,
+        missRate: CACHE.stats.totalRequests > 0 ? Math.round((CACHE.stats.misses / CACHE.stats.totalRequests) * 100) : 0,
         cacheSize: githubResources.length,
         evictionRate: 0,
         activeCacheSize: CACHE.data.size,
-        maxCacheSize: CACHE.maxSize
+        maxCacheSize: CACHE.maxSize,
+        totalRequests: CACHE.stats.totalRequests,
+        totalHits: CACHE.stats.hits,
+        totalMisses: CACHE.stats.misses
       },
       apiMetrics: {
-        rateLimitRemaining: 0,
-        averageResponseTime: 0,
-        errorCount: 0,
-        successRate: 0
+        rateLimitRemaining: API_STATS.lastRateLimitRemaining || 0,
+        errorCount: API_STATS.failedRequests,
+        successRate: API_STATS.successfulRequests + API_STATS.failedRequests > 0 ? 
+          Math.round((API_STATS.successfulRequests / (API_STATS.successfulRequests + API_STATS.failedRequests)) * 100) : 0
       },
       pipelineIssues: [],
       recentActivity: [],
@@ -3378,9 +3470,8 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
       dashboardMetrics.pipelineMetrics.dbWriteSuccess = dbWriteSuccess
       dashboardMetrics.pipelineMetrics.overallHealth = Math.round((fetchSuccessRate + cacheEfficiency + dbWriteSuccess) / 3)
       
-      // Real cache metrics based on data coverage
-      dashboardMetrics.cacheMetrics.hitRate = cacheEfficiency
-      dashboardMetrics.cacheMetrics.missRate = 100 - cacheEfficiency
+      // Keep the real cache hit/miss rates (already calculated from CACHE.stats)
+      // Don't overwrite with data coverage metrics
       
       // Calculate cache eviction rate based on cache utilization
       const cacheUtilization = (CACHE.data.size / CACHE.maxSize) * 100
@@ -3389,32 +3480,14 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
       dashboardMetrics.cacheMetrics.activeCacheSize = CACHE.data.size
       dashboardMetrics.cacheMetrics.maxCacheSize = CACHE.maxSize
       
-      // Real API metrics from actual GitHub rate limit status
-      try {
-        const rateLimitStatus = await checkRateLimitStatus()
-        dashboardMetrics.apiMetrics.rateLimitRemaining = rateLimitStatus.remaining || 0
-        dashboardMetrics.apiMetrics.averageResponseTime = rateLimitStatus.responseTime || 0
-        dashboardMetrics.apiMetrics.rateLimitReset = rateLimitStatus.resetTime
-        
-        // Update GitHub API status based on actual rate limit
-        if (rateLimitStatus.error) {
-          dashboardMetrics.systemStatus.githubApiStatus = 'error'
-        } else if (rateLimitStatus.remaining > 1000) {
-          dashboardMetrics.systemStatus.githubApiStatus = 'operational'
-        } else if (rateLimitStatus.remaining > 100) {
-          dashboardMetrics.systemStatus.githubApiStatus = 'degraded'
-        } else {
-          dashboardMetrics.systemStatus.githubApiStatus = 'limited'
-        }
-      } catch (error) {
-        // If we can't get rate limit info, API might be down
-        dashboardMetrics.apiMetrics.rateLimitRemaining = 0
-        dashboardMetrics.apiMetrics.averageResponseTime = 0
+      // Update GitHub API status based on current state
+      if (isRateLimited) {
         dashboardMetrics.systemStatus.githubApiStatus = 'error'
+      } else if (API_STATS.lastRateLimitRemaining && API_STATS.lastRateLimitRemaining < 100) {
+        dashboardMetrics.systemStatus.githubApiStatus = 'degraded'  
+      } else {
+        dashboardMetrics.systemStatus.githubApiStatus = 'operational'
       }
-      
-      dashboardMetrics.apiMetrics.successRate = fetchSuccessRate
-      dashboardMetrics.apiMetrics.errorCount = dashboardMetrics.overview.criticalIssues
     }
 
     // Sort pipeline issues by severity and timestamp

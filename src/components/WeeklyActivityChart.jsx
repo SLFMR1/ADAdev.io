@@ -42,7 +42,28 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       try {
         setError(null)
         
-        // If preloaded data is available for this period, use it immediately
+        // 1. CACHE CHECK FIRST - check for existing cached data
+        // Use 'repository' viewMode since this is for individual resource charts
+        const cachedData = ChartDataCache.get('repository', selectedPeriod, resource.id)
+        if (cachedData && !preloadedData) {
+          logger.log(`⚡ Using cached data for ${resource.name} (period: ${selectedPeriod})`)
+          
+          if (cachedData.commitsPerWeekDetailed && Array.isArray(cachedData.commitsPerWeekDetailed)) {
+            const filteredData = transformChartData([{ weeklyData: cachedData.commitsPerWeekDetailed }], selectedPeriod, `WeeklyActivityChart-${resource.name}-cached`)
+            
+            setActivityData({
+              currentWeek: filteredData[filteredData.length - 1]?.count || 0,
+              repoInfo: cachedData.repoInfo
+            })
+            setWeeklyData(filteredData)
+            setHistoricalMaximums(cachedData.historicalMaximums || {})
+            setHistoricalMetadata(cachedData.historicalMetadata || {})
+            setIsLoading(false)
+            return // Exit early - no API call needed
+          }
+        }
+        
+        // 2. If preloaded data is available for this period, use it immediately
         if (preloadedData && !preloadedData.error) {
           logger.log(`⚡ Using preloaded data for ${resource.name} (period: ${selectedPeriod})`)
           console.log('WeeklyActivityChart received preloaded data:', preloadedData)
@@ -77,8 +98,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               })
             
             if (validWeeklyData.length === 0) {
-              console.warn(`No valid preloaded weekly data found for ${resource.name}`);
-              throw new Error('No valid weekly data available');
+              console.warn(`No valid preloaded activityfound for ${resource.name}`);
+              throw new Error('No activity in this period');
             }
             
             const currentWeek = validWeeklyData[validWeeklyData.length - 1]?.count || 0
@@ -101,7 +122,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           }
         }
         
-        // Fallback to fetching data if no preloaded data or preloaded data has error
+        // 3. Fallback to API if no cached or preloaded data available
         if (preloadedData?.error) {
           logger.warn(`Preloaded data has error for ${resource.name}: ${preloadedData.error}`);
         }
@@ -148,7 +169,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         }
         
         // Cache the data using centralized cache
-        ChartDataCache.set('resource', selectedPeriod, resourceData, resource.id)
+        ChartDataCache.set('repository', selectedPeriod, resourceData, resource.id)
         
         logger.log(`✅ Server API data received - sources:`, resourceData.dataSources)
         
@@ -187,7 +208,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           
           if (validWeeklyData.length === 0) {
             console.warn(`No valid weekly data found for ${resource.name}`);
-            throw new Error('No valid weekly data available');
+            throw new Error('No activity in this period');
           }
           
           const currentWeek = validWeeklyData[validWeeklyData.length - 1]?.count || 0
@@ -207,7 +228,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           validateNodeCount(filteredData, selectedPeriod, `WeeklyActivityChart-${resource.name}`)
         } else {
           // No valid weekly data available - throw error instead of showing synthetic data
-          throw new Error('No accurate weekly data available')
+          throw new Error('No activity in this period')
         }
       } catch (error) {
         logger.error(`Error loading activity data for ${resource.name}:`, error)
@@ -227,28 +248,6 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     }
     loadActivityData()
   }, [resource, selectedPeriod, preloadedData])
-  
-  // Add cache check at component mount
-  useEffect(() => {
-    const cachedData = ChartDataCache.get('resource', selectedPeriod, resource.id)
-    if (cachedData && !preloadedData) {
-      logger.log(`⚡ Using cached data for ${resource.name}`)
-      // Process cached data same as API response
-      if (cachedData.commitsPerWeekDetailed && Array.isArray(cachedData.commitsPerWeekDetailed)) {
-        // Apply current week filtering and trim to requested period using centralized logic
-        const filteredData = transformChartData([{ weeklyData: cachedData.commitsPerWeekDetailed }], selectedPeriod, `WeeklyActivityChart-${resource.name}-cached`)
-        
-        setActivityData({
-          currentWeek: filteredData[filteredData.length - 1]?.count || 0,
-          repoInfo: cachedData.repoInfo
-        })
-        setWeeklyData(filteredData)
-        setHistoricalMaximums(cachedData.historicalMaximums || {})
-        setHistoricalMetadata(cachedData.historicalMetadata || {})
-        setIsLoading(false)
-      }
-    }
-  }, [resource.id, selectedPeriod, preloadedData])
 
   if (isLoading) {
     return (
@@ -291,7 +290,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
     
     for (const period of periodsToCheck) {
-      const cachedPeriodData = ChartDataCache.get('resource', period, resource.id);
+      const cachedPeriodData = ChartDataCache.get('repository', period, resource.id);
       if (cachedPeriodData && cachedPeriodData.commitsPerWeekDetailed) {
         const weeklyDataForTransform = cachedPeriodData.commitsPerWeekDetailed;
         
@@ -351,7 +350,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
     
     for (const period of periodsToCheck) {
-      const cachedPeriodData = ChartDataCache.get('resource', period, resource.id);
+      const cachedPeriodData = ChartDataCache.get('repository', period, resource.id);
       if (cachedPeriodData && cachedPeriodData.commitsPerWeekDetailed) {
         const weeklyDataForTransform = cachedPeriodData.commitsPerWeekDetailed;
         

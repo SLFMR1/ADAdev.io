@@ -790,21 +790,6 @@ const ApiHealthPanel = ({ status, apiMetrics, backfillOperations }) => {
           </span>
         </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-green-500 font-mono">RESPONSE_TIME</span>
-          <span className={`text-xs px-2 py-1 rounded border font-mono ${
-            (apiMetrics?.averageResponseTime || 0) < 500
-              ? 'bg-green-400/10 text-green-400 border-green-400/30'
-              : (apiMetrics?.averageResponseTime || 0) < 1000
-              ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30'
-              : 'bg-red-400/10 text-red-400 border-red-400/30'
-          }`}>
-            {apiMetrics?.averageResponseTime !== undefined ? 
-              `${apiMetrics.averageResponseTime}MS` : 
-              'MEASURING...'
-            }
-          </span>
-        </div>
       </div>
 
       {/* Pipeline Performance Summary */}
@@ -816,8 +801,8 @@ const ApiHealthPanel = ({ status, apiMetrics, backfillOperations }) => {
             <span className="font-medium text-green-400">{apiMetrics?.successRate || 0}%</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-green-500">CACHE_EFFICIENCY:</span>
-            <span className="font-medium text-green-400">{apiMetrics?.cacheHitRate || 0}%</span>
+            <span className="text-green-500">API_ERRORS:</span>
+            <span className="font-medium text-green-400">{apiMetrics?.errorCount || 0}</span>
           </div>
         </div>
       </div>

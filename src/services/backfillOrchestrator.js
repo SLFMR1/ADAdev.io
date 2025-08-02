@@ -320,9 +320,6 @@ export class BackfillOrchestrator {
   async performBackfill(operation, progressTracker) {
     const { resource, gapAnalysis } = operation
     
-    // This will integrate with the existing server-side backfill logic
-    // For now, simulate the operation with proper progress tracking
-    
     progressTracker.updateStatus('Analyzing gaps...')
     await this.delay(500)
 
@@ -330,45 +327,148 @@ export class BackfillOrchestrator {
     const totalWeeks = gapAnalysis.overallQuality?.missingWeeks || 0
     
     progressTracker.updateStatus('Fetching historical data...')
-    progressTracker.setTotal(totalWeeks)
+    progressTracker.setTotal(Math.max(gaps.length, 1))
 
     let weeksBackfilled = 0
+    let gapsFixed = 0
     
-    // Simulate backfill process with rate limiting
-    for (let i = 0; i < gaps.length; i++) {
-      const gap = gaps[i]
-      
-      // Check if operation should be cancelled
-      if (operation.state === OPERATION_STATE.CANCELLED) {
-        throw new Error('Operation cancelled')
+    try {
+      // Perform actual backfill using server API
+      if (gaps.length > 0) {
+        // Process each gap with real data fetching
+        for (let i = 0; i < gaps.length; i++) {
+          const gap = gaps[i]
+          
+          // Check if operation should be cancelled
+          if (operation.state === OPERATION_STATE.CANCELLED) {
+            throw new Error('Operation cancelled')
+          }
+
+          // Rate limit check
+          await this.waitForRateLimit()
+          
+          progressTracker.updateStatus(`Backfilling gap ${i + 1} of ${gaps.length}...`)
+          
+          try {
+            // Calculate date range for this gap
+            const startDate = gap.startDate
+            const endDate = gap.endDate
+            
+            // Call the server API to backfill this specific date range
+            const response = await this.callBackfillAPI(resource, startDate, endDate)
+            
+            if (response.success) {
+              weeksBackfilled += gap.duration || 1
+              gapsFixed++
+              progressTracker.incrementProgress(1)
+              logger.log(`✅ Backfilled gap for ${resource.name}: ${startDate} to ${endDate}`)
+            } else {
+              logger.warn(`⚠️ Failed to backfill gap for ${resource.name}: ${response.error}`)
+            }
+            
+          } catch (gapError) {
+            logger.warn(`⚠️ Error backfilling gap ${i + 1} for ${resource.name}: ${gapError.message}`)
+          }
+          
+          // Update rate limit tracker
+          this.updateRateLimitTracker()
+        }
+      } else {
+        // No specific gaps - perform general backfill for full period
+        progressTracker.updateStatus('Performing comprehensive backfill...')
+        
+        // Calculate 3-year backfill period
+        const endDate = new Date().toISOString()
+        const startDate = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString()
+        
+        const response = await this.callBackfillAPI(resource, startDate, endDate)
+        
+        if (response.success) {
+          weeksBackfilled = response.weeksBackfilled || totalWeeks
+          gapsFixed = 1
+          progressTracker.incrementProgress(1)
+          logger.log(`✅ Comprehensive backfill completed for ${resource.name}`)
+        } else {
+          throw new Error(`Backfill failed: ${response.error}`)
+        }
       }
 
-      // Rate limit check
-      await this.waitForRateLimit()
+      progressTracker.updateStatus('Validating backfilled data...')
+      await this.delay(500)
+
+      progressTracker.updateStatus('Completed')
+      progressTracker.complete()
+
+      return {
+        weeksBackfilled,
+        gapsFixed,
+        qualityImprovement: this.calculateQualityImprovement(gapAnalysis, weeksBackfilled),
+        completedAt: new Date().toISOString()
+      }
       
-      progressTracker.updateStatus(`Backfilling gap ${i + 1} of ${gaps.length}...`)
-      
-      // Simulate API call delay
-      await this.delay(1000 + Math.random() * 2000)
-      
-      weeksBackfilled += gap.duration || 1
-      progressTracker.incrementProgress(gap.duration || 1)
-      
-      // Update rate limit tracker
-      this.updateRateLimitTracker()
+    } catch (error) {
+      logger.error(`❌ Backfill operation failed for ${resource.name}: ${error.message}`)
+      throw error
     }
+  }
 
-    progressTracker.updateStatus('Validating backfilled data...')
-    await this.delay(500)
+  /**
+   * Call the server backfill API for a specific resource and date range
+   * @param {Object} resource - Resource to backfill
+   * @param {string} startDate - Start date (ISO string)
+   * @param {string} endDate - End date (ISO string)
+   * @returns {Object} API response
+   */
+  async callBackfillAPI(resource, startDate, endDate) {
+    try {
+      const response = await fetch('/api/data-quality/backfill', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          resourceIds: [resource.id],
+          resourceNames: [resource.name],
+          forceRefresh: true,
+          maxConcurrent: 1,
+          dateRange: {
+            startDate,
+            endDate
+          }
+        })
+      })
 
-    progressTracker.updateStatus('Completed')
-    progressTracker.complete()
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
 
-    return {
-      weeksBackfilled,
-      gapsFixed: gaps.length,
-      qualityImprovement: this.calculateQualityImprovement(gapAnalysis, weeksBackfilled),
-      completedAt: new Date().toISOString()
+      const result = await response.json()
+      
+      // Extract success info from the API response
+      const operation = result.operations?.[0]
+      if (operation && operation.status === 'completed') {
+        return {
+          success: true,
+          weeksBackfilled: operation.weeksBackfilled || 0
+        }
+      } else if (operation && operation.status === 'failed') {
+        return {
+          success: false,
+          error: operation.error || 'Unknown error'
+        }
+      } else {
+        return {
+          success: false,
+          error: 'Unexpected API response format'
+        }
+      }
+      
+    } catch (error) {
+      logger.error(`❌ API call failed for ${resource.name}: ${error.message}`)
+      return {
+        success: false,
+        error: error.message
+      }
     }
   }
 
