@@ -3865,21 +3865,48 @@ const startServer = async () => {
       const runSequentialStartup = async () => {
         try {
           // Step 1: Process all existing database data first (fast, no API calls)
+          console.log('')
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    🎯 MILESTONE 1 STARTING                   ║')
+          console.log('║                 DATABASE DATA PROCESSING                      ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
           console.log('🔄 Step 1/4: Processing existing database data for instant UI...')
           await processDatabaseData()
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    ✅ MILESTONE 1 COMPLETED                  ║')
+          console.log('║                 DATABASE DATA PROCESSING                      ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
           console.log('✅ Step 1/4: Database data processing completed')
           
           // Step 2: Preload cache with existing database data
+          console.log('')
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    🎯 MILESTONE 2 STARTING                   ║')
+          console.log('║                   CACHE PRELOADING                            ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
           console.log('🔄 Step 2/4: Preloading cache with existing database data...')
           await preloadStartupCache()
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    ✅ MILESTONE 2 COMPLETED                  ║')
+          console.log('║                   CACHE PRELOADING                            ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
           console.log('✅ Step 2/4: Cache preloading completed')
           
           // Step 3: Start background data fetching and backfilling (non-blocking)
+          console.log('')
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    🎯 MILESTONE 3 STARTING                   ║')
+          console.log('║              BACKGROUND DATA FETCHING                         ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
           console.log('🔄 Step 3/4: Starting background data fetching and backfilling...')
           // Run background fetching after a short delay to ensure UI is fully ready
           setTimeout(() => {
             backgroundDataFetching().then(() => {
               console.log('')
+              console.log('╔══════════════════════════════════════════════════════════════╗')
+              console.log('║                    ✅ MILESTONE 3 COMPLETED                  ║')
+              console.log('║              BACKGROUND DATA FETCHING                         ║')
+              console.log('╚══════════════════════════════════════════════════════════════╝')
               console.log('🎉 FINAL COMPLETION: All background processes finished!')
               console.log('='.repeat(50))
               console.log('✅ All milestones completed successfully!')
@@ -3893,8 +3920,11 @@ const startServer = async () => {
           console.log('✅ Step 3/4: Background data fetching started (non-blocking)')
           
           // Step 4: Set up recurring cache refresh schedules
-          console.log('🎯 MILESTONE 4: CACHE REFRESH SCHEDULES')
-          console.log('='.repeat(50))
+          console.log('')
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    🎯 MILESTONE 4 STARTING                   ║')
+          console.log('║                CACHE REFRESH SCHEDULES                        ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
           console.log('🔄 Step 4/4: Setting up recurring cache refresh schedules...')
           
           // Set up recurring cache refresh schedules
@@ -3914,12 +3944,16 @@ const startServer = async () => {
             populateUpdatesCache('all')
           }, 24 * 60 * 60 * 1000) // 24 hours
           
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    ✅ MILESTONE 4 COMPLETED                  ║')
+          console.log('║                CACHE REFRESH SCHEDULES                        ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
           console.log('✅ Step 4/4: Cache refresh schedules configured')
-          console.log('🎉 MILESTONE 4 COMPLETED: Cache refresh schedules configured!')
           console.log('🎉 All startup processes completed successfully!')
           console.log('')
-          console.log('🚀 SERVER STARTUP SUMMARY:')
-          console.log('='.repeat(50))
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    🚀 SERVER STARTUP SUMMARY                  ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
           console.log('✅ Milestone 1: Database data processing - COMPLETED')
           console.log('✅ Milestone 2: Cache preloading - COMPLETED')
           console.log('🔄 Milestone 3: Background data fetching - RUNNING')
