@@ -89,22 +89,6 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
                 </button>
               </div>
 
-
-            {/* Revert Button - appears when widgets are open or viewing resource card */}
-            {showRevertButton && (
-              <div className="mt-4">
-                <button 
-                  onClick={onRevert}
-                  className={`flex items-center justify-center space-x-2 text-sm sm:text-base px-6 py-3 rounded-full font-semibold transition-all duration-200 mx-auto ${
-                    navigationSource === 'leaderboard' 
-                      ? 'bg-transparent border border-white/50 text-white hover:border-white hover:bg-white/10 hover:scale-105 active:scale-95 shadow-[0_0_8px_rgba(255,255,255,0.2)] hover:shadow-[0_0_12px_rgba(255,255,255,0.3)]' 
-                      : 'bg-transparent border border-gray-600 text-gray-300 hover:border-gray-500 hover:text-white hover:bg-gray-800/30'
-                  }`}
-                >
-                  <RotateCcw size={16} className="sm:w-4 sm:h-4" />
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
