@@ -98,55 +98,75 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, 
                 commitsPerWeek: repoData.commitsPerWeek || 0,
                 weeklyData: repoData.weeklyData || [],
                 repoInfo: repoData.repoInfo,
-                repoPath: repoPath
+                lastFetched: repoData.lastFetched
               })
             }
           })
           
-          if (cachedResults.length > 0) {
-            // Sort by most recent activity
-            cachedResults.sort((a, b) => {
-              const aLatestCommit = a.commits.length > 0 ? new Date(a.commits[0].date).getTime() : 0
-              const aLatestRelease = a.releases.length > 0 ? new Date(a.releases[0].published_at).getTime() : 0
-              const aLatest = Math.max(aLatestCommit, aLatestRelease)
-              
-              const bLatestCommit = b.commits.length > 0 ? new Date(b.commits[0].date).getTime() : 0
-              const bLatestRelease = b.releases.length > 0 ? new Date(b.releases[0].published_at).getTime() : 0
-              const bLatest = Math.max(bLatestCommit, bLatestRelease)
-              
-              return bLatest - aLatest
-            })
-            
-            logger.log(`📦 Loaded ${cachedResults.length} repositories from content cache`)
-            logger.log(`🔄 Refresh needed: ${needsRefresh ? 'Yes' : 'No'}`)
+          if (cachedResults.length > 0 && !needsRefresh) {
             setGithubData(cachedResults)
-            setLastFetchTime(now)
-            setIsLoading(false) // Cache loaded, no need to show loading
-            
-            // If refresh needed, trigger background update
-            if (needsRefresh && isExpanded) {
-              logger.log('🔄 Triggering background refresh...')
-              setTimeout(() => loadGitHubData(true), 1000)
-            }
-            
-            return true
+            setIsLoading(false)
+            setLastFetchTime(Date.now())
+            return true // Cache hit
           }
+          
+          return needsRefresh // Cache miss or needs refresh
+        }
+        
+        return false // No cache
+      } catch (error) {
+        logger.error('Error loading cache:', error)
+        return false
+      }
+    }
+
+    const loadGitHubData = async () => {
+      try {
+        // Check cache first
+        const cacheHit = loadContentCache()
+        
+        if (cacheHit) {
+          return // Data loaded from cache
+        }
+        
+        // Fetch fresh data
+        const resourcesWithGitHub = Object.values(cardanoResources)
+          .flat()
+          .filter(resource => resource.social?.github)
+        
+        const allData = await fetchGlobalGitHubUpdates(resourcesWithGitHub)
+        
+        if (allData && Array.isArray(allData)) {
+          // Store in cache
+          const contentCache = {}
+          allData.forEach(item => {
+            if (item.resource?.social?.github) {
+              const repoPath = item.resource.social.github.replace('https://github.com/', '')
+              contentCache[repoPath] = {
+                ...item,
+                lastFetched: Date.now()
+              }
+            }
+          })
+          
+          localStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify(contentCache))
+          
+          setGithubData(allData)
+          setLastFetchTime(Date.now())
         }
       } catch (error) {
-        logger.error('❌ Error loading content cache:', error)
-        localStorage.removeItem(CONTENT_CACHE_KEY)
+        logger.error('Error loading GitHub data:', error)
+      } finally {
+        setIsLoading(false)
       }
-      // No cache found, but don't show loading until widget is actually expanded
-      setIsLoading(false)
-      return false
     }
-    
-    // Load cached data immediately if available
-    loadContentCache()
-  }, [])
+
+    // Load data when widget is expanded
+    if (isExpanded) {
+      loadGitHubData()
+    }
+  }, [isExpanded])
   
-
-
   // Handle click outside to collapse widget
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -168,39 +188,20 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, 
 
   const loadGitHubData = useCallback(async (forceRefresh = false) => {
     try {
-      console.log('🚀 WIDGET DEBUG: Starting loadGitHubData function')
       logger.log('🚀 Widget: Starting loadGitHubData function')
       
       // Check if we have recent data and don't need to refresh
-      console.log('🔍 WIDGET DEBUG: Checking cache...', {
-        forceRefresh,
-        lastFetchTime,
-        githubDataLength: githubData.length
-      })
-      
       if (!forceRefresh && lastFetchTime && githubData.length > 0) {
         const timeSinceLastFetch = Date.now() - lastFetchTime
         const refreshThreshold = isActiveHours() ? ACTIVE_HOURS_REFRESH : PASSIVE_HOURS_REFRESH
-        console.log('🔍 WIDGET DEBUG: Cache check details:', {
-          timeSinceLastFetch,
-          refreshThreshold,
-          shouldUseCache: timeSinceLastFetch < refreshThreshold
-        })
         if (timeSinceLastFetch < refreshThreshold) {
-          console.log('⚡ WIDGET DEBUG: Using cached data, returning early')
-          console.log('📊 WIDGET DEBUG: Current cached data:', githubData.map(d => ({
-            resource: d.resource?.name,
-            releases: d.releases?.length || 0,
-            commits: d.commits?.length || 0
-          })))
           logger.log(`⚡ Using cached data (${Math.round(timeSinceLastFetch / 1000)}s old, refresh threshold: ${Math.round(refreshThreshold / 1000)}s)`)
           setIsLoading(false)
           return
         }
-        console.log('🔄 WIDGET DEBUG: Cache expired, continuing to fetch')
         logger.log(`🔄 Cache expired (${Math.round(timeSinceLastFetch / 1000)}s old), fetching fresh data`)
       } else {
-        console.log('🆕 WIDGET DEBUG: No cache or forcing refresh, continuing to fetch')
+        logger.log(`🆕 No cache or forcing refresh, continuing to fetch`)
       }
       
       setIsLoading(true) // Show loading state when fetching fresh data
@@ -230,8 +231,6 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, 
       })
       
       // Race between the actual request and timeout
-      console.log(`🌐 WIDGET DEBUG: Fetching GitHub data for ${resourcesWithGitHub.length} resources...`)
-      logger.log(`🌐 Widget: Fetching GitHub data for ${resourcesWithGitHub.length} resources...`)
       let allData
       try {
         allData = await Promise.race([
@@ -239,10 +238,9 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, 
           timeoutPromise
         ])
         
-        console.log('✅ WIDGET DEBUG: fetchGlobalGitHubUpdates completed, received:', typeof allData, Array.isArray(allData) ? `array with ${allData.length} items` : allData)
         logger.log('✅ Widget: fetchGlobalGitHubUpdates completed, received:', typeof allData, Array.isArray(allData) ? `array with ${allData.length} items` : allData)
       } catch (fetchError) {
-        console.error('❌ WIDGET DEBUG: fetchGlobalGitHubUpdates failed:', fetchError)
+        logger.error('❌ Widget: fetchGlobalGitHubUpdates failed:', fetchError)
         throw fetchError
       }
       
@@ -256,7 +254,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, 
       logger.log(`📦 Received ${allData.length} resources from GitHub API`)
       
       // Filter and prepare data for showing latest activity from last 3 days
-      logger.log('🔍 Widget: Processing data for recent activity...')
+      logger.log('�� Widget: Processing data for recent activity...')
       
       // Calculate cutoff dates - different windows for releases vs commits
       const thirtyDaysAgo = new Date() // For releases - show more history
@@ -419,10 +417,7 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, 
   }, [githubData.length, lastFetchTime, ACTIVE_HOURS_REFRESH, PASSIVE_HOURS_REFRESH])
 
   useEffect(() => {
-    console.log('🎯 WIDGET DEBUG: useEffect triggered, isExpanded:', isExpanded)
     if (isExpanded) {
-      console.log('🔄 WIDGET DEBUG: Starting data load')
-      logger.log(`🔄 Widget: Starting data load`)
       loadGitHubData() // Will use cache if available
     }
   }, [isExpanded])

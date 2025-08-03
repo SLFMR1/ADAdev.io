@@ -200,7 +200,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
             
             // Validate node count
             validateNodeCount(data.weeklyData, period, `ResourceCard-${resource.name}`)
-            console.log(`📊 ${period} server API data for ${resource.name}:`, {
+            logger.debug(`📊 ${period} server API data for ${resource.name}:`, {
               weeklyDataLength: data.weeklyData?.length || 0,
               sampleWeeks: data.weeklyData?.slice(0, 3),
               dataSources: { database: true, github: false },
@@ -222,7 +222,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       if (hasValidData) {
         setActivityChartData(preloadedData)
         setLastActivityFetch(Date.now())
-        console.log('📦 Preloaded server API data structure:', preloadedData)
+        logger.debug('📦 Preloaded server API data structure:', preloadedData)
         logger.log(`📦 Activity chart data preloaded for ${resource.name} with ${Object.keys(preloadedData).length} periods`)
       } else {
         throw new Error('No valid chart data received for any period')
@@ -253,16 +253,16 @@ const ResourceCard = ({ resource, onViewResource }) => {
         
         // Scroll to card when switching tabs to ensure it stays visible
         if (isExpanded) {
-          if (tabName === 'activity') {
-            console.log(`🎯 Activity tab clicked for ${resource.name}, checking data...`)
-            // Only preload if we don't have cached data
-            const hasAnyCachedData = Object.keys(activityChartData).length > 0
-            if (!hasAnyCachedData) {
-              console.log(`Loading activity chart data for ${resource.name}...`)
-              preloadActivityChartData()
-            } else {
-              console.log(`Using existing cached data for ${resource.name}`)
-            }
+                  if (tabName === 'activity') {
+          logger.debug(`🎯 Activity tab clicked for ${resource.name}, checking data...`)
+          // Only preload if we don't have cached data
+          const hasAnyCachedData = Object.keys(activityChartData).length > 0
+          if (!hasAnyCachedData) {
+            logger.debug(`Loading activity chart data for ${resource.name}...`)
+            preloadActivityChartData()
+          } else {
+            logger.debug(`Using existing cached data for ${resource.name}`)
+          }
             // Single scroll after complete expansion
             setTimeout(() => scrollToCard(), 600);
           } else {
@@ -324,7 +324,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
           setIsExpanded(false)
           // Ensure scroll freedom is restored when card is closed
           document.body.style.overflow = ''
-          console.log('🔓 Resource card closed - scroll freedom restored')
+          logger.debug('🔓 Resource card closed - scroll freedom restored')
         }, 100)
       }
     }
@@ -353,26 +353,26 @@ const ResourceCard = ({ resource, onViewResource }) => {
       if ((resourceId && resource.id === resourceId) || 
           (resourceName && resource.name === resourceName)) {
         
-        console.log(`🎯 External tab request for ${resource.name}: ${tabName}`);
+        logger.debug(`🎯 External tab request for ${resource.name}: ${tabName}`);
         
         // Expand the card if not already expanded
         if (!isExpanded) {
           setIsExpanded(true);
         }
         
-        // Set the active tab after a brief delay to ensure expansion is complete
-        setTimeout(() => {
-          setActiveTab(tabName);
-          console.log(`✅ Tab set to ${tabName} for ${resource.name}`);
-          
-          // Smooth scroll to the card when any tab is selected externally
-          if (tabName === 'activity') {
-            // Only preload if we don't have cached data
-            const hasAnyCachedData = Object.keys(activityChartData).length > 0
-            if (!hasAnyCachedData) {
-              console.log(`Loading activity chart data for ${resource.name} (external request)...`)
-              preloadActivityChartData()
-            }
+                  // Set the active tab after a brief delay to ensure expansion is complete
+          setTimeout(() => {
+            setActiveTab(tabName);
+            logger.debug(`✅ Tab set to ${tabName} for ${resource.name}`);
+            
+            // Smooth scroll to the card when any tab is selected externally
+            if (tabName === 'activity') {
+              // Only preload if we don't have cached data
+              const hasAnyCachedData = Object.keys(activityChartData).length > 0
+              if (!hasAnyCachedData) {
+                logger.debug(`Loading activity chart data for ${resource.name} (external request)...`)
+                preloadActivityChartData()
+              }
             // Single scroll after complete expansion
             setTimeout(() => scrollToCard(), 800);
           } else {

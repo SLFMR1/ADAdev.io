@@ -1,5 +1,37 @@
 require('dotenv').config()
 
+// Smart logging system - configurable for different needs
+const isProduction = process.env.NODE_ENV === 'production'
+const isDevelopment = process.env.NODE_ENV === 'development'
+const LOG_LEVEL = process.env.LOG_LEVEL || (isProduction ? 'warn' : 'info')
+
+const logger = {
+  info: (...args) => {
+    if (LOG_LEVEL === 'info' || LOG_LEVEL === 'debug' || LOG_LEVEL === 'warn' || LOG_LEVEL === 'error') {
+      console.log(...args)
+    }
+  },
+  debug: (...args) => {
+    if (LOG_LEVEL === 'debug') {
+      console.log(...args)
+    }
+  },
+  warn: (...args) => {
+    // Always show warnings in production for maintenance
+    if (LOG_LEVEL === 'warn' || LOG_LEVEL === 'error' || isProduction) {
+      console.warn(...args)
+    }
+  },
+  error: (...args) => {
+    // Always show errors
+    console.error(...args)
+  },
+  // New: Critical logs that should always show
+  critical: (...args) => {
+    console.log('🚨 CRITICAL:', ...args)
+  }
+}
+
 const express = require('express')
 const path = require('path')
 const cors = require('cors')
@@ -39,7 +71,7 @@ let rateLimitResetTime = null
 const CACHE = {
   data: new Map(),
   timestamps: new Map(),
-  maxSize: 500, // Reduced for memory constraints (512MB RAM)
+  maxSize: 10000, // Restored to original size for optimal performance
   ttl: {
     recent: 30 * 60 * 1000, // 30 minutes for recent data (real-time updates)
     weekly: 30 * 24 * 60 * 60 * 1000, // 30 days for weekly data (immutable)
@@ -94,7 +126,7 @@ const rateLimitedFetch = async (url, options = {}) => {
       isRateLimited = true
       rateLimitResetTime = resetDate
       
-      console.warn(`⚠️ GitHub rate limit exceeded. Reset at: ${resetDate.toLocaleString()}`)
+      logger.warn(`⚠️ GitHub rate limit exceeded. Reset at: ${resetDate.toLocaleString()}`)
       throw new Error(`Rate limit exceeded. Try again in ${Math.ceil(waitTime / 60000)} minutes.`)
     }
     
@@ -102,7 +134,7 @@ const rateLimitedFetch = async (url, options = {}) => {
     if (isRateLimited && rateLimitResetTime && Date.now() > rateLimitResetTime.getTime()) {
       isRateLimited = false
       rateLimitResetTime = null
-      console.log('✅ GitHub rate limit has reset')
+      logger.info('✅ GitHub rate limit has reset')
     }
     
     if (!response.ok) {
@@ -269,7 +301,7 @@ const fetchRepoCommits = async (repoPath, since = null) => {
       }
     }
     
-    console.log(`📄 Fetched ${allCommits.length} total commits from ${page} pages for ${repoPath}`)
+    logger.debug(`📄 Fetched ${allCommits.length} total commits from ${page} pages for ${repoPath}`)
     
     // Enrich each commit with repository information for maintainCommitsCache
     const enrichedCommits = allCommits.map(commit => ({
@@ -348,7 +380,7 @@ const fetchOrgRepos = async (orgName) => {
     
     // Filter out forked repositories to avoid including activity from external contributors
     const originalRepos = allRepos.filter(repo => !repo.fork)
-    console.log(`📦 Organization ${orgName}: ${originalRepos.length} original repositories (${allRepos.length - originalRepos.length} forks excluded)`)
+    logger.debug(`📦 Organization ${orgName}: ${originalRepos.length} original repositories (${allRepos.length - originalRepos.length} forks excluded)`)
     
     setCachedData(cacheKey, originalRepos)
     return originalRepos
@@ -402,9 +434,9 @@ const createTables = async () => {
   
   try {
     // Tables are created via Supabase dashboard migrations, not RPC calls
-    console.log('✅ Database tables should already exist (managed via Supabase dashboard)')
+    logger.info('✅ Database tables should already exist (managed via Supabase dashboard)')
   } catch (error) {
-    console.log('⚠️ Database table verification error:', error.message)
+    logger.warn('⚠️ Database table verification error:', error.message)
   }
 }
 
@@ -585,7 +617,7 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
   const cacheKey = generateCacheKey('recent_activity', resource.id || resource.name, { useDailyProcessing, period })
   const cachedResult = getCachedData(cacheKey)
   if (cachedResult) {
-    console.log(`✅ Using cached recent activity for ${resource.name}`);
+    logger.debug(`✅ Using cached recent activity for ${resource.name}`);
     return cachedResult
   }
   
@@ -609,11 +641,11 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
     }
     const since = new Date(Date.now() - timeWindow * 24 * 60 * 60 * 1000).toISOString();
     
-    console.log(`⏰ ${resource.name}: Fetching commits since ${since} (${timeWindow} days, period: ${period}, daily: ${useDailyProcessing})`);
+    logger.debug(`⏰ ${resource.name}: Fetching commits since ${since} (${timeWindow} days, period: ${period}, daily: ${useDailyProcessing})`);
     
     // Check if we're currently rate limited
     if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
-      console.warn(`⚠️ Skipping ${resource.name} - GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`);
+      logger.warn(`⚠️ Skipping ${resource.name} - GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`);
       const emptyResult = {
         commits: [],
         commitsPerWeek: 0,
@@ -624,7 +656,7 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
       return emptyResult
     }
     
-    console.log(`🔄 Fetching recent activity for ${resource.name} (${timeWindow} days, period: ${period})...`);
+    logger.debug(`🔄 Fetching recent activity for ${resource.name} (${timeWindow} days, period: ${period})...`);
     
     if (resource.type === 'organization') {
       // For organizations, use repo_path first, then organization field, then extract from GitHub URL
@@ -696,14 +728,14 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
       repository: commit.repository
     }))
     
-    console.log(`📈 ${resource.name}: Found ${commits.length} raw commits, transformed to ${transformedCommits.length}`);
+    logger.debug(`📈 ${resource.name}: Found ${commits.length} raw commits, transformed to ${transformedCommits.length}`);
     
     // Use daily processing for 7-day view, weekly processing for other views
     const processedData = useDailyProcessing 
       ? processCommitsToDaily(transformedCommits)
       : processCommitsToWeekly(transformedCommits)
     
-    console.log(`📅 ${resource.name}: Processed ${processedData.length} data points (daily: ${useDailyProcessing})`);
+    logger.debug(`📅 ${resource.name}: Processed ${processedData.length} data points (daily: ${useDailyProcessing})`);
     
     const result = {
       commits: transformedCommits.slice(0, 20), // Latest 20 commits
@@ -741,7 +773,7 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
   
   // Skip cache entirely if forceRefresh is true (for historical backfilling)
   if (forceRefresh) {
-    console.log(`🔄 Force refresh enabled for ${resource.name} - skipping all cache checks`)
+    logger.debug(`🔄 Force refresh enabled for ${resource.name} - skipping all cache checks`)
   } else {
     // Check database cache first for ALL resources (both repos and orgs)
     
@@ -752,7 +784,7 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
     }
     
     if (dbData.length > 0) {
-      console.log(`✅ Using cached database data for ${resource.name} (${dbData.length} weeks)`);
+      logger.debug(`✅ Using cached database data for ${resource.name} (${dbData.length} weeks)`);
       
       const nowForMapping = new Date()
     const currentWeekStartForMapping = getCurrentWeekStart()
@@ -801,7 +833,7 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
     
     // OPTIMIZATION: Completed weeks (older than 7 days) are immutable - never refresh
     if (oldestDataAgeInDays > 7 && !hasCurrentWeekData) {
-      console.log(`✅ Using historical database data for ${resource.name} (oldest data: ${oldestDataAgeInDays} days old - immutable)`);
+      logger.debug(`✅ Using historical database data for ${resource.name} (oldest data: ${oldestDataAgeInDays} days old - immutable)`);
       return finalData
     }
     
@@ -824,47 +856,47 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
       }
       
       if (fetchAgeHours < maxAgeHours) {
-        console.log(`✅ Using cached database data for ${resource.name} (${fetchAgeHours}h old, threshold: ${maxAgeHours}h, currentWeek: ${hasCurrentWeekData})`);
+        logger.debug(`✅ Using cached database data for ${resource.name} (${fetchAgeHours}h old, threshold: ${maxAgeHours}h, currentWeek: ${hasCurrentWeekData})`);
         return finalData
       }
       
-      console.log(`⚡ Refreshing data for ${resource.name} (${fetchAgeHours}h old, currentWeek: ${hasCurrentWeekData}, oldest: ${oldestDataAgeInDays} days)`)
+      logger.debug(`⚡ Refreshing data for ${resource.name} (${fetchAgeHours}h old, currentWeek: ${hasCurrentWeekData}, oldest: ${oldestDataAgeInDays} days)`)
     } else {
       // No fetch timestamp - use data but try to refresh
-      console.log(`⚡ Using database data for ${resource.name} (no timestamp - will attempt refresh)`)
+      logger.debug(`⚡ Using database data for ${resource.name} (no timestamp - will attempt refresh)`)
     }
     }
     
     // Check in-memory cache before hitting GitHub API
     const cachedResult = getCachedData(cacheKey)
     if (cachedResult) {
-      console.log(`✅ Using in-memory cache for ${resource.name}`);
+      logger.debug(`✅ Using in-memory cache for ${resource.name}`);
       return cachedResult
     }
   }
   
   // Check if we're currently rate limited
   if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
-    console.warn(`⚠️ GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`);
+    logger.warn(`⚠️ GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`);
     
     // Return database data if available, rather than empty results
     if (dbData.length > 0) {
-      console.log(`📊 Using existing database data for ${resource.name} (rate limited fallback)`);
+      logger.debug(`📊 Using existing database data for ${resource.name} (rate limited fallback)`);
       return finalData
     }
     
-    console.warn(`⚠️ No database data available for ${resource.name} - returning empty results`);
+    logger.warn(`⚠️ No database data available for ${resource.name} - returning empty results`);
     return []
   }
   
-  console.log(`🔄 Fetching fresh data from GitHub API for ${resource.name}...`);
+  logger.debug(`🔄 Fetching fresh data from GitHub API for ${resource.name}...`);
   
   // Fallback to GitHub API with enhanced error handling
   const since = new Date(startDate).toISOString()
   let commits = []
   
   try {
-    console.log(`🔄 Fetching fresh GitHub data for ${resource.name} (${startDate} to ${endDate})`);
+    logger.debug(`🔄 Fetching fresh GitHub data for ${resource.name} (${startDate} to ${endDate})`);
     
     if (resource.type === 'organization') {
       // For organizations, use repo_path first, then organization field, then extract from GitHub URL
@@ -898,7 +930,7 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
   }
   
   const weeklyData = processCommitsToWeekly(commits)
-  console.log(`📊 Processed ${commits.length} commits into ${weeklyData.length} weeks for ${resource.name}`)
+  logger.debug(`📊 Processed ${commits.length} commits into ${weeklyData.length} weeks for ${resource.name}`)
   
   // Store in both in-memory cache and database for future use
   setCachedData(cacheKey, weeklyData)
@@ -910,9 +942,9 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
     // Verify storage succeeded
     const verification = await verifyDataStored(resource, weeklyData)
     if (verification.success) {
-      console.log(`✅ Successfully stored fresh data for ${resource.name} (${verification.stored}/${verification.expected} weeks)`)
+      logger.debug(`✅ Successfully stored fresh data for ${resource.name} (${verification.stored}/${verification.expected} weeks)`)
     } else {
-      console.warn(`⚠️ Storage verification failed for ${resource.name}: expected ${verification.expected}, stored ${verification.stored}`)
+      logger.warn(`⚠️ Storage verification failed for ${resource.name}: expected ${verification.expected}, stored ${verification.stored}`)
     }
   } catch (error) {
     console.warn(`Failed to store activity data for ${resource.name}:`, error.message)
@@ -929,7 +961,7 @@ const calculateHistoricalMaximums = async (resource) => {
   const cached = HISTORICAL_MAXIMUMS_CACHE.get(cacheKey);
   
   if (cached && (Date.now() - cached.timestamp < HISTORICAL_MAXIMUMS_TTL)) {
-    console.log(`⚡ Using cached historical maximums for ${resource.name} (${Math.round((Date.now() - cached.timestamp) / 1000)}s old)`);
+    logger.debug(`⚡ Using cached historical maximums for ${resource.name} (${Math.round((Date.now() - cached.timestamp) / 1000)}s old)`);
     return cached.data;
   }
   
@@ -976,7 +1008,7 @@ const calculateHistoricalMaximums = async (resource) => {
     }
 
     if (!data || data.length === 0) {
-      console.log(`No historical data found for ${resource.name} - returning empty maximums for intelligent frontend handling`)
+      logger.debug(`No historical data found for ${resource.name} - returning empty maximums for intelligent frontend handling`)
       return {
         maximums: {}, // Empty object - let frontend handle gracefully
         metadata: {
@@ -998,7 +1030,7 @@ const calculateHistoricalMaximums = async (resource) => {
     const totalWeeks = weeklyCommits.length
     const dateRange = totalWeeks > 0 ? `${weeklyCommits[0].weekStart} to ${weeklyCommits[totalWeeks-1].weekStart}` : 'none'
     const totalCommits = weeklyCommits.reduce((sum, week) => sum + week.count, 0)
-    console.log(`📅 ${resource.name} historical data: ${totalWeeks} weeks (${dateRange}), ${totalCommits} total commits`)
+    logger.debug(`📅 ${resource.name} historical data: ${totalWeeks} weeks (${dateRange}), ${totalCommits} total commits`)
 
     // Calculate rolling maximums for each period
     const periods = {
@@ -1046,12 +1078,12 @@ const calculateHistoricalMaximums = async (resource) => {
         }
         
         // Debug logging
-        console.log(`📊 ${resource.name} ${periodKey} (${weekCount} weeks): ${possibleWindows} windows, max=${maxTotal}, all=[${windowTotals.slice(0, 5).join(',')}${windowTotals.length > 5 ? '...' : ''}]`)
+        logger.debug(`📊 ${resource.name} ${periodKey} (${weekCount} weeks): ${possibleWindows} windows, max=${maxTotal}, all=[${windowTotals.slice(0, 5).join(',')}${windowTotals.length > 5 ? '...' : ''}]`)
         
         result.maximums[periodKey] = maxTotal // Use actual calculated maximum
       } else if (weeklyCommits.length > 0) {
         // Insufficient data: return null for intelligent frontend handling
-        console.log(`Insufficient data for ${periodKey}: need ${minimumWeeks} weeks, have ${weeklyCommits.length} weeks`)
+        logger.debug(`Insufficient data for ${periodKey}: need ${minimumWeeks} weeks, have ${weeklyCommits.length} weeks`)
         result.maximums[periodKey] = null // Let frontend handle insufficient data case
         result.metadata.dataQuality = 'insufficient_data'
         result.metadata.minimumWeeksNeeded = minimumWeeks
@@ -1063,7 +1095,7 @@ const calculateHistoricalMaximums = async (resource) => {
       }
     })
 
-    console.log(`✅ Calculated historical maximums for ${resource.name}:`, result.maximums, `(${result.metadata.dataQuality} quality)`)
+    logger.debug(`✅ Calculated historical maximums for ${resource.name}:`, result.maximums, `(${result.metadata.dataQuality} quality)`)
     
     // Cache the successful result
     HISTORICAL_MAXIMUMS_CACHE.set(cacheKey, {
@@ -1194,7 +1226,7 @@ app.post('/api/github/updates', async (req, res) => {
       return res.status(400).json({ error: 'Invalid resource data' })
     }
     
-    console.log(`🔍 GitHub updates request for ${resource.name} (period: ${period})`)
+    logger.debug(`🔍 GitHub updates request for ${resource.name} (period: ${period})`)
     
     // First, try to get detailed activity data from the development activity cache
     let detailedData = null
@@ -1263,7 +1295,7 @@ app.post('/api/github/updates', async (req, res) => {
       const startDate = new Date(Date.now() - requestedDays * 24 * 60 * 60 * 1000).toISOString()
       const endDate = new Date().toISOString()
       
-      console.log(`🔄 Using historical data source for ${resource.name} (${period} = ${requestedDays} days)`)
+      logger.debug(`🔄 Using historical data source for ${resource.name} (${period} = ${requestedDays} days)`)
       const weeklyData = await getHistoricalActivity(resource, startDate, endDate)
       
       data = {
@@ -1276,7 +1308,7 @@ app.post('/api/github/updates', async (req, res) => {
       data = detailedData
       releases = detailedData.releases
     } else {
-      console.log(`🔄 Using fallback data fetch for ${resource.name}`)
+      logger.debug(`🔄 Using fallback data fetch for ${resource.name}`)
       data = await getRecentActivity(resource, false, period)
       
       try {
@@ -1341,7 +1373,7 @@ app.post('/api/github/global', async (req, res) => {
       return res.status(400).json({ error: 'Invalid resources data - expected array' })
     }
     
-    console.log(`🌍 Global GitHub request for ${resources.length} resources`)
+    logger.debug(`🌍 Global GitHub request for ${resources.length} resources`)
     
     const results = []
     
@@ -1440,7 +1472,7 @@ app.post('/api/github/global', async (req, res) => {
       }
     }
     
-    console.log(`✅ Global GitHub request completed: ${results.length}/${resources.length} successful`)
+    logger.debug(`✅ Global GitHub request completed: ${results.length}/${resources.length} successful`)
     res.json(results)
   } catch (error) {
     console.error('❌ Global GitHub API error:', error)
@@ -1459,7 +1491,7 @@ app.post('/api/github/recent', async (req, res) => {
       return res.status(400).json({ error: 'Invalid resource data' })
     }
     
-    console.log(`🔍 Recent GitHub data request for ${name} (type: ${type || 'repository'})`)
+    logger.debug(`🔍 Recent GitHub data request for ${name} (type: ${type || 'repository'})`)
     
     // Use existing getRecentActivity function to get fresh data
     const resource = { name, social, type: type || 'repository' }
@@ -1529,7 +1561,7 @@ app.post('/api/github/recent', async (req, res) => {
       }
     }
     
-    console.log(`✅ Recent data for ${name}: ${result.commits.length} commits, ${result.releases.length} releases`)
+    logger.debug(`✅ Recent data for ${name}: ${result.commits.length} commits, ${result.releases.length} releases`)
     res.json(result)
   } catch (error) {
     console.error(`❌ Recent GitHub API error for ${req.body?.name}:`, error)
@@ -1591,7 +1623,7 @@ app.get('/api/development-activity', async (req, res) => {
     
     // Handle single resource requests
     if (resourceId || resourceName) {
-      console.log(`🎯 Single resource request: resourceId=${resourceId}, resourceName=${resourceName}, period=${period}`);
+      logger.debug(`🎯 Single resource request: resourceId=${resourceId}, resourceName=${resourceName}, period=${period}`);
       
       const resources = await loadResources();
       const targetResource = resources.find(r => 
@@ -1686,11 +1718,11 @@ app.get('/api/development-activity', async (req, res) => {
           historicalMetadata: maximumsData.metadata
         };
         
-        console.log(`✅ Single resource response for ${targetResource.name}: ${totalCommits} commits, ${activityData?.length || 0} weeks`);
+        logger.debug(`✅ Single resource response for ${targetResource.name}: ${totalCommits} commits, ${activityData?.length || 0} weeks`);
         return res.json(response);
         
       } catch (error) {
-        console.error(`Error fetching data for resource ${targetResource.name}:`, error);
+        logger.error(`Error fetching data for resource ${targetResource.name}:`, error);
         return res.status(500).json({ error: 'Failed to fetch resource data' });
       }
     }
@@ -1699,12 +1731,12 @@ app.get('/api/development-activity', async (req, res) => {
     const cacheKey = `${viewMode}-activity`;
     const cached = VIEW_MODE_CACHE.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp < VIEW_MODE_CACHE_TTL)) {
-      console.log(`⚡ Using server cache for ${viewMode} view (${Math.round((Date.now() - cached.timestamp) / 1000)}s old)`);
+      logger.debug(`⚡ Using server cache for ${viewMode} view (${Math.round((Date.now() - cached.timestamp) / 1000)}s old)`);
       return res.json(cached.data);
     }
     
     const resources = await loadResources();
-    console.log(`🔄 Processing ${resources.length} total resources for ${viewMode} view, preloading all periods...`);
+    logger.debug(`🔄 Processing ${resources.length} total resources for ${viewMode} view, preloading all periods...`);
     
     // Define all time periods with their date ranges
     const now = new Date();
@@ -1784,7 +1816,7 @@ app.get('/api/development-activity', async (req, res) => {
       return true;
     });
     
-    console.log(`🚀 Preloading ALL periods for ${filteredResources.length} filtered resources (was ${resources.length})`);
+    logger.debug(`🚀 Preloading ALL periods for ${filteredResources.length} filtered resources (was ${resources.length})`);
     
     // Process resources in smaller batches to avoid overwhelming the API
     const BATCH_SIZE = 5;
@@ -1793,7 +1825,7 @@ app.get('/api/development-activity', async (req, res) => {
     // Preload data for ALL periods at once
     for (let i = 0; i < filteredResources.length; i += BATCH_SIZE) {
       const batch = filteredResources.slice(i, i + BATCH_SIZE);
-      console.log(`📦 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(filteredResources.length / BATCH_SIZE)} (${batch.length} resources)`);
+      logger.debug(`📦 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(filteredResources.length / BATCH_SIZE)} (${batch.length} resources)`);
       
       const batchPromises = batch.map(async (resource) => {
         try {
@@ -1860,7 +1892,7 @@ app.get('/api/development-activity', async (req, res) => {
           const summaryLog = Object.entries(resourceData.periods)
             .map(([key, data]) => `${key}:${data.commitsPerWeek}`)
             .join(', ');
-          console.log(`📊 ${resource.name}: ${summaryLog}`);
+          logger.debug(`📊 ${resource.name}: ${summaryLog}`);
           
           return resourceData;
         } catch (error) {
@@ -1878,7 +1910,7 @@ app.get('/api/development-activity', async (req, res) => {
       });
       
       const batchResults = await Promise.allSettled(batchPromises);
-      console.log(`✅ Batch ${Math.floor(i / BATCH_SIZE) + 1} completed: ${batchResults.length} resources with all periods`);
+      logger.debug(`✅ Batch ${Math.floor(i / BATCH_SIZE) + 1} completed: ${batchResults.length} resources with all periods`);
       
       // Store results for all periods
       batchResults.forEach(result => {
@@ -1905,13 +1937,13 @@ app.get('/api/development-activity', async (req, res) => {
       }))
       .filter(item => item.data && typeof item.data.commitsPerWeek === 'number');
     
-    console.log(`🔍 Extracted ${periodData.length} resources for ${period} period`);
+    logger.debug(`🔍 Extracted ${periodData.length} resources for ${period} period`);
     
     const successfulResults = periodData
       .filter(item => item.data.commitsPerWeek > 0)
       .sort((a, b) => b.data.commitsPerWeek - a.data.commitsPerWeek);
 
-    console.log(`Successfully processed ${successfulResults.length} ${viewMode}s with activity for ${period} period`);
+    logger.debug(`Successfully processed ${successfulResults.length} ${viewMode}s with activity for ${period} period`);
 
     // Calculate metrics based on the selected period
     const totalActiveRepos = successfulResults.length;
@@ -1982,11 +2014,11 @@ app.get('/api/development-activity', async (req, res) => {
       timestamp: Date.now()
     });
     
-    // Clean up old cache entries (keep only 4 entries max)
-    if (VIEW_MODE_CACHE.size > 4) {
-      const oldestKey = VIEW_MODE_CACHE.keys().next().value;
-      VIEW_MODE_CACHE.delete(oldestKey);
-    }
+    // Store all views - no cleanup needed for optimal performance
+    // if (VIEW_MODE_CACHE.size > 20) {
+    //   const oldestKey = VIEW_MODE_CACHE.keys().next().value;
+    //   VIEW_MODE_CACHE.delete(oldestKey);
+    // }
 
     res.json(response);
   } catch (error) {
@@ -2156,7 +2188,7 @@ app.get('/api/github/rate-limit-status', async (req, res) => {
 app.post('/api/cache/populate', async (req, res) => {
   try {
     const { priority = 'all' } = req.body
-    console.log(`🎯 Manual cache population triggered (priority: ${priority})`)
+    logger.debug(`🎯 Manual cache population triggered (priority: ${priority})`)
     
     // Start the population process in background
     populateUpdatesCache(priority)
@@ -2179,7 +2211,7 @@ app.post('/api/resource-updates', async (req, res) => {
       return res.status(400).json({ error: 'resourceId or resourceName required' })
     }
 
-    console.log(`🎯 Resource updates request: ${resourceId || resourceName}`)
+    logger.debug(`🎯 Resource updates request: ${resourceId || resourceName}`)
 
     // Get latest 30 commits and releases from database cache
     const [commitsResult, releasesResult] = await Promise.all([
@@ -2200,7 +2232,7 @@ app.post('/api/resource-updates', async (req, res) => {
     const commits = commitsResult.data || []
     const releases = releasesResult.data || []
 
-    console.log(`✅ Resource updates: ${commits.length} commits, ${releases.length} releases`)
+    logger.debug(`✅ Resource updates: ${commits.length} commits, ${releases.length} releases`)
     
     res.json({
       commits: commits.map(commit => ({
@@ -2246,7 +2278,7 @@ app.post('/api/resource-updates', async (req, res) => {
 // Get global updates (commits + releases) from database cache
 app.get('/api/global-updates', async (req, res) => {
   try {
-    console.log('🌍 Global updates request')
+    logger.debug('🌍 Global updates request')
 
     // Get more releases and commits to allow better filtering on client side
     const [commitsResult, releasesResult] = await Promise.all([
@@ -2265,7 +2297,7 @@ app.get('/api/global-updates', async (req, res) => {
     const commits = commitsResult.data || []
     const releases = releasesResult.data || []
 
-    console.log(`✅ Global updates: ${commits.length} commits, ${releases.length} releases`)
+    logger.debug(`✅ Global updates: ${commits.length} commits, ${releases.length} releases`)
     
     res.json({
       commits: commits.map(commit => ({
@@ -2504,7 +2536,7 @@ async function maintainCommitsCache(resourceId, commits) {
     // Debug logging for commit structure
     if (commits.length > 0) {
       const sampleCommit = commits[0]
-      console.log(`🔍 ${resourceId}: Processing ${commits.length} commits. Sample structure:`, {
+      logger.debug(`🔍 ${resourceId}: Processing ${commits.length} commits. Sample structure:`, {
         hasRepository: !!sampleCommit.repository,
         repoFullName: sampleCommit.repository?.full_name,
         hasCommit: !!sampleCommit.commit,
@@ -2526,11 +2558,11 @@ async function maintainCommitsCache(resourceId, commits) {
       let htmlUrl = commit.html_url
       if (!htmlUrl && commit.sha && commit.repository?.full_name) {
         htmlUrl = `https://github.com/${commit.repository.full_name}/commit/${commit.sha}`
-        console.log(`🔗 ${resourceId}: Generated fallback URL for ${commit.sha.substring(0, 8)}`)
+        logger.debug(`🔗 ${resourceId}: Generated fallback URL for ${commit.sha.substring(0, 8)}`)
       } else if (!htmlUrl) {
         // Final fallback for edge cases
         htmlUrl = `https://github.com/unknown/unknown/commit/${commit.sha || 'unknown'}`
-        console.warn(`⚠️ ${resourceId}: Using unknown fallback URL for commit ${commit.sha?.substring(0, 8)}`)
+        logger.warn(`⚠️ ${resourceId}: Using unknown fallback URL for commit ${commit.sha?.substring(0, 8)}`)
       }
       
       // Extract repository name with better fallback logic
@@ -2586,7 +2618,7 @@ async function maintainCommitsCache(resourceId, commits) {
       return
     }
     
-    console.log(`✅ ${resourceId}: Successfully cached ${commitRecords.length} commits to database`)
+    logger.debug(`✅ ${resourceId}: Successfully cached ${commitRecords.length} commits to database`)
     
     // Manually maintain rolling cache (keep only latest 30)
     const { error: cleanupError } = await supabase.rpc('cleanup_commits_cache', {
@@ -2612,9 +2644,9 @@ async function maintainCommitsCache(resourceId, commits) {
       }
     }
     
-    console.log(`✅ Updated commits cache for ${resourceId}: ${commitRecords.length} new commits`)
+    logger.debug(`✅ Updated commits cache for ${resourceId}: ${commitRecords.length} new commits`)
   } catch (error) {
-    console.error(`❌ Error maintaining commits cache for ${resourceId}:`, error)
+    logger.error(`❌ Error maintaining commits cache for ${resourceId}:`, error)
   }
 }
 
@@ -2667,9 +2699,9 @@ async function maintainReleasesCache(resourceId, releases) {
         .in('id', idsToDelete)
     }
     
-    console.log(`✅ Updated releases cache for ${resourceId}: ${releaseRecords.length} new releases`)
+    logger.debug(`✅ Updated releases cache for ${resourceId}: ${releaseRecords.length} new releases`)
   } catch (error) {
-    console.error(`❌ Error maintaining releases cache for ${resourceId}:`, error)
+    logger.error(`❌ Error maintaining releases cache for ${resourceId}:`, error)
   }
 }
 
@@ -2679,11 +2711,11 @@ async function maintainReleasesCache(resourceId, releases) {
  */
 async function populateUpdatesCache(priority = 'all') {
   if (!supabase) {
-    console.log('⚠️ Supabase not configured, skipping updates cache population')
+    logger.warn('⚠️ Supabase not configured, skipping updates cache population')
     return
   }
   
-  console.log(`🔄 Populating updates cache (priority: ${priority})...`)
+  logger.debug(`🔄 Populating updates cache (priority: ${priority})...`)
   
   try {
     const resources = await loadResources()
@@ -2702,7 +2734,7 @@ async function populateUpdatesCache(priority = 'all') {
       )
     }
     
-    console.log(`📦 Processing ${resourcesToProcess.length} resources (${priority} priority)`)
+    logger.debug(`📦 Processing ${resourcesToProcess.length} resources (${priority} priority)`)
     
     let successCount = 0
     let errorCount = 0
@@ -2714,7 +2746,7 @@ async function populateUpdatesCache(priority = 'all') {
       
       await Promise.all(batch.map(async (resource) => {
         try {
-          console.log(`🔍 Processing ${resource.name} (${resource.type})...`)
+          logger.debug(`🔍 Processing ${resource.name} (${resource.type})...`)
           
           // Get fresh data from GitHub for this resource
           const activityData = await getRecentActivity(resource)
@@ -2722,9 +2754,9 @@ async function populateUpdatesCache(priority = 'all') {
           // Update commits cache
           if (activityData.commits && activityData.commits.length > 0) {
             await maintainCommitsCache(resource.name, activityData.commits)
-            console.log(`✅ ${resource.name}: Updated ${activityData.commits.length} commits`)
+            logger.debug(`✅ ${resource.name}: Updated ${activityData.commits.length} commits`)
           } else {
-            console.log(`ℹ️ ${resource.name}: No recent commits found`)
+            logger.debug(`ℹ️ ${resource.name}: No recent commits found`)
           }
           
           // Get and update releases cache
@@ -2760,9 +2792,9 @@ async function populateUpdatesCache(priority = 'all') {
             
             if (releases.length > 0) {
               await maintainReleasesCache(resource.name, releases)
-              console.log(`✅ ${resource.name}: Updated ${releases.length} releases`)
+              logger.debug(`✅ ${resource.name}: Updated ${releases.length} releases`)
             } else {
-              console.log(`ℹ️ ${resource.name}: No releases found`)
+              logger.debug(`ℹ️ ${resource.name}: No releases found`)
             }
           } catch (error) {
             console.warn(`⚠️ Error processing releases for ${resource.name}:`, error.message)
@@ -2777,15 +2809,15 @@ async function populateUpdatesCache(priority = 'all') {
       
       // Add delay between batches to respect rate limits
       if (i + batchSize < resourcesToProcess.length) {
-        console.log(`⏳ Batch ${Math.ceil((i + batchSize) / batchSize)} completed, waiting 2s...`)
+        logger.debug(`⏳ Batch ${Math.ceil((i + batchSize) / batchSize)} completed, waiting 2s...`)
         await new Promise(resolve => setTimeout(resolve, 2000))
       }
     }
     
-    console.log(`✅ Updates cache population completed (${priority}):`)
-    console.log(`   📊 Processed: ${successCount + errorCount} resources`)
-    console.log(`   ✅ Successful: ${successCount}`)
-    console.log(`   ❌ Errors: ${errorCount}`)
+    logger.debug(`✅ Updates cache population completed (${priority}):`)
+    logger.debug(`   📊 Processed: ${successCount + errorCount} resources`)
+    logger.debug(`   ✅ Successful: ${successCount}`)
+    logger.debug(`   ❌ Errors: ${errorCount}`)
     
     // Log database stats
     if (supabase) {
@@ -2795,34 +2827,34 @@ async function populateUpdatesCache(priority = 'all') {
           supabase.from('github_releases_cache').select('resource_id', { count: 'exact', head: true })
         ])
         
-        console.log(`📊 Database cache stats:`)
-        console.log(`   💾 Total commits cached: ${commitsResult.count || 0}`)
-        console.log(`   💾 Total releases cached: ${releasesResult.count || 0}`)
+        logger.debug(`📊 Database cache stats:`)
+        logger.debug(`   💾 Total commits cached: ${commitsResult.count || 0}`)
+        logger.debug(`   💾 Total releases cached: ${releasesResult.count || 0}`)
       } catch (error) {
-        console.warn('⚠️ Could not fetch cache statistics:', error.message)
+        logger.warn('⚠️ Could not fetch cache statistics:', error.message)
       }
     }
     
   } catch (error) {
-    console.error('❌ Error populating updates cache:', error)
+    logger.error('❌ Error populating updates cache:', error)
   }
 }
 
 // Ensure historical data completeness at startup
 const ensureHistoricalDataCompleteness = async () => {
   if (!supabase) {
-    console.log('⚠️ Supabase not configured, skipping historical data validation')
+    logger.warn('⚠️ Supabase not configured, skipping historical data validation')
     return
   }
 
-  console.log('🔍 HISTORICAL DATA COMPLETENESS CHECK')
-  console.log('='.repeat(50))
+  logger.debug('🔍 HISTORICAL DATA COMPLETENESS CHECK')
+  logger.debug('='.repeat(50))
   
   try {
     const resources = await loadResources()
     const resourcesWithGitHub = resources.filter(r => r.social?.github)
     
-    console.log(`📊 Checking historical data for ${resourcesWithGitHub.length} resources...`)
+    logger.debug(`📊 Checking historical data for ${resourcesWithGitHub.length} resources...`)
     
     // Define minimum historical data requirements (in weeks)
     const HISTORICAL_REQUIREMENTS = {
@@ -2947,6 +2979,14 @@ const ensureHistoricalDataCompleteness = async () => {
             
             // CRITICAL: Re-check database to verify what we actually have now
             // CRITICAL FIX: Use repo_path for verification too, same as initial check
+            const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
+            
+            if (!repoPath) {
+              console.error(`❌ ${resource.name}: No valid GitHub URL for verification`)
+              errorCount++
+              continue
+            }
+            
             const { data: verificationData, error: verifyError } = await supabase
               .from('github_activity')
               .select('week_start')
@@ -3856,10 +3896,10 @@ const startServer = async () => {
     await createTables()
     
     app.listen(PORT, async () => {
-      console.log(`🚀 Server listening on port ${PORT}`)
-      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
-      console.log(`🔐 GitHub Token: ${GITHUB_TOKEN ? '✅ Available' : '❌ Not configured'}`)
-      console.log(`💾 Supabase: ${supabase ? '✅ Connected' : '❌ Not configured'}`)
+      logger.info(`🚀 Server listening on port ${PORT}`)
+      logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
+      logger.info(`🔐 GitHub Token: ${GITHUB_TOKEN ? '✅ Available' : '❌ Not configured'}`)
+      logger.info(`💾 Supabase: ${supabase ? '✅ Connected' : '❌ Not configured'}`)
       
       // Sequential startup process to avoid race conditions
       const runSequentialStartup = async () => {

@@ -89,7 +89,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         // 2. If preloaded data is available for this period, use it immediately
         if (preloadedData && !preloadedData.error) {
           logger.log(`⚡ Using preloaded data for ${resource.name} (period: ${selectedPeriod})`)
-          console.log('WeeklyActivityChart received preloaded data:', preloadedData)
+          logger.debug('WeeklyActivityChart received preloaded data:', preloadedData)
           // Use preloaded data immediately without loading state
           
           // Process preloaded data the same way as fetched data
@@ -336,7 +336,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             maxWeekTotal = Math.max(maxWeekTotal, periodTotal);
           }
           
-          console.log(`📊 Using ${period} data for ResourceCard comparison, found max: ${maxWeekTotal}`);
+          logger.debug(`📊 Using ${period} data for ResourceCard comparison, found max: ${maxWeekTotal}`);
         }
         
         // Use only the first (longest) available period for most comprehensive comparison
@@ -346,14 +346,14 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     
     // If no historical data found, use current period as baseline
     if (maxWeekTotal === 0) {
-      console.log('📊 No historical data found for ResourceCard comparison, using current period as baseline');
+      logger.debug('📊 No historical data found for ResourceCard comparison, using current period as baseline');
       return currentPeriodTotal || 1;
     }
     
     // Include current period in comparison - if it's a new record, it becomes the new max
     const trueHistoricalMax = Math.max(maxWeekTotal, currentPeriodTotal);
     
-    console.log(`📊 ResourceCard historical max calculation: historicalMax=${maxWeekTotal}, currentPeriod=${currentPeriodTotal}, finalMax=${trueHistoricalMax}`);
+    logger.debug(`📊 ResourceCard historical max calculation: historicalMax=${maxWeekTotal}, currentPeriod=${currentPeriodTotal}, finalMax=${trueHistoricalMax}`);
     
     return trueHistoricalMax;
   };
