@@ -157,7 +157,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       logger.log(`🚀 Preloading activity chart data for ${resource.name} (server API approach)...`)
       
       // Use the same fast server API as DevelopmentActivityWidget
-      const periods = ['4weeks', '3months', '52weeks', '3years']
+      const periods = ['current', '4weeks', '3months', '52weeks', '3years']
       const preloadedData = {}
       let hasValidData = false
       

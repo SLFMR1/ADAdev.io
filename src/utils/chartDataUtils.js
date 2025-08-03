@@ -75,6 +75,7 @@ export const PERIOD_OPTIONS = [
 
 // ResourceCard specific period options (subset)
 export const RESOURCE_CARD_PERIOD_OPTIONS = [
+  { key: 'current', label: 'Last 7 Days' }, // Add 7-day option for single resources
   { key: '4weeks', label: 'Last 4 Weeks' }, // Maps to 5weeks server period
   { key: '3months', label: 'Last 3 Months' },
   { key: '52weeks', label: 'Last 1 Year' },
@@ -83,6 +84,7 @@ export const RESOURCE_CARD_PERIOD_OPTIONS = [
 
 // Period mapping for ResourceCard (client → server)
 export const RESOURCE_CARD_PERIOD_MAPPING = {
+  'current': 'current', // Direct mapping for 7-day period
   '4weeks': '5weeks', // Client shows 4 weeks, server sends 5 weeks data
   '3months': '3months',
   '52weeks': '52weeks',

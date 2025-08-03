@@ -7,6 +7,7 @@ const compression = require('compression')
 const OpenAI = require('openai')
 const { createClient } = require('@supabase/supabase-js')
 const { getISOWeekNumber, getWeekStart, getCurrentWeekStart, isCurrentWeek } = require('./utils/weekCalculation.js')
+const supabaseService = require('./src/services/supabase.js')
 // Removed hybridDataFetcher imports - using unified server API approach
 
 // Use existing data quality functions defined later in the file
@@ -400,114 +401,14 @@ const createTables = async () => {
   if (!supabase) return
   
   try {
-    // Weekly activity table
-    await supabase.rpc('create_weekly_activity_table')
-    
-    // Organization activity table
-    await supabase.rpc('create_org_activity_table')
-    
-    console.log('✅ Database tables created/verified')
+    // Tables are created via Supabase dashboard migrations, not RPC calls
+    console.log('✅ Database tables should already exist (managed via Supabase dashboard)')
   } catch (error) {
-    console.log('⚠️ Database tables may already exist:', error.message)
+    console.log('⚠️ Database table verification error:', error.message)
   }
 }
 
-const storeWeeklyActivity = async (resource, weeklyData) => {
-  if (!supabase || !weeklyData || weeklyData.length === 0) return
-  
-  try {
-    // CRITICAL: Use same extractRepoPath logic as verifyDataStored to ensure identifier consistency
-    const extractRepoPath = (githubUrl) => {
-      if (!githubUrl) return null
-      
-      // Handle organization URLs (e.g., https://github.com/masumi-network)
-      const orgMatch = githubUrl.match(/github\.com\/([^\/]+)$/)
-      if (orgMatch) {
-        return orgMatch[1]
-      }
-      
-      // Handle repository URLs (e.g., https://github.com/owner/repo)
-      const repoMatch = githubUrl.match(/github\.com\/([^\/]+\/[^\/]+)/)
-      if (repoMatch) {
-        return repoMatch[1]
-      }
-      
-      return null
-    }
-    
-    const resourceIdentifier = extractRepoPath(resource.social?.github) || 
-      resource.id?.toString() || 
-      resource.name?.toLowerCase().replace(/\s+/g, '-')
-    
-    if (!resourceIdentifier) {
-      console.error(`No valid identifier for ${resource.name}`)
-      return
-    }
-    
-    const now = new Date()
-    const currentWeekStart = getCurrentWeekStart()
-    
-    // Separate current week from completed weeks
-    const currentWeekData = []
-    const completedWeekData = []
-    
-    weeklyData
-      .filter(week => week && typeof week.count === 'number' && week.weekStart)
-      .forEach(week => {
-        const weekStartDate = new Date(week.weekStart)
-        const isCurrentWeek = weekStartDate.getTime() >= currentWeekStart.getTime()
-        
-        const weekRecord = {
-          resource_id: resourceIdentifier,
-          repo_path: resourceIdentifier, // Use same identifier for consistency
-          week_start: week.weekStart,
-          commit_count: week.count,
-          year: week.year || weekStartDate.getFullYear(),
-          week_number: week.week || getISOWeekNumber(weekStartDate),
-          fetched_at: now.toISOString(),
-          is_current_week: isCurrentWeek
-        }
-        
-        if (isCurrentWeek) {
-          currentWeekData.push(weekRecord)
-        } else {
-          completedWeekData.push(weekRecord)
-        }
-      })
-    
-    // Handle completed weeks - only insert if not exists (immutable)
-    if (completedWeekData.length > 0) {
-      const { error: completedError } = await supabase
-        .from('github_activity')
-        .upsert(completedWeekData, { 
-          onConflict: 'resource_id,repo_path,week_start',
-          ignoreDuplicates: true // Don't overwrite completed weeks
-        })
-      
-      if (completedError) {
-        console.warn(`Warning storing completed weeks for ${resource.name}:`, completedError.message)
-      } else {
-        console.log(`💾 Stored ${completedWeekData.length} completed weeks for ${resource.name} (immutable)`)
-      }
-    }
-    
-    // Handle current week - always update (mutable until week ends)
-    if (currentWeekData.length > 0) {
-      const { error: currentError } = await supabase
-        .from('github_activity')
-        .upsert(currentWeekData, { 
-          onConflict: 'resource_id,repo_path,week_start',
-          ignoreDuplicates: false // Always update current week
-        })
-      
-      if (currentError) throw currentError
-      console.log(`💾 Updated ${currentWeekData.length} current weeks for ${resource.name} (mutable)`)
-    }
-    
-  } catch (error) {
-    console.error(`Error storing weekly activity for ${resource.name}:`, error)
-  }
-}
+// Removed broken storeWeeklyActivity function - now using supabaseService.storeWeeklyActivity
 
 // Verify that data was stored correctly in the database
 const verifyDataStored = async (resource, expectedWeeks) => {
@@ -516,30 +417,14 @@ const verifyDataStored = async (resource, expectedWeeks) => {
   }
   
   try {
-    // CRITICAL: Use same extractRepoPath logic as storeWeeklyActivity to ensure identifier consistency
-    const extractRepoPath = (githubUrl) => {
-      if (!githubUrl) return null
-      
-      // Handle organization URLs (e.g., https://github.com/masumi-network)
-      const orgMatch = githubUrl.match(/github\.com\/([^\/]+)$/)
-      if (orgMatch) {
-        return orgMatch[1]
-      }
-      
-      // Handle repository URLs (e.g., https://github.com/owner/repo)
-      const repoMatch = githubUrl.match(/github\.com\/([^\/]+\/[^\/]+)/)
-      if (repoMatch) {
-        return repoMatch[1]
-      }
-      
-      return null
-    }
+    // Use same extractRepoPath logic as supabase service for consistency
+    const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
     
-    const resourceIdentifier = extractRepoPath(resource.social?.github)
-    
-    if (!resourceIdentifier) {
+    if (!repoPath) {
       return { success: false, stored: 0, expected: expectedWeeks.length }
     }
+    
+    const resourceIdentifier = repoPath
     
     // Get the date range for verification
     const weekStarts = expectedWeeks.map(w => w.weekStart).filter(Boolean)
@@ -555,7 +440,7 @@ const verifyDataStored = async (resource, expectedWeeks) => {
       .from('github_activity')
       .select('*', { count: 'exact' })
       .eq('resource_id', resourceIdentifier)
-      .eq('repo_path', resourceIdentifier) // Add repo_path constraint for consistency
+      .eq('repo_path', repoPath) // Add repo_path constraint for consistency
       .gte('week_start', earliestWeek)
       .lte('week_start', latestWeek)
     
@@ -586,22 +471,21 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
   if (!supabase) return []
   
   try {
-    // Use resource ID first, fallback to extracted path
-    const resourceIdentifier = resource.id || 
-      resource.social?.github?.replace('https://github.com/', '') ||
-      resource.name?.toLowerCase().replace(/\s+/g, '-')
+    // Use same extractRepoPath logic as supabase service for consistency
+    const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
     
-    if (!resourceIdentifier) {
-      console.error(`No valid identifier for ${resource.name}`)
+    if (!repoPath) {
+      console.error(`No valid GitHub URL for ${resource.name}`)
       return []
     }
     
-    // CRITICAL FIX: Use repo_path column to match storage in ensureHistoricalDataCompleteness
-    const repoPath = resource.social?.github?.replace('https://github.com/', '') || resourceIdentifier
+    // Use repoPath as the resource identifier to match storage patterns
+    const resourceIdentifier = repoPath
     
     const { data, error } = await supabase
       .from('github_activity')
       .select('*')
+      .eq('resource_id', resourceIdentifier)
       .eq('repo_path', repoPath)
       .gte('week_start', startDate)
       .lte('week_start', endDate)
@@ -619,7 +503,21 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
 const processCommitsToWeekly = (commits) => {
   const weeklyData = new Map()
   
-  commits.forEach((commit, index) => {
+  // Create continuous weekly data for the last 52 weeks (1 year)
+  const weeksToTrack = 52
+  const today = new Date()
+  
+  // Initialize all weeks with 0 commits
+  for (let i = weeksToTrack - 1; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - (i * 7))
+    const weekStart = getWeekStart(date)
+    const weekKey = weekStart.toISOString().slice(0, 10)
+    weeklyData.set(weekKey, 0)
+  }
+  
+  // Count commits for each week
+  commits.forEach((commit) => {
     const commitDate = commit.commit?.author?.date || commit.date
     if (!commitDate) {
       return
@@ -631,27 +529,25 @@ const processCommitsToWeekly = (commits) => {
     }
     
     const weekStart = getWeekStart(date)
+    const weekKey = weekStart.toISOString().slice(0, 10)
     
-    const weekKey = weekStart.toISOString().slice(0, 10) // Use UTC ISO format consistently with frontend
-    weeklyData.set(weekKey, (weeklyData.get(weekKey) || 0) + 1)
+    // Only count commits within our tracking period
+    if (weeklyData.has(weekKey)) {
+      weeklyData.set(weekKey, weeklyData.get(weekKey) + 1)
+    }
   })
   
   return Array.from(weeklyData.entries())
     .map(([weekStart, count]) => {
-      // Ensure weekStart is a valid date string
       const weekStartDate = new Date(weekStart)
-      if (isNaN(weekStartDate.getTime())) {
-        console.warn(`Invalid weekStart date: ${weekStart}`)
-        return null
-      }
-      
       return {
-      weekStart: weekStart,
-      count: count,
-      year: weekStartDate.getFullYear(),
-      week: getISOWeekNumber(weekStartDate)
-    }
-  }).filter(Boolean) // Remove null entries
+        weekStart: weekStart,
+        count: count,
+        year: weekStartDate.getFullYear(),
+        week: getISOWeekNumber(weekStartDate)
+      }
+    })
+    .sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart)) // Sort chronologically
 }
 
 // Process commits into daily data for 7-day view
@@ -1009,7 +905,7 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
   
   // Store in database with proper current week handling
   try {
-    await storeWeeklyActivity(resource, weeklyData)
+    await supabaseService.storeWeeklyActivity(resource, weeklyData)
     
     // Verify storage succeeded
     const verification = await verifyDataStored(resource, weeklyData)
@@ -1028,7 +924,7 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
 // Calculate historical maximum totals for each period type with graceful fallbacks
 const calculateHistoricalMaximums = async (resource) => {
   // Check cache first
-  const resourceIdentifier = resource.id?.toString() || resource.name;
+  const resourceIdentifier = supabaseService.default.extractRepoPath(resource.social?.github) || resource.name;
   const cacheKey = `historical-maximums-${resourceIdentifier}`;
   const cached = HISTORICAL_MAXIMUMS_CACHE.get(cacheKey);
   
@@ -1060,12 +956,18 @@ const calculateHistoricalMaximums = async (resource) => {
 
   try {
     // Get all historical weekly data for this resource (excluding current incomplete week)
-    const resourceIdentifier = resource.id?.toString() || resource.name
+    const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
+    
+    if (!repoPath) {
+      console.warn(`No valid GitHub URL for ${resource.name} - returning fallback maximums`)
+      return createFallbackMaximums()
+    }
 
     const { data, error } = await supabase
       .from('github_activity')
       .select('week_start, commit_count')
-      .eq('resource_id', resourceIdentifier)
+      .eq('resource_id', repoPath)
+      .eq('repo_path', repoPath)
       .order('week_start')
 
     if (error) {
@@ -1714,6 +1616,10 @@ app.get('/api/development-activity', async (req, res) => {
       // Define the specific period configuration
       const now = new Date();
       const periodConfigs = {
+        current: {
+          since: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          days: 7
+        },
         monthly: {
           since: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString(),
           days: 28
@@ -2922,23 +2828,22 @@ const ensureHistoricalDataCompleteness = async () => {
     // Check each resource for data completeness
     for (const resource of resourcesWithGitHub) {
       // CRITICAL: Use same resource identification pattern as storage functions
-      const resourceId = resource.id || 
-        resource.social?.github?.replace('https://github.com/', '') ||
-        resource.name?.toLowerCase().replace(/\s+/g, '-')
+      const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
       
-      if (!resourceId) {
-        console.warn(`⚠️ No valid identifier for ${resource.name}`)
+      if (!repoPath) {
+        console.warn(`⚠️ No valid GitHub URL for ${resource.name}`)
         continue
       }
       
+      const resourceId = repoPath
+      
       try {
-        // Check current database coverage
-        // CRITICAL FIX: Search by repo_path instead of resource_id since storage uses numeric IDs
-        const repoPath = resource.social?.github?.replace('https://github.com/', '')
+        // Check current database coverage using consistent identifiers
         const { data: existingData, error } = await supabase
           .from('github_activity')
           .select('week_start')
-          .eq('repo_path', repoPath || resourceId)
+          .eq('resource_id', resourceId)
+          .eq('repo_path', repoPath)
           .order('week_start')
         
         if (error) {
@@ -3033,11 +2938,11 @@ const ensureHistoricalDataCompleteness = async () => {
             
             // CRITICAL: Re-check database to verify what we actually have now
             // CRITICAL FIX: Use repo_path for verification too, same as initial check
-            const verifyRepoPath = resource.social?.github?.replace('https://github.com/', '')
             const { data: verificationData, error: verifyError } = await supabase
               .from('github_activity')
               .select('week_start')
-              .eq('repo_path', verifyRepoPath || resourceId)
+              .eq('resource_id', resourceId)
+              .eq('repo_path', repoPath)
               .order('week_start')
             
             if (verifyError) {

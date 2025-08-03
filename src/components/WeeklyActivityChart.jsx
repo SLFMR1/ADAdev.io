@@ -14,6 +14,7 @@ import {
   transformChartData
 } from '../utils/chartDataUtils'
 import { ChartDataCache } from '../utils/cacheUtils'
+import { WidgetDataExtractor } from '../utils/widgetDataExtractor'
 
 // Removed Supabase client initialization - using server API instead
 
@@ -42,7 +43,29 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       try {
         setError(null)
         
-        // 1. CACHE CHECK FIRST - check for existing cached data
+        // 1. CHECK WIDGET CACHE FIRST - single source of truth for rawChartData
+        const widgetCachedData = ChartDataCache.get('repository', selectedPeriod) || 
+                                ChartDataCache.get('organization', selectedPeriod);
+        if (widgetCachedData) {
+          const extractedData = WidgetDataExtractor.extractResourceData(widgetCachedData, resource, selectedPeriod);
+          if (extractedData) {
+            logger.log(`⚡ Using DevelopmentActivityWidget rawChartData for ${resource.name} (period: ${selectedPeriod})`);
+            
+            const filteredData = transformChartData([{ weeklyData: extractedData.commitsPerWeekDetailed }], selectedPeriod, `WeeklyActivityChart-${resource.name}-widget-raw`);
+            
+            setActivityData({
+              currentWeek: filteredData[filteredData.length - 1]?.count || 0,
+              repoInfo: extractedData.repoInfo
+            });
+            setWeeklyData(filteredData);
+            setHistoricalMaximums(extractedData.historicalMaximums || {});
+            setHistoricalMetadata(extractedData.historicalMetadata || {});
+            setIsLoading(false);
+            return; // Exit early - no API call needed
+          }
+        }
+
+        // 2. CACHE CHECK FALLBACK - check for existing cached data
         // Use 'repository' viewMode since this is for individual resource charts
         const cachedData = ChartDataCache.get('repository', selectedPeriod, resource.id)
         if (cachedData && !preloadedData) {
@@ -969,21 +992,23 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         <div className="flex items-center justify-between mb-2">
           <div className="flex flex-col">
             <span className="text-gray-400 text-xs">
-              {selectedPeriod === '4weeks' ? 'Current 4-Week Total' : 
-               selectedPeriod === '3months' ? 'Current 3-Month Total' : 
-               selectedPeriod === '52weeks' ? 'Current 12-Month Total' : 
-               selectedPeriod === '3years' ? 'Current 3-Year Total' : 'Last Complete Week'}
+                          {selectedPeriod === 'current' ? 'Current 7-Day Total' :
+             selectedPeriod === '4weeks' ? 'Current 4-Week Total' :
+             selectedPeriod === '3months' ? 'Current 3-Month Total' :
+             selectedPeriod === '52weeks' ? 'Current 12-Month Total' :
+             selectedPeriod === '3years' ? 'Current 3-Year Total' : 'Last Complete Week'}
             </span>
-            {(selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && (
+                          {(selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && (
               <span className="text-gray-500 text-xs mt-0.5">
-                vs. best {selectedPeriod === '4weeks' ? '4-week' : 
+                vs. best {selectedPeriod === 'current' ? '7-day' :
+                              selectedPeriod === '4weeks' ? '4-week' : 
                               selectedPeriod === '3months' ? '3-month' : 
                               selectedPeriod === '52weeks' ? '12-month' : '3-year'} period
               </span>
             )}
           </div>
           <div className="flex items-center space-x-1">
-            {(selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && isNewRecord && (
+            {(selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && isNewRecord && (
               <span 
                 className="text-xs font-medium px-2 py-0.5 rounded mr-1"
                 style={{ 
@@ -996,7 +1021,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             )}
             <GitCommit size={12} style={{ color: accentColor.hex }} />
             <span className="font-bold text-lg" style={{ color: accentColor.hex }}>
-              {selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years' ? 
+              {selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years' ? 
                 validWeeklyData.reduce((total, week) => total + (week.count || 0), 0) : 
                 validWeeklyData[validWeeklyData.length - 1]?.count || 0}
             </span>
@@ -1011,7 +1036,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               className="h-2 rounded-full transition-all duration-500 ease-out"
               style={{ 
                 width: (() => {
-                  const isLongerPeriod = selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
+                  const isLongerPeriod = selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
                   const currentValue = isLongerPeriod ? 
                     validWeeklyData.reduce((total, week) => total + (week.count || 0), 0) : 
                     validWeeklyData[validWeeklyData.length - 1]?.count || 0;
@@ -1038,7 +1063,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             <span>0</span>
             <span>
               {(() => {
-                const isLongerPeriod = selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
+                const isLongerPeriod = selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
                 if (isLongerPeriod) {
                   return `${weeklyHistoricalMax || 1} (historical peak)`;
                 } else {

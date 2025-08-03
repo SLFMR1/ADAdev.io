@@ -1,6 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
 const logger = require('../utils/logger')
-import { getISOWeekNumber, getWeekStart } from '../utils/weekCalculation.js'
+const { getISOWeekNumber, getWeekStart } = require('../../utils/weekCalculation.js')
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL
