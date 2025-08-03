@@ -403,7 +403,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
   // Use centralized data transformation - removed 180 lines of duplicate logic
 
-  // Get current period data based on selection
+  // Get current period data based on selection with proper current week filtering
   const currentPeriodData = useMemo(() => {
     if (!activityData) {
       console.log('🔍 DEBUG: currentPeriodData - no activityData');
@@ -428,7 +428,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     const leaderboard = isDaily ? dailyLeaderboard : weeklyLeaderboard;
     
     // Use centralized data transformation
-    const transformedChartData = transformChartData(rawChartData, selectedPeriod, 'DevelopmentActivityWidget');
+    let transformedChartData = transformChartData(rawChartData, selectedPeriod, 'DevelopmentActivityWidget');
     
     // Validate node count
     validateNodeCount(transformedChartData, selectedPeriod, 'DevelopmentActivityWidget');

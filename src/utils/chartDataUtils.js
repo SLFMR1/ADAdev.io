@@ -236,9 +236,23 @@ const transformWeeklyData = (rawData, periodKey, componentName) => {
   
   // Only exclude current week for non-daily periods (4weeks, 3months, 52weeks, 3years)
   const shouldExcludeCurrentWeekForPeriod = shouldExcludeCurrentWeek(periodKey)
-  const completedWeeks = shouldExcludeCurrentWeekForPeriod 
-    ? allWeekStarts.filter(weekStart => weekStart !== currentWeekKey)
-    : allWeekStarts
+  
+  // More robust current week filtering - handle timezone differences and edge cases
+  let completedWeeks = allWeekStarts
+  if (shouldExcludeCurrentWeekForPeriod) {
+    completedWeeks = allWeekStarts.filter(weekStart => {
+      // Check if this week is the current week by comparing week start dates
+      const weekStartDate = new Date(weekStart)
+      const currentWeekStartDate = new Date(currentWeekStart)
+      
+      // Calculate the difference in days between the two week starts
+      const diffTime = Math.abs(weekStartDate.getTime() - currentWeekStartDate.getTime())
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      // Keep only weeks that are NOT the current week (7+ days away AND not the current week key)
+      return diffDays >= 7 && weekStart !== currentWeekKey
+    })
+  }
   
   // Take exactly the number of weeks expected for this period
   const weeksToUse = completedWeeks.slice(-config.weeks)
