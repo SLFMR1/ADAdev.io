@@ -46,7 +46,7 @@ export const PERIOD_EXPECTATIONS = {
 export class GapAnalysisService {
   constructor() {
     this.analysisCache = new Map()
-    this.cacheTimeout = 10 * 60 * 1000 // 10 minutes
+    this.cacheTimeout = 12 * 60 * 60 * 1000 // 12 hours for memory-optimized cache
   }
 
   /**

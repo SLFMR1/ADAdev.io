@@ -35,15 +35,15 @@ const REQUEST_INTERVAL = 500 // ms between requests (increased from 200ms)
 let isRateLimited = false
 let rateLimitResetTime = null
 
-// In-memory cache for performance - optimized for GitHub activity patterns
+// In-memory cache for performance - optimized for small memory footprint
 const CACHE = {
   data: new Map(),
   timestamps: new Map(),
-  maxSize: 10000, 
+  maxSize: 500, // Reduced for memory constraints (512MB RAM)
   ttl: {
-    recent: 6 * 60 * 60 * 1000, // 6 hours for recent data (commits don't change frequently)
-    weekly: 12 * 60 * 60 * 1000, // 12 hours for weekly data
-    historical: 24 * 60 * 60 * 1000 // 24 hours for historical data
+    recent: 30 * 60 * 1000, // 30 minutes for recent data (real-time updates)
+    weekly: 30 * 24 * 60 * 60 * 1000, // 30 days for weekly data (immutable)
+    historical: 180 * 24 * 60 * 60 * 1000 // 180 days for historical data (immutable)
   },
   // Add hit/miss tracking for dashboard metrics
   stats: {
@@ -1578,11 +1578,11 @@ app.get('/api/github/org-activity/:orgName', async (req, res) => {
 
 // Server-side cache for view mode results - optimized for fast loading
 const VIEW_MODE_CACHE = new Map();
-const VIEW_MODE_CACHE_TTL = 60 * 60 * 1000; // 1 hour (GitHub data doesn't change frequently)
+const VIEW_MODE_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days (immutable data)
 
-// Cache for historical maximums - 2 hour TTL since they change even less frequently
+// Cache for historical maximums - 90 day TTL since they change even less frequently
 const HISTORICAL_MAXIMUMS_CACHE = new Map();
-const HISTORICAL_MAXIMUMS_TTL = 2 * 60 * 60 * 1000; // 2 hours
+const HISTORICAL_MAXIMUMS_TTL = 90 * 24 * 60 * 60 * 1000; // 90 days
 
 // Get development activity for dashboard - preload all periods
 app.get('/api/development-activity', async (req, res) => {
@@ -3899,20 +3899,20 @@ const startServer = async () => {
           
           // Set up recurring cache refresh schedules
           console.log('📅 Setting up smart cache refresh schedule:')
-          console.log('   • Active projects: Every 1 hour')
-          console.log('   • All projects: Every 4 hours')
+          console.log('   • Active projects: Every 30 minutes (current data only)')
+          console.log('   • All projects: Every 24 hours (immutable data)')
           
-          // High priority: Active/popular projects every 1 hour
+          // High priority: Active/popular projects every 30 minutes (current data updates)
           setInterval(() => {
             console.log('⚡ Running high-priority updates cache refresh...')
             populateUpdatesCache('active')
-          }, 1 * 60 * 60 * 1000) // 1 hour
+          }, 30 * 60 * 1000) // 30 minutes
           
-          // Standard priority: All projects every 4 hours
+          // Standard priority: All projects every 24 hours (immutable data)
           setInterval(() => {
             console.log('🔄 Running full updates cache refresh...')
             populateUpdatesCache('all')
-          }, 4 * 60 * 60 * 1000) // 4 hours
+          }, 24 * 60 * 60 * 1000) // 24 hours
           
           console.log('✅ Step 4/4: Cache refresh schedules configured')
           console.log('🎉 MILESTONE 4 COMPLETED: Cache refresh schedules configured!')

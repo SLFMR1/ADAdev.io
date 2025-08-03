@@ -452,40 +452,48 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const now = new Date();
   const expectedStartDate = new Date(now.getTime() - expectedWeeks * 7 * 24 * 60 * 60 * 1000);
   
-  // Generate chart points with proper temporal positioning
+  // Generate chart points with linear scale (same as nodes)
   const chartPoints = validWeeklyData.map((w, i) => {
-    const safeMaxCommits = Math.max(maxCommits, 1) // Prevent division by zero
-    const safeCount = Math.max(0, w.count || 0) // Ensure non-negative
+    const safeMaxCommits = Math.max(maxCommits, 1)
+    const safeCount = Math.max(0, w.count || 0)
     
-    // Calculate the actual temporal position of this week within the expected period
-    const weekDate = new Date(w.weekStart);
-    const weeksSinceStart = Math.floor((weekDate.getTime() - expectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-    const normalizedPosition = Math.max(0, Math.min(1, weeksSinceStart / (expectedWeeks - 1)));
+    // Calculate period-aware spacing (same as nodes)
+    let effectivePadding = chartPadding
+    let effectiveRightPadding = chartPadding
     
-    // Calculate coordinates using temporal position, not array index
-    const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding)
-    const y = chartHeight - chartPadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * chartPadding)
+    if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
+      effectivePadding = Math.max(20, chartPadding * 0.6)
+      effectiveRightPadding = Math.max(15, chartPadding * 0.6)
+    } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
+      effectivePadding = chartPadding * 1.2
+      effectiveRightPadding = chartPadding * 1.2
+    }
     
-    // Triple validation to ensure no NaN coordinates
+    // Linear scale: each position is exactly the same distance apart
+    const availableWidth = chartWidth - effectivePadding - effectiveRightPadding
+    const stepX = validWeeklyData.length > 1 ? availableWidth / (validWeeklyData.length - 1) : 0
+    
+    // Fixed linear position based on array index (same as nodes)
+    const x = effectivePadding + i * stepX
+    const y = chartHeight - effectivePadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * effectivePadding)
+    
+    // Validate coordinates
     let validX = x
     let validY = y
     
-    // Check for NaN and provide fallbacks
     if (isNaN(validX) || !isFinite(validX)) {
-      validX = chartPadding + (i * 10) // Simple fallback spacing
+      validX = effectivePadding + (i * 10)
     }
     if (isNaN(validY) || !isFinite(validY)) {
-      validY = chartHeight - chartPadding // Baseline fallback
+      validY = chartHeight - effectivePadding
     }
     
-    // Clamp to chart boundaries
-    validX = Math.max(chartPadding, Math.min(validX, chartWidth - chartPadding))
-    validY = Math.max(chartPadding, Math.min(validY, chartHeight - chartPadding))
+    validX = Math.max(effectivePadding, Math.min(validX, chartWidth - effectiveRightPadding))
+    validY = Math.max(effectivePadding, Math.min(validY, chartHeight - effectivePadding))
     
-    // Final NaN check before returning
     if (isNaN(validX) || isNaN(validY)) {
       console.warn(`Invalid coordinates for point ${i}: x=${validX}, y=${validY}`)
-      validX = chartPadding + i * 10
+      validX = effectivePadding + i * 10
       validY = chartHeight / 2
     }
     
@@ -568,8 +576,15 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           </span>
           <div className="flex items-center space-x-1">
             <GitCommit size={12} style={{ color: accentColor.hex }} />
-            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>{validWeeklyData[validWeeklyData.length - 1]?.count || 0}</span>
-            <span className="text-gray-400 text-xs">last complete week</span>
+            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>
+              {selectedPeriod === 'current' 
+                ? validWeeklyData.reduce((total, week) => total + (week.count || 0), 0)
+                : validWeeklyData[validWeeklyData.length - 1]?.count || 0
+              }
+            </span>
+            <span className="text-gray-400 text-xs">
+              {selectedPeriod === 'current' ? 'total' : 'last complete week'}
+            </span>
           </div>
         </div>
 
@@ -681,19 +696,30 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               
               if (!shouldShowGrid) return null;
               
-              // Use temporal positioning
-              const weeksSinceStart = Math.floor((weekDate.getTime() - expectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-              const normalizedPosition = Math.max(0, Math.min(1, weeksSinceStart / (expectedWeeks - 1)));
-              const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding);
+              // Use linear scale: fixed position based on array index (same as chart points)
+              let effectivePadding = chartPadding
+              let effectiveRightPadding = chartPadding
+              
+              if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
+                effectivePadding = Math.max(20, chartPadding * 0.6)
+                effectiveRightPadding = Math.max(15, chartPadding * 0.6)
+              } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
+                effectivePadding = chartPadding * 1.2
+                effectiveRightPadding = chartPadding * 1.2
+              }
+              
+              const availableWidth = chartWidth - effectivePadding - effectiveRightPadding;
+              const stepX = validWeeklyData.length > 1 ? availableWidth / (validWeeklyData.length - 1) : 0;
+              const x = effectivePadding + i * stepX;
               
               // Validate coordinates
-              const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding));
+              const safeX = isNaN(x) || !isFinite(x) ? effectivePadding : Math.max(effectivePadding, Math.min(x, chartWidth - effectiveRightPadding));
               
               return (
                 <line
                   key={`month-grid-${i}`}
                   x1={safeX}
-                  y1={chartPadding}
+                  y1={effectivePadding}
                   x2={safeX}
                   y2={chartHeight - bottomPadding}
                   stroke={accentColor.hex}
@@ -704,14 +730,24 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
 
             {/* Week ticks */}
             {validWeeklyData.map((w, i) => {
-              // Use temporal positioning
-              const weekDate = new Date(w.weekStart);
-              const weeksSinceStart = Math.floor((weekDate.getTime() - expectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-              const normalizedPosition = Math.max(0, Math.min(1, weeksSinceStart / (expectedWeeks - 1)));
-              const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding)
+              // Use linear scale: fixed position based on array index (same as chart points)
+              let effectivePadding = chartPadding
+              let effectiveRightPadding = chartPadding
+              
+              if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
+                effectivePadding = Math.max(20, chartPadding * 0.6)
+                effectiveRightPadding = Math.max(15, chartPadding * 0.6)
+              } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
+                effectivePadding = chartPadding * 1.2
+                effectiveRightPadding = chartPadding * 1.2
+              }
+              
+              const availableWidth = chartWidth - effectivePadding - effectiveRightPadding;
+              const stepX = validWeeklyData.length > 1 ? availableWidth / (validWeeklyData.length - 1) : 0;
+              const x = effectivePadding + i * stepX;
               
               // Validate coordinates
-              const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding))
+              const safeX = isNaN(x) || !isFinite(x) ? effectivePadding : Math.max(effectivePadding, Math.min(x, chartWidth - effectiveRightPadding));
               
               return (
                 <line
@@ -748,31 +784,43 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             
             {/* Data points (nodes) with tooltips */}
             {validWeeklyData.map((w, i) => {
-              // Use same temporal positioning calculation as chartPoints
+              // Use linear scale: fixed position based on array index
               const safeMaxCommits = Math.max(maxCommits, 1)
               const safeCount = Math.max(0, w.count || 0)
               
-              // Calculate the actual temporal position of this week within the expected period
-              const weekDate = new Date(w.weekStart);
-              const weeksSinceStart = Math.floor((weekDate.getTime() - expectedStartDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-              const normalizedPosition = Math.max(0, Math.min(1, weeksSinceStart / (expectedWeeks - 1)));
+              // Calculate period-aware spacing (same as generateChartPoints)
+              let effectivePadding = chartPadding
+              let effectiveRightPadding = chartPadding
               
-              const x = chartPadding + normalizedPosition * (chartWidth - 2 * chartPadding)
-              const y = chartHeight - chartPadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * chartPadding)
+              if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
+                effectivePadding = Math.max(20, chartPadding * 0.6)
+                effectiveRightPadding = Math.max(15, chartPadding * 0.6)
+              } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
+                effectivePadding = chartPadding * 1.2
+                effectiveRightPadding = chartPadding * 1.2
+              }
+              
+              // Linear scale: each position is exactly the same distance apart
+              const availableWidth = chartWidth - effectivePadding - effectiveRightPadding
+              const stepX = validWeeklyData.length > 1 ? availableWidth / (validWeeklyData.length - 1) : 0
+              
+              // Fixed linear position based on array index
+              const x = effectivePadding + i * stepX
+              const y = chartHeight - effectivePadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * effectivePadding)
               
               // Validate coordinates
               let safeX = x
               let safeY = y
               
               if (isNaN(safeX) || !isFinite(safeX)) {
-                safeX = chartPadding + (i * 10)
+                safeX = effectivePadding + (i * 10)
               }
               if (isNaN(safeY) || !isFinite(safeY)) {
-                safeY = chartHeight - chartPadding
+                safeY = chartHeight - effectivePadding
               }
               
-              safeX = Math.max(chartPadding, Math.min(safeX, chartWidth - chartPadding))
-              safeY = Math.max(chartPadding, Math.min(safeY, chartHeight - chartPadding))
+              safeX = Math.max(effectivePadding, Math.min(safeX, chartWidth - effectiveRightPadding))
+              safeY = Math.max(effectivePadding, Math.min(safeY, chartHeight - effectivePadding))
               
               return (
                 <g key={i}>

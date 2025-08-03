@@ -15,7 +15,7 @@ export const PERIOD_CONFIGS = {
     isDaily: true,
     serverPeriod: 'current',
     useHybridData: true, // Only period that uses DB + GitHub API
-    cacheTTL: 2 * 60 * 60 * 1000 // 2 hours for hybrid data
+    cacheTTL: 30 * 60 * 1000 // 30 minutes for current data (real-time updates)
   },
   '4weeks': {
     key: '4weeks',
@@ -24,7 +24,7 @@ export const PERIOD_CONFIGS = {
     isDaily: false,
     serverPeriod: '5weeks', // Maps to server's 5weeks endpoint
     useHybridData: false, // Database only
-    cacheTTL: 24 * 60 * 60 * 1000 // 24 hours
+    cacheTTL: 30 * 24 * 60 * 60 * 1000 // 30 days for immutable weekly data
   },
   '5weeks': {
     key: '5weeks',
@@ -33,7 +33,7 @@ export const PERIOD_CONFIGS = {
     isDaily: false,
     serverPeriod: '5weeks',
     useHybridData: false, // Database only
-    cacheTTL: 24 * 60 * 60 * 1000 // 24 hours
+    cacheTTL: 30 * 24 * 60 * 60 * 1000 // 30 days for immutable weekly data
   },
   '3months': {
     key: '3months',
@@ -42,7 +42,7 @@ export const PERIOD_CONFIGS = {
     isDaily: false,
     serverPeriod: '3months',
     useHybridData: false, // Database only
-    cacheTTL: 7 * 24 * 60 * 60 * 1000 // 7 days for historical data
+    cacheTTL: 90 * 24 * 60 * 60 * 1000 // 90 days for immutable historical data
   },
   '52weeks': {
     key: '52weeks',
@@ -51,7 +51,7 @@ export const PERIOD_CONFIGS = {
     isDaily: false,
     serverPeriod: '52weeks',
     useHybridData: false, // Database only
-    cacheTTL: 7 * 24 * 60 * 60 * 1000 // 7 days for historical data
+    cacheTTL: 180 * 24 * 60 * 60 * 1000 // 180 days for immutable historical data
   },
   '3years': {
     key: '3years',
@@ -60,7 +60,7 @@ export const PERIOD_CONFIGS = {
     isDaily: false,
     serverPeriod: '3years',
     useHybridData: false, // Database only
-    cacheTTL: 14 * 24 * 60 * 60 * 1000 // 14 days for very historical data
+    cacheTTL: 365 * 24 * 60 * 60 * 1000 // 365 days for immutable historical data
   }
 }
 
@@ -319,15 +319,16 @@ const transformWeeklyData = (rawData, periodKey, componentName) => {
 
 /**
  * Generate line chart points for SVG polyline
- * Centralized function used by all chart components
+ * Uses linear scale: each data point gets fixed position based on array index
  * @param {Array} data - Chart data array
  * @param {number} width - Chart width
  * @param {number} height - Chart height
  * @param {number} padding - Left padding
  * @param {number} rightPadding - Right padding
+ * @param {string} period - Period key for scaling adjustments
  * @returns {string} SVG points string
  */
-export const generateChartPoints = (data, width, height, padding = 40, rightPadding = 30) => {
+export const generateChartPoints = (data, width, height, padding = 40, rightPadding = 30, period = null) => {
   if (!data || data.length === 0) return ''
   
   // Ensure we have valid data
@@ -335,11 +336,38 @@ export const generateChartPoints = (data, width, height, padding = 40, rightPadd
   if (validData.length === 0) return ''
   
   const max = Math.max(...validData.map(item => item.count), 1)
-  const stepX = validData.length > 1 ? (width - padding - rightPadding) / (validData.length - 1) : 0
+  
+  // Adjust padding based on period
+  let effectivePadding = padding
+  let effectiveRightPadding = rightPadding
+  
+  if (period === 'current' && validData.length === 7) {
+    // 7-day chart: use minimal padding for maximum width utilization
+    effectivePadding = Math.max(20, padding * 0.6)
+    effectiveRightPadding = Math.max(15, rightPadding * 0.6)
+  } else if (period === '3years' && validData.length > 100) {
+    // 3-year chart: slightly more padding for readability
+    effectivePadding = padding * 1.2
+    effectiveRightPadding = rightPadding * 1.2
+  }
+  
+  // Linear scale: each data point gets fixed position based on array index
+  const availableWidth = width - effectivePadding - effectiveRightPadding
+  
+  // For single point, center it
+  if (validData.length === 1) {
+    const x = effectivePadding + availableWidth / 2
+    const y = height - effectivePadding - (validData[0].count / max) * (height - 2 * effectivePadding)
+    return `${x},${y}`
+  }
+  
+  // Linear spacing: each position is exactly the same distance apart
+  const stepX = availableWidth / (validData.length - 1)
   
   return validData.map((item, i) => {
-    const x = padding + i * stepX
-    const y = height - padding - (item.count / max) * (height - 2 * padding)
+    // Fixed linear position based on array index
+    const x = effectivePadding + i * stepX
+    const y = height - effectivePadding - (item.count / max) * (height - 2 * effectivePadding)
     return `${x},${y}`
   }).join(' ')
 }

@@ -4,7 +4,7 @@ class GitHubDataStore {
     this.data = new Map();
     this.lastFetchTime = null;
     this.isLoading = false;
-    this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
+    this.cacheTimeout = 30 * 60 * 1000; // 30 minutes for current data updates
     this.listeners = new Set();
   }
 
