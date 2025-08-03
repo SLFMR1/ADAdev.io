@@ -102,9 +102,6 @@ const Hero = ({ onRevert, showRevertButton, navigationSource }) => {
                   }`}
                 >
                   <RotateCcw size={16} className="sm:w-4 sm:h-4" />
-                  <span>
-                    {navigationSource === 'leaderboard' ? 'Back to Leaderboard' : 'Back to Dashboard'}
-                  </span>
                 </button>
               </div>
             )}
