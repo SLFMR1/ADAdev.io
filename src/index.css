@@ -411,4 +411,12 @@
   .desktop-only {
     display: block;
   }
+}
+
+/* Screenshot mode styles */
+.screenshot-dropdown {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 } 

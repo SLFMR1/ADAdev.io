@@ -463,14 +463,64 @@ const ResourceCard = ({ resource, onViewResource }) => {
   const handleShareActivityChart = async () => {
     if (!cardRef.current) return;
     setIsSharing(true);
+    setScreenshotMode(true);
     
     try {
-      // Use the isolated screenshot capture function
-      const blob = await createIsolatedScreenshot(cardRef.current, {
+      // Wait for screenshot mode to apply (invisible placeholders)
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Get the current scroll position to capture correctly
+      const scrollX = window.pageXOffset;
+      const scrollY = window.pageYOffset;
+      
+      // Get element bounds
+      const rect = cardRef.current.getBoundingClientRect();
+      const padding = Math.min(rect.width, rect.height) * 0.07;
+      
+      // Capture the card 
+      const canvas = await html2canvas(cardRef.current, {
         scale: 2,
         useCORS: true,
         allowTaint: false,
-        logging: false
+        backgroundColor: 'transparent',
+        logging: false,
+        foreignObjectRendering: true,
+        ignoreElements: (element) => {
+          // Don't ignore any elements - capture everything
+          return false;
+        }
+      });
+      
+      // Create a new canvas with padding and background
+      const finalCanvas = document.createElement('canvas');
+      const finalCtx = finalCanvas.getContext('2d');
+      const finalWidth = canvas.width + (padding * 2 * 2); // padding * 2 for scale
+      const finalHeight = canvas.height + (padding * 2 * 2);
+      
+      finalCanvas.width = finalWidth;
+      finalCanvas.height = finalHeight;
+      
+      // Draw your background gradient
+      const gradient = finalCtx.createLinearGradient(0, 0, finalWidth, finalHeight);
+      gradient.addColorStop(0, '#1E1E1E');
+      gradient.addColorStop(0.5, '#0F0F0F');
+      gradient.addColorStop(1, '#1A1A1A');
+      finalCtx.fillStyle = gradient;
+      finalCtx.fillRect(0, 0, finalWidth, finalHeight);
+      
+      // Draw the widget in the center
+      finalCtx.drawImage(canvas, padding * 2, padding * 2);
+      
+      // Add adadev.io branding
+      finalCtx.font = '28px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto';
+      finalCtx.fillStyle = 'rgba(156, 163, 175, 0.7)';
+      finalCtx.textAlign = 'center';
+      finalCtx.textBaseline = 'bottom';
+      finalCtx.fillText('adadev.io', finalWidth / 2, finalHeight - 24);
+      
+      // Convert to blob
+      const blob = await new Promise(resolve => {
+        finalCanvas.toBlob(resolve, 'image/png', 1.0);
       });
       
       // Generate tweet text
@@ -491,6 +541,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       console.error('Share error:', error);
       showShareError('Failed to generate image. Please try again.');
     } finally {
+      setScreenshotMode(false);
       setIsSharing(false);
     }
   }
@@ -523,16 +574,21 @@ const ResourceCard = ({ resource, onViewResource }) => {
       className={`relative bg-card-bg/50 backdrop-blur-md border border-gray-800 rounded-xl p-4 transition-all duration-300 ease-out transform-gpu shadow-lg hover:shadow-2xl cursor-pointer ${
         !isExpanded ? 'hover:scale-[1.07]' : ''
       } ${
-        isExpanded && (activeTab === 'activity' || activeTab === 'video') ? 'col-span-2' : ''
+        isExpanded && (activeTab === 'activity' || activeTab === 'video') ? (screenshotMode ? '' : 'col-span-2') : ''
       }`}
       style={{
         height: isExpanded ? 'auto' : '6rem',
         minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '28rem' : '32rem') : (screenshotMode ? '42rem' : '46rem')) : 
                    isExpanded && activeTab === 'video' ? '35rem' : 
                    isExpanded ? (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) : undefined,
-        transform: isExpanded ? (window.innerWidth < 1024 ? 'scale(1)' : 'scale(1.03)') : 'scale(1)',
+        transform: isExpanded ? (screenshotMode ? 'scale(1)' : (window.innerWidth < 1024 ? 'scale(1)' : 'scale(1.03)')) : 'scale(1)',
         marginBottom: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? '2rem' : undefined,
         marginTop: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? '2rem' : undefined,
+        ...(screenshotMode && isExpanded && (activeTab === 'activity' || activeTab === 'video') ? {
+          width: '800px',
+          position: 'relative',
+          zIndex: 'auto'
+        } : {})
       }}
     >
       {/* Collapsed View */}
@@ -671,55 +727,41 @@ const ResourceCard = ({ resource, onViewResource }) => {
                   <h4 className="text-white font-medium text-sm">
                     Weekly Activity
                   </h4>
-                  {screenshotMode && (
-                    <div className="ml-1">
-                      <PeriodDropdown
-                        value={selectedPeriod}
-                        onChange={setSelectedPeriod}
-                        options={periodOptions}
-                        placeholder="Select period..."
-                        className=""
-                        screenshotMode={screenshotMode}
-                      />
-                    </div>
-                  )}
                 </div>
                 <div className="flex items-center space-x-3">
-                  {!screenshotMode && (
-                    <PeriodDropdown
-                      value={selectedPeriod}
-                      onChange={(newPeriod) => {
-                        logger.log(`⚡ Chart period change for ${resource.name}: ${selectedPeriod} → ${newPeriod}`)
-                        console.log('Available preloaded data:', Object.keys(activityChartData))
-                        console.log('Preloaded data for new period:', activityChartData[newPeriod])
-                        console.log('Detailed comparison:', {
-                          '4weeks': activityChartData['4weeks']?.commitsPerWeekDetailed?.length,
-                          '3months': activityChartData['3months']?.commitsPerWeekDetailed?.length,
-                          '52weeks': activityChartData['52weeks']?.commitsPerWeekDetailed?.length
-                        })
-                        setSelectedPeriod(newPeriod)
-                        
-                        // Check centralized cache for missing period data
-                        if (!ChartDataCache.has('resource', newPeriod, resource.id) && resource.social?.github) {
-                          logger.log(`🔄 Loading missing chart period data: ${newPeriod}`)
-                          // Only show loading if we have no data for any period
-                          const hasAnyData = Object.keys(activityChartData).length > 0
-                          if (!hasAnyData) {
-                            setIsLoadingActivityChart(true)
-                          }
-                          preloadActivityChartData()
+                  <PeriodDropdown
+                    value={selectedPeriod}
+                    onChange={(newPeriod) => {
+                      logger.log(`⚡ Chart period change for ${resource.name}: ${selectedPeriod} → ${newPeriod}`)
+                      console.log('Available preloaded data:', Object.keys(activityChartData))
+                      console.log('Preloaded data for new period:', activityChartData[newPeriod])
+                      console.log('Detailed comparison:', {
+                        '4weeks': activityChartData['4weeks']?.commitsPerWeekDetailed?.length,
+                        '3months': activityChartData['3months']?.commitsPerWeekDetailed?.length,
+                        '52weeks': activityChartData['52weeks']?.commitsPerWeekDetailed?.length
+                      })
+                      setSelectedPeriod(newPeriod)
+                      
+                      // Check centralized cache for missing period data
+                      if (!ChartDataCache.has('resource', newPeriod, resource.id) && resource.social?.github) {
+                        logger.log(`🔄 Loading missing chart period data: ${newPeriod}`)
+                        // Only show loading if we have no data for any period
+                        const hasAnyData = Object.keys(activityChartData).length > 0
+                        if (!hasAnyData) {
+                          setIsLoadingActivityChart(true)
                         }
-                      }}
-                      options={periodOptions}
-                      placeholder="Select period..."
-                      className="w-44"
-                      screenshotMode={screenshotMode}
-                    />
-                  )}
+                        preloadActivityChartData()
+                      }
+                    }}
+                    options={periodOptions}
+                    placeholder="Select period..."
+                    className={`w-44 ${screenshotMode ? 'opacity-0 pointer-events-none' : ''}`}
+                    screenshotMode={screenshotMode}
+                  />
                   <div className="flex items-center space-x-3">
                     <button
                       onClick={handleShareActivityChart}
-                      className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10 ${isSharing ? 'opacity-50 cursor-not-allowed' : ''} ${screenshotMode ? 'hidden' : ''}`}
+                      className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10 ${isSharing ? 'opacity-50 cursor-not-allowed' : ''} ${screenshotMode ? 'opacity-0 pointer-events-none' : ''}`}
                       title="Share Activity Chart"
                       disabled={isSharing}
                     >
@@ -795,6 +837,13 @@ const ResourceCard = ({ resource, onViewResource }) => {
               </div>
             )}
           </div>
+          
+          {/* adadev.io branding for screenshots */}
+          {screenshotMode && (
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+              <span className="text-xs text-gray-400 font-medium opacity-70">adadev.io</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
