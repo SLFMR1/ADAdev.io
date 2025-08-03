@@ -171,23 +171,56 @@ export const transformChartData = (rawData, periodKey, componentName = 'Chart') 
  */
 const transformDailyData = (rawData, componentName) => {
   const aggregatedData = []
-  const maxDays = Math.max(...rawData.map(item => item.dailyCounts?.length || 0))
-  const today = new Date()
   
-  // Ensure we get exactly 7 days
-  const daysToShow = Math.min(maxDays, 7)
+  // Check if we have dailyCounts (DevelopmentActivityWidget format) or weeklyData (WeeklyActivityChart format)
+  const hasDailyCounts = rawData.some(item => item.dailyCounts && Array.isArray(item.dailyCounts))
+  const hasWeeklyData = rawData.some(item => item.weeklyData && Array.isArray(item.weeklyData))
   
-  for (let day = 0; day < daysToShow; day++) {
-    const totalCount = rawData.reduce((sum, item) => sum + (item.dailyCounts?.[day] || 0), 0)
+  if (hasDailyCounts) {
+    // DevelopmentActivityWidget format - use dailyCounts
+    const maxDays = Math.max(...rawData.map(item => item.dailyCounts?.length || 0))
+    const today = new Date()
     
-    // Calculate correct date for each day (going backwards from today)
-    const dayDate = new Date(today)
-    dayDate.setDate(today.getDate() - (daysToShow - 1 - day))
+    // Ensure we get exactly 7 days
+    const daysToShow = Math.min(maxDays, 7)
     
-    aggregatedData.push({
-      count: totalCount,
-      weekStart: dayDate.toISOString().slice(0, 10)
-    })
+    for (let day = 0; day < daysToShow; day++) {
+      const totalCount = rawData.reduce((sum, item) => sum + (item.dailyCounts?.[day] || 0), 0)
+      
+      // Calculate correct date for each day (going backwards from today)
+      const dayDate = new Date(today)
+      dayDate.setDate(today.getDate() - (daysToShow - 1 - day))
+      
+      aggregatedData.push({
+        count: totalCount,
+        weekStart: dayDate.toISOString().slice(0, 10)
+      })
+    }
+  } else if (hasWeeklyData) {
+    // WeeklyActivityChart format - use weeklyData (which contains daily data for 'current' period)
+    const maxDays = Math.max(...rawData.map(item => item.weeklyData?.length || 0))
+    
+    // Ensure we get exactly 7 days
+    const daysToShow = Math.min(maxDays, 7)
+    
+    for (let day = 0; day < daysToShow; day++) {
+      const totalCount = rawData.reduce((sum, item) => {
+        const dayData = item.weeklyData?.[day]
+        return sum + (dayData?.count || 0)
+      }, 0)
+      
+      // Use the weekStart from the first item's data (they should all have the same dates)
+      const firstItem = rawData.find(item => item.weeklyData?.[day])
+      const weekStart = firstItem?.weeklyData?.[day]?.weekStart
+      
+      aggregatedData.push({
+        count: totalCount,
+        weekStart: weekStart || new Date().toISOString().slice(0, 10)
+      })
+    }
+  } else {
+    logger.warn(`${componentName}: No valid daily data structure found`)
+    return []
   }
   
   // Validate we have exactly 7 nodes

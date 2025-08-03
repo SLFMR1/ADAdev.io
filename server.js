@@ -1648,12 +1648,21 @@ app.get('/api/development-activity', async (req, res) => {
       }
       
       try {
-        // Fetch historical activity data for the specific resource and period
-        const activityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
+        let activityData;
+        let totalCommits;
         
-        // Calculate total commits
-        const totalCommits = Array.isArray(activityData) ? 
-          activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
+        // Use getRecentActivity with daily processing for 'current' period, getHistoricalActivity for others
+        if (period === 'current') {
+          // For 7-day period, use getRecentActivity with daily processing
+          const recentData = await getRecentActivity(targetResource, true, 'current');
+          activityData = recentData.weeklyData; // This contains daily data for 7-day period
+          totalCommits = recentData.commitsPerWeek;
+        } else {
+          // For other periods, use getHistoricalActivity
+          activityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
+          totalCommits = Array.isArray(activityData) ? 
+            activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
+        }
         
         // Get repo info for organizations
         const repoInfo = targetResource.type === 'organization' ? {
@@ -3019,7 +3028,69 @@ const ensureHistoricalDataCompleteness = async () => {
 }
 
 // Preload cache for both view modes on startup for instant first load
+// Process all existing database data first (fast, no API calls)
+const processDatabaseData = async () => {
+  console.log('')
+  console.log('🎯 MILESTONE 1: DATABASE DATA PROCESSING')
+  console.log('='.repeat(50))
+  console.log('🔄 Processing existing database data for instant UI...')
+  
+  try {
+    const resources = await loadResources()
+    console.log(`📊 Loaded ${resources.length} resources from database`)
+    
+    // Process repository view data from database
+    console.log('📦 Processing repository view data from database...')
+    const repoResponse = await fetch(`http://localhost:${PORT}/api/development-activity?viewMode=repository&period=current`)
+    if (repoResponse.ok) {
+      console.log('✅ Repository view data processed from database')
+    }
+    
+    // Process organization view data from database
+    console.log('📦 Processing organization view data from database...')
+    const orgResponse = await fetch(`http://localhost:${PORT}/api/development-activity?viewMode=organization&period=current`)
+    if (orgResponse.ok) {
+      console.log('✅ Organization view data processed from database')
+    }
+    
+    console.log('🎉 MILESTONE 1 COMPLETED: Database data processing finished!')
+    console.log('🚀 UI ready for instant load!')
+    console.log('')
+  } catch (error) {
+    console.warn('⚠️ Database data processing failed (not critical):', error.message)
+  }
+}
+
+// Background data fetching and backfilling
+const backgroundDataFetching = async () => {
+  console.log('🎯 MILESTONE 3: BACKGROUND DATA FETCHING')
+  console.log('='.repeat(50))
+  console.log('🔄 Starting background data fetching and backfilling...')
+  
+  try {
+    // Step 1: Historical data completeness check and backfilling
+    if (supabase && GITHUB_TOKEN) {
+      console.log('📦 Background: Historical data completeness check...')
+      await ensureHistoricalDataCompleteness()
+      console.log('✅ Background: Historical data check completed')
+    }
+    
+    // Step 2: Updates cache population (commits & releases)
+    console.log('📦 Background: Populating updates cache...')
+    await populateUpdatesCache()
+    console.log('✅ Background: Updates cache population completed')
+    
+    console.log('🎉 MILESTONE 3 COMPLETED: Background data fetching finished!')
+    console.log('🚀 All data fetching and backfilling completed!')
+    console.log('')
+  } catch (error) {
+    console.error('❌ Background data fetching failed:', error.message)
+  }
+}
+
 const preloadStartupCache = async () => {
+  console.log('🎯 MILESTONE 2: CACHE PRELOADING')
+  console.log('='.repeat(50))
   console.log('🔄 Preloading server cache for instant first load...')
   
   try {
@@ -3037,7 +3108,9 @@ const preloadStartupCache = async () => {
       }
     }
     
-    console.log('🚀 Startup cache preloading completed - both views ready for instant load!')
+    console.log('🎉 MILESTONE 2 COMPLETED: Cache preloading finished!')
+    console.log('🚀 Both views ready for instant load!')
+    console.log('')
   } catch (error) {
     console.warn('⚠️ Startup cache preloading failed (not critical):', error.message)
   }
@@ -3791,24 +3864,38 @@ const startServer = async () => {
       // Sequential startup process to avoid race conditions
       const runSequentialStartup = async () => {
         try {
-          // Step 1: Preload cache for immediate UI responsiveness
-          console.log('🔄 Step 1/3: Preloading server cache for instant first load...')
+          // Step 1: Process all existing database data first (fast, no API calls)
+          console.log('🔄 Step 1/4: Processing existing database data for instant UI...')
+          await processDatabaseData()
+          console.log('✅ Step 1/4: Database data processing completed')
+          
+          // Step 2: Preload cache with existing database data
+          console.log('🔄 Step 2/4: Preloading cache with existing database data...')
           await preloadStartupCache()
-          console.log('✅ Step 1/3: Cache preloading completed')
+          console.log('✅ Step 2/4: Cache preloading completed')
           
-          // Step 2: Check and ensure historical data completeness (github_activity table)
-          if (supabase && GITHUB_TOKEN) {
-            console.log('🔍 Step 2/3: Starting historical data completeness check (github_activity table)...')
-            await ensureHistoricalDataCompleteness()
-            console.log('✅ Step 2/3: Historical data check completed (github_activity table)')
-          } else {
-            console.log('⚠️ Step 2/3: Skipping historical data completeness check (missing Supabase or GitHub token)')
-          }
+          // Step 3: Start background data fetching and backfilling (non-blocking)
+          console.log('🔄 Step 3/4: Starting background data fetching and backfilling...')
+          // Run background fetching after a short delay to ensure UI is fully ready
+          setTimeout(() => {
+            backgroundDataFetching().then(() => {
+              console.log('')
+              console.log('🎉 FINAL COMPLETION: All background processes finished!')
+              console.log('='.repeat(50))
+              console.log('✅ All milestones completed successfully!')
+              console.log('🚀 Server is fully operational with complete data!')
+              console.log('')
+            }).catch(error => {
+              console.error('❌ Background data fetching failed:', error.message)
+            })
+          }, 1000) // 1 second delay to ensure UI is fully loaded
           
-          // Step 3: Initial population of updates cache (github_commits_cache & github_releases_cache)
-          console.log('🚀 Step 3/3: Starting initial updates cache population (commits & releases cache)...')
-          await populateUpdatesCache()
-          console.log('✅ Step 3/3: Updates cache population completed (commits & releases cache)')
+          console.log('✅ Step 3/4: Background data fetching started (non-blocking)')
+          
+          // Step 4: Set up recurring cache refresh schedules
+          console.log('🎯 MILESTONE 4: CACHE REFRESH SCHEDULES')
+          console.log('='.repeat(50))
+          console.log('🔄 Step 4/4: Setting up recurring cache refresh schedules...')
           
           // Set up recurring cache refresh schedules
           console.log('📅 Setting up smart cache refresh schedule:')
@@ -3827,7 +3914,20 @@ const startServer = async () => {
             populateUpdatesCache('all')
           }, 4 * 60 * 60 * 1000) // 4 hours
           
+          console.log('✅ Step 4/4: Cache refresh schedules configured')
+          console.log('🎉 MILESTONE 4 COMPLETED: Cache refresh schedules configured!')
           console.log('🎉 All startup processes completed successfully!')
+          console.log('')
+          console.log('🚀 SERVER STARTUP SUMMARY:')
+          console.log('='.repeat(50))
+          console.log('✅ Milestone 1: Database data processing - COMPLETED')
+          console.log('✅ Milestone 2: Cache preloading - COMPLETED')
+          console.log('🔄 Milestone 3: Background data fetching - RUNNING')
+          console.log('✅ Milestone 4: Cache refresh schedules - COMPLETED')
+          console.log('')
+          console.log('🎯 UI is ready for immediate use!')
+          console.log('📊 Background processes will continue updating data...')
+          console.log('')
           
         } catch (error) {
           console.error('❌ Error in sequential startup process:', error.message)
