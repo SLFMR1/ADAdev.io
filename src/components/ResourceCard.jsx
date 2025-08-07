@@ -9,7 +9,7 @@ import GitHubUpdates from './GitHubUpdates'
 import WeeklyCommitCount from './WeeklyCommitCount'
 import WeeklyActivityChart from './WeeklyActivityChart'
 import PeriodDropdown from './PeriodDropdown'
-import html2canvas from 'html2canvas'
+import * as htmlToImage from 'html-to-image'
 import { createGlobalGradientBackground } from '../utils/logger-frontend.js'
 import { createIsolatedScreenshot, shareToX, generateTweetText } from '../utils/screenshotUtils'
 import { fetchGitHubUpdates } from '../services/github'
@@ -466,61 +466,55 @@ const ResourceCard = ({ resource, onViewResource }) => {
     setScreenshotMode(true);
     
     try {
-      // Wait for screenshot mode to apply (invisible placeholders)
+      // Wait for screenshot mode to apply
       await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Get the current scroll position to capture correctly
-      const scrollX = window.pageXOffset;
-      const scrollY = window.pageYOffset;
-      
-      // Get element bounds
-      const rect = cardRef.current.getBoundingClientRect();
-      const padding = Math.min(rect.width, rect.height) * 0.07;
-      
-      // Capture the card 
-      const canvas = await html2canvas(cardRef.current, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
+
+      // Capture the card with html-to-image
+      const dataUrl = await htmlToImage.toPng(cardRef.current, {
+        quality: 1.0,
+        pixelRatio: 1,
         backgroundColor: 'transparent',
-        logging: false,
-        foreignObjectRendering: true,
-        ignoreElements: (element) => {
-          // Don't ignore any elements - capture everything
-          return false;
-        }
+        skipFonts: false
       });
-      
-      // Create a new canvas with padding and background
-      const finalCanvas = document.createElement('canvas');
-      const finalCtx = finalCanvas.getContext('2d');
-      const finalWidth = canvas.width + (padding * 2 * 2); // padding * 2 for scale
-      const finalHeight = canvas.height + (padding * 2 * 2);
-      
-      finalCanvas.width = finalWidth;
-      finalCanvas.height = finalHeight;
-      
-      // Draw your background gradient
-      const gradient = finalCtx.createLinearGradient(0, 0, finalWidth, finalHeight);
+
+      // Load to get dimensions
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+
+      // Create final canvas with 35px padding each side + branding space
+      const padding = 35;
+      const finalWidth = img.width + (padding * 2);
+      const finalHeight = img.height + (padding * 2) + 80;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = finalWidth;
+      canvas.height = finalHeight;
+
+      // Background gradient
+      const gradient = ctx.createLinearGradient(0, 0, finalWidth, finalHeight);
       gradient.addColorStop(0, '#1E1E1E');
       gradient.addColorStop(0.5, '#0F0F0F');
       gradient.addColorStop(1, '#1A1A1A');
-      finalCtx.fillStyle = gradient;
-      finalCtx.fillRect(0, 0, finalWidth, finalHeight);
-      
-      // Draw the widget in the center
-      finalCtx.drawImage(canvas, padding * 2, padding * 2);
-      
-      // Add adadev.io branding
-      finalCtx.font = '28px ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto';
-      finalCtx.fillStyle = 'rgba(156, 163, 175, 0.7)';
-      finalCtx.textAlign = 'center';
-      finalCtx.textBaseline = 'bottom';
-      finalCtx.fillText('adadev.io', finalWidth / 2, finalHeight - 24);
-      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, finalWidth, finalHeight);
+
+      // Draw captured image
+      ctx.drawImage(img, padding, padding);
+
+      // Branding (thin + +3pt)
+      ctx.font = '200 31px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(156, 163, 175, 0.7)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('adadev.io', finalWidth / 2, finalHeight - 24);
+
       // Convert to blob
       const blob = await new Promise(resolve => {
-        finalCanvas.toBlob(resolve, 'image/png', 1.0);
+        canvas.toBlob(resolve, 'image/png', 1.0);
       });
       
       // Generate tweet text
@@ -622,6 +616,9 @@ const ResourceCard = ({ resource, onViewResource }) => {
             <div className="flex items-center space-x-3">
               <IconComponent size={20} className={`text-red-400 ${screenshotMode ? 'hidden' : ''}`} />
               <h3 className="text-white font-medium text-base">{resource.name}</h3>
+              {screenshotMode && activeTab === 'activity' && (
+                <span className="text-sm text-gray-400">Weekly Activity</span>
+              )}
             </div>
             {/* Logo in expanded view */}
             {resource.website ? (
@@ -721,7 +718,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
               <GitHubUpdates resource={resource} />
             )}
             {activeTab === 'activity' && resource.social?.github && (
-              <div className="mb-4 flex items-center justify-between">
+              <div className={`mb-4 flex items-center justify-between ${screenshotMode ? 'hidden' : ''}`}>
                 <div className="flex items-center space-x-2">
                   <TrendingUp size={16} className="text-white" />
                   <h4 className="text-white font-medium text-sm">
@@ -758,49 +755,51 @@ const ResourceCard = ({ resource, onViewResource }) => {
                     className={`w-44 ${screenshotMode ? 'opacity-0 pointer-events-none' : ''}`}
                     screenshotMode={screenshotMode}
                   />
-                  <div className="flex items-center space-x-3">
-                    <button
-                      onClick={handleShareActivityChart}
-                      className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10 ${isSharing ? 'opacity-50 cursor-not-allowed' : ''} ${screenshotMode ? 'opacity-0 pointer-events-none' : ''}`}
-                      title="Share Activity Chart"
-                      disabled={isSharing}
-                    >
-                      {isSharing ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Share2 className="w-4 h-4" />
+                  {!screenshotMode && (
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={handleShareActivityChart}
+                        className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10 ${isSharing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title="Share Activity Chart"
+                        disabled={isSharing}
+                      >
+                        {isSharing ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Share2 className="w-4 h-4" />
+                        )}
+                      </button>
+                      {/* Accent Color Picker Dot */}
+                      <button
+                        onClick={handleAccentColorChange}
+                        className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-gray-800/30"
+                        title={`Current accent color: ${currentAccentColor.name}`}
+                      >
+                        <div 
+                          className="w-2 h-2 rounded-full border border-gray-600/50 transition-all duration-200 hover:scale-85"
+                          style={{
+                            backgroundColor: currentAccentColor.hex,
+                            boxShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.boxShadow = `0 0 12px rgba(${currentAccentColor.rgb}, 0.8), 0 0 24px rgba(${currentAccentColor.rgb}, 0.5)`;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.boxShadow = `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`;
+                          }}
+                        />
+                      </button>
+                      {shareMessage && (
+                        <div className={`text-sm font-medium transition-all duration-300 ${
+                          shareMessageType === 'success' 
+                            ? 'bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent' 
+                            : 'bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent'
+                        }`}>
+                          {shareMessage}
+                        </div>
                       )}
-                    </button>
-                    {/* Accent Color Picker Dot */}
-                    <button
-                      onClick={handleAccentColorChange}
-                      className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-gray-800/30"
-                      title={`Current accent color: ${currentAccentColor.name}`}
-                    >
-                      <div 
-                        className="w-2 h-2 rounded-full border border-gray-600/50 transition-all duration-200 hover:scale-85"
-                        style={{
-                          backgroundColor: currentAccentColor.hex,
-                          boxShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.boxShadow = `0 0 12px rgba(${currentAccentColor.rgb}, 0.8), 0 0 24px rgba(${currentAccentColor.rgb}, 0.5)`;
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.boxShadow = `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`;
-                        }}
-                      />
-                    </button>
-                    {shareMessage && (
-                      <div className={`text-sm font-medium transition-all duration-300 ${
-                        shareMessageType === 'success' 
-                          ? 'bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent' 
-                          : 'bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent'
-                      }`}>
-                        {shareMessage}
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -839,11 +838,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
           </div>
           
           {/* adadev.io branding for screenshots */}
-          {screenshotMode && (
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50">
-              <span className="text-xs text-gray-400 font-medium opacity-70">adadev.io</span>
-            </div>
-          )}
+          {/* Branding overlay removed to avoid duplication; branding is added to final canvas */}
         </div>
       </div>
     </div>

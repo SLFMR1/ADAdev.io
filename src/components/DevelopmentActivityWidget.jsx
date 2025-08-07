@@ -581,13 +581,11 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       ctx.fillStyle = blueGradient;
       ctx.fillRect(0, 0, finalWidth, finalHeight);
       
-      // Now center widget perfectly in canvas (we already have the img loaded)
       const centerX = padding; // Since canvas width = img.width + padding*2
       const centerY = padding;
       ctx.drawImage(img, centerX, centerY);
       
-      // Add branding
-      ctx.font = '24px ui-sans-serif, system-ui, sans-serif';
+      ctx.font = '200 27px ui-sans-serif, system-ui, sans-serif';
       ctx.fillStyle = 'rgba(156, 163, 175, 0.6)';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
@@ -1324,11 +1322,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
               </div>
               
               {/* adadev.io branding for screenshots */}
-              {screenshotMode && (
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-                  <span className="text-sm text-gray-500 font-medium opacity-60">adadev.io</span>
-                </div>
-              )}
+              {/* Branding overlay removed to avoid duplication; branding is added to final canvas */}
             </div>
           </div>
         </Portal>
