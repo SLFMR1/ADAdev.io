@@ -509,8 +509,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     setScreenshotMode(true);
 
     try {
-      // Wait for screenshot mode to apply
-      await new Promise(resolve => setTimeout(resolve, 200));
+        // Wait for screenshot mode to apply
+        await new Promise(resolve => setTimeout(resolve, 200));
       
       let targetElement = element;
       
@@ -539,7 +539,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       });
       
       // Use actual image dimensions for canvas sizing
-      const padding = 80;
+      const padding = 35;
       const finalWidth = img.width + (padding * 2);
       const finalHeight = img.height + (padding * 2) + 80; // Extra for branding
       
@@ -636,6 +636,16 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   };
 
   const { leaderboard, chartData, metrics, isDaily } = currentPeriodData || {};
+
+  // Labels for screenshot mode (dropdowns become static text)
+  const selectedPeriodLabel = useMemo(() => {
+    const opt = periodOptions.find(o => o.value === selectedPeriod || o.key === selectedPeriod || o.id === selectedPeriod);
+    return opt?.label || currentPeriodData?.periodLabel || selectedPeriod;
+  }, [selectedPeriod, currentPeriodData]);
+  const viewModeLabel = useMemo(() => {
+    const opt = [{ key: 'repository', label: 'Repository View' }, { key: 'organization', label: 'Organization View' }].find(o => o.key === viewMode);
+    return opt?.label || viewMode;
+  }, [viewMode]);
 
   // Memoized calculation for 7-day period historical maximum (performance optimized)
   const weeklyHistoricalMax = useMemo(() => {
@@ -745,7 +755,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         <Portal>
           <div
             ref={widgetRef}
-            className={`dev-activity-widget ${screenshotMode ? 'absolute top-0 left-0 w-[1400px] h-[1000px]' : 'fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[95vh] min-w-[900px] min-h-[700px]'} ${screenshotMode ? 'bg-card-bg/90' : 'bg-card-bg/40'} border border-gray-800 rounded-xl shadow-lg overflow-hidden widget-crossfade-enter-active`}
+            className={`dev-activity-widget ${screenshotMode ? 'absolute top-0 left-0 w-[1400px] h-auto' : 'fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[95vh] min-w-[900px] min-h-[700px]'} ${screenshotMode ? 'bg-card-bg/90' : 'bg-card-bg/40'} border border-gray-800 rounded-xl shadow-lg ${screenshotMode ? 'overflow-visible' : 'overflow-hidden'} widget-crossfade-enter-active`}
             style={{ 
               borderRadius: '32px',
               ...(screenshotMode ? { 
@@ -759,7 +769,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
             data-widget="development-activity"
           >
             <button
-              className="absolute top-6 right-6 z-50 text-gray-400 hover:text-white transition-all duration-200"
+              className={`absolute top-6 right-6 z-50 text-gray-400 hover:text-white transition-all duration-200 ${screenshotMode ? 'hidden' : ''}`}
               onClick={onCollapse}
               aria-label="Close"
             >
@@ -774,60 +784,75 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                   <div className="flex items-center gap-4 min-w-0 flex-1">
                     <Activity size={20} className="text-[#C8F560] flex-shrink-0" />
                     <h3 className="text-white font-semibold text-sm">Development Activity</h3>
-                    <PeriodDropdown
-                      value={selectedPeriod}
-                      onChange={(newPeriod) => {
-                        console.log(`⚡ INSTANT PERIOD SWITCH: ${selectedPeriod} → ${newPeriod}`);
-                        
-                        // Always set the new period first
-                        setSelectedPeriod(newPeriod);
-                        try {
-                          localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
-                        } catch {}
-                        
-                        // Check centralized cache for instant switching
-                        const cachedData = ChartDataCache.get(viewMode, newPeriod);
-                        if (cachedData) {
-                          console.log('✅ Using cached data for instant period switch!');
-                          
-                          // Update activity data with cached data
-                          const periodData = { ...cachedData, period: newPeriod, viewMode: viewMode };
-                          
-                          setActivityData(periodData);
-                          
-                          // Dispatch event for other components
-                          const event = new CustomEvent('activityDataUpdated', {
-                            detail: periodData.metrics?.daily || periodData.metrics?.weekly
-                          });
-                          document.dispatchEvent(event);
-                          
-                          console.log(`⚡ INSTANT SWITCH COMPLETE: Now showing ${newPeriod} with ${periodData.dailyLeaderboard?.length || periodData.weeklyLeaderboard?.length || 0} resources`);
-                        } else {
-                          console.log('⏳ No cached data available, will load from API...');
-                          loadActivityData();
-                        }
-                      }}
-                      options={periodOptions}
-                      placeholder="Select period..."
-                      className={`w-48 flex-shrink-0 ${screenshotMode ? 'screenshot-dropdown' : ''}`}
-                      screenshotMode={screenshotMode}
-                    />
-                    <PeriodDropdown
-                      value={viewMode}
-                      onChange={(newViewMode) => {
-                        if (newViewMode !== viewMode) {
-                          console.log(`🔄 View mode changing from ${viewMode} to ${newViewMode}`);
-                          setViewMode(newViewMode);
-                          try {
-                            localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
-                          } catch {}
-                        }
-                      }}
-                      options={viewModeOptions}
-                      placeholder="Select view mode..."
-                      className={`w-52 flex-shrink-0 ${screenshotMode ? 'screenshot-dropdown' : ''}`}
-                      screenshotMode={screenshotMode}
-                    />
+                    {!screenshotMode ? (
+                      <>
+                        <PeriodDropdown
+                          value={selectedPeriod}
+                          onChange={(newPeriod) => {
+                            console.log(`⚡ INSTANT PERIOD SWITCH: ${selectedPeriod} → ${newPeriod}`);
+                            
+                            // Always set the new period first
+                            setSelectedPeriod(newPeriod);
+                            try {
+                              localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
+                            } catch {}
+                            
+                            // Check centralized cache for instant switching
+                            const cachedData = ChartDataCache.get(viewMode, newPeriod);
+                            if (cachedData) {
+                              console.log('✅ Using cached data for instant period switch!');
+                              
+                              // Update activity data with cached data
+                              const periodData = { ...cachedData, period: newPeriod, viewMode: viewMode };
+                              
+                              setActivityData(periodData);
+                              
+                              // Dispatch event for other components
+                              const event = new CustomEvent('activityDataUpdated', {
+                                detail: periodData.metrics?.daily || periodData.metrics?.weekly
+                              });
+                              document.dispatchEvent(event);
+                              
+                              console.log(`⚡ INSTANT SWITCH COMPLETE: Now showing ${newPeriod} with ${periodData.dailyLeaderboard?.length || periodData.weeklyLeaderboard?.length || 0} resources`);
+                            } else {
+                              console.log('⏳ No cached data available, will load from API...');
+                              loadActivityData();
+                            }
+                          }}
+                          options={periodOptions}
+                          placeholder="Select period..."
+                          className={`w-48 flex-shrink-0 ${screenshotMode ? 'screenshot-dropdown' : ''}`}
+                          screenshotMode={screenshotMode}
+                        />
+                        <PeriodDropdown
+                          value={viewMode}
+                          onChange={(newViewMode) => {
+                            if (newViewMode !== viewMode) {
+                              console.log(`🔄 View mode changing from ${viewMode} to ${newViewMode}`);
+                              setViewMode(newViewMode);
+                              try {
+                                localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
+                              } catch {}
+                            }
+                          }}
+                          options={viewModeOptions}
+                          placeholder="Select view mode..."
+                          className={`w-52 flex-shrink-0 ${screenshotMode ? 'screenshot-dropdown' : ''}`}
+                          screenshotMode={screenshotMode}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-48 flex-shrink-0">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Period</div>
+                          <div className="text-white text-sm font-semibold truncate">{selectedPeriodLabel}</div>
+                        </div>
+                        <div className="w-52 flex-shrink-0">
+                          <div className="text-[11px] uppercase tracking-wide text-gray-500">View</div>
+                          <div className="text-white text-sm font-semibold truncate">{viewModeLabel}</div>
+                        </div>
+                      </>
+                    )}
                     <div className={`relative ${screenshotMode ? 'hidden' : ''}`}>
                       <button
                         className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10 ${
@@ -1057,8 +1082,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                   {/* Right Column - Leaderboard */}
                   <div 
                     ref={leaderboardRef} 
-                    className="col-span-2 flex flex-col h-full min-h-0"
-                    style={{ padding: '0 8px', marginTop: '-7px' }}
+                    className={`col-span-2 flex flex-col h-full min-h-0 ${screenshotMode ? 'rounded-lg border border-gray-700/30' : ''}`}
+                    style={screenshotMode ? { padding: '12px 16px', marginTop: 0 } : { padding: '0 8px', marginTop: '-7px' }}
                     data-screenshot-mode={screenshotMode}
                   >
                       {/* Top 3 Items */}
@@ -1286,10 +1311,10 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           {(() => {
                             if (selectedPeriod === 'current') {
                               // For 7-day period, use memoized historical maximum
-                              return weeklyHistoricalMax || 1;
+                              return `${weeklyHistoricalMax || 1} (historical peak)`;
                             }
                             const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
-                            return metrics?.historicalMax || Math.round(currentTotal * 1.2);
+                            return `${metrics?.historicalMax || Math.round(currentTotal * 1.2)} (historical peak)`;
                           })()}
                         </span>
                       </div>
