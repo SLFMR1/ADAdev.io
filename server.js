@@ -141,7 +141,7 @@ const rateLimitedFetch = async (url, options = {}) => {
       consecutiveFailures++
       API_STATS.failedRequests++
       const error = new Error(`GitHub API error: ${response.status} ${response.statusText}`)
-      trackApiError(error, null, 'github_api_request')
+      trackApiError(error, null, 'github_api_request', response.status)
       throw error
     }
     
@@ -232,16 +232,15 @@ const API_STATS = {
   recentErrors: [] // Store last 50 detailed errors
 }
 
-// Add detailed error tracking
-const trackApiError = (error, resource = null, operation = null) => {
+// Add detailed error tracking with proper classification
+const trackApiError = (error, resource = null, operation = null, statusCode = null) => {
   const errorEntry = {
     timestamp: new Date().toISOString(),
     error: error.message,
     resource: resource,
     operation: operation,
-    type: error.message.includes('rate limit') ? 'rate_limit' : 
-          error.message.includes('timeout') ? 'timeout' :
-          error.message.includes('API error') ? 'api_error' : 'fetch_error'
+    statusCode: statusCode,
+    ...classifyError(error, statusCode)
   }
   
   API_STATS.recentErrors.unshift(errorEntry)
@@ -249,6 +248,44 @@ const trackApiError = (error, resource = null, operation = null) => {
   if (API_STATS.recentErrors.length > 50) {
     API_STATS.recentErrors = API_STATS.recentErrors.slice(0, 50)
   }
+}
+
+// Classify errors based on status codes and error messages
+const classifyError = (error, statusCode) => {
+  const message = error.message.toLowerCase()
+  
+  // Rate limiting
+  if (statusCode === 403 || message.includes('rate limit')) {
+    return { type: 'rate_limit', severity: 'warning', shouldRetry: true }
+  }
+  
+  // Resource not found - not really an error
+  if (statusCode === 404 || message.includes('404')) {
+    return { type: 'not_found', severity: 'info', shouldRetry: false }
+  }
+  
+  // Empty repository - informational
+  if (statusCode === 409 || message.includes('409')) {
+    return { type: 'empty_repo', severity: 'info', shouldRetry: false }
+  }
+  
+  // Server errors - should retry
+  if (statusCode >= 500) {
+    return { type: 'server_error', severity: 'error', shouldRetry: true }
+  }
+  
+  // Client errors (400-499 except handled above)
+  if (statusCode >= 400 && statusCode < 500) {
+    return { type: 'client_error', severity: 'warning', shouldRetry: false }
+  }
+  
+  // Network/timeout issues
+  if (message.includes('timeout') || message.includes('network')) {
+    return { type: 'network_error', severity: 'warning', shouldRetry: true }
+  }
+  
+  // Default for unknown errors
+  return { type: 'unknown_error', severity: 'error', shouldRetry: false }
 }
 
 // GitHub API functions
