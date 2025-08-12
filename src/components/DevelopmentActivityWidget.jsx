@@ -1158,9 +1158,11 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 <div className={`font-bold ${screenshotMode ? 'text-[14px] leading-[20px]' : 'text-sm'} text-white`}>
                                     {item.totalCommits}
                                 </div>
-                                <div className={`${screenshotMode ? 'text-[12px] leading-[18px]' : 'text-xs'} text-gray-400 truncate`}>
+                                {!screenshotMode && (
+                                  <div className="text-xs text-gray-400 truncate">
                                     {getActivityLevel(item.totalCommits)}
-                                </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
@@ -1221,9 +1223,11 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 <div className={`font-bold ${screenshotMode ? 'text-[14px] leading-[20px]' : 'text-sm'} text-white`}>
                                     {item.totalCommits}
                                 </div>
-                                <div className={`${screenshotMode ? 'text-[12px] leading-[18px]' : 'text-xs'} text-gray-400 truncate`}>
+                                {!screenshotMode && (
+                                  <div className="text-xs text-gray-400 truncate">
                                     {getActivityLevel(item.totalCommits)}
-                                </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
