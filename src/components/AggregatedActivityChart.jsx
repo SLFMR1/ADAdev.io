@@ -6,11 +6,6 @@ import { generateChartPoints, validateNodeCount } from '../utils/chartDataUtils'
 // Use centralized chart point generation - removed duplicate function
 
 const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 300, padding = 40, rightPadding, period, screenshotMode = false, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' }, contributingResources = null }, svgRef) => {
-  // Use more left padding in screenshot mode
-  const effectivePadding = screenshotMode ? 80 : 50;
-  const effectiveRightPadding = 30;
-  // Increased SVG height for better chart visibility
-  const svgHeight = height + 60;
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
   
   if (!weeklyData || weeklyData.length === 0) {
@@ -35,14 +30,6 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
   }
 
   const maxCommits = Math.max(...weeklyData.map(w => w.count), 1)
-  
-  // Adjust padding for screenshot mode
-  const effectiveWidth = screenshotMode ? width + 30 : width
-  
-  console.log('AggregatedActivityChart - screenshotMode:', screenshotMode, 'effectivePadding:', effectivePadding, 'effectiveWidth:', effectiveWidth)
-  
-  // Use centralized chart point generation
-  const chartPoints = generateChartPoints(weeklyData, effectiveWidth, height, effectivePadding, effectiveRightPadding)
   
   // Validate node count for the period
   validateNodeCount(weeklyData, period, 'AggregatedActivityChart')
@@ -191,6 +178,19 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
   
   // Ensure we don't have duplicate 0
   const uniqueLabels = [...new Set(yAxisLabels)].sort((a, b) => a - b)
+  
+  // Dynamic padding based on max number width + screenshot mode
+  const maxLabelWidth = Math.max(...uniqueLabels.map(label => label.toString().length)) * 8; // ~8px per digit
+  const basePadding = screenshotMode ? 50 : 30; // Reduced base padding
+  const effectivePadding = Math.max(basePadding, maxLabelWidth + 15); // Reduced margin
+  const effectiveRightPadding = 15; // Reduced to match tighter spacing
+  // Use actual chart height - labels are positioned within chart area
+  const svgHeight = height;
+  // Adjust width for balanced padding
+  const effectiveWidth = width;
+  
+  // Generate chart points with calculated dimensions
+  const chartPoints = generateChartPoints(weeklyData, effectiveWidth, height, effectivePadding, effectiveRightPadding);
   
   return (
     <div className="relative">

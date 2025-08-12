@@ -146,10 +146,13 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   const [screenshotMode, setScreenshotMode] = useState(false);
   const [error, setError] = useState(null);
   
+  
   const widgetRef = useRef(null);
   const chartRef = useRef(null);
   const leaderboardRef = useRef(null);
   const chartSvgRef = useRef(null);
+  const chartInnerRef = useRef(null);
+
 
   // Use centralized caching - TTL is now determined per period in chartDataUtils
 
@@ -1016,7 +1019,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
                       {/* Chart Container */}
                     <div ref={chartRef} className="flex-1 overflow-hidden min-h-0">
-                      <div className={`rounded-lg pt-6 pb-6 px-6 h-full overflow-hidden ${
+                      <div ref={chartInnerRef} className={`rounded-lg chart-container-padding h-full overflow-hidden ${
                         screenshotMode ? 'border border-gray-700/30' : 'bg-gray-800/50'
                       }`}>
                           {isLoading ? (
@@ -1053,7 +1056,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           ) : (
                             <ChartErrorBoundary onRetry={() => loadActivityData(true)}>
                               <div 
-                                className="w-full h-full flex items-center justify-center overflow-hidden" 
+                                className="chart-responsive flex items-center justify-center overflow-hidden" 
                                 style={{
                                   pointerEvents: 'auto'
                                 }} 
@@ -1061,8 +1064,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               >
                                 <AggregatedActivityChart
                                   weeklyData={chartData}
-                                  width={700}
-                                  height={315}
+                                  width={800}
+                                  height={400}
                                   padding={10}
                                   period={selectedPeriod}
                                   screenshotMode={screenshotMode}
