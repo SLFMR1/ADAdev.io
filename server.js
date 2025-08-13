@@ -79,8 +79,10 @@ const CACHE = {
   },
   // Add hit/miss tracking for dashboard metrics
   stats: {
-    hits: 0,
-    misses: 0,
+    memoryHits: 0,
+    memoryMisses: 0,
+    databaseHits: 0,
+    apiCalls: 0,
     totalRequests: 0,
     lastReset: Date.now()
   }
@@ -170,11 +172,12 @@ const generateCacheKey = (type, identifier, params = {}) => {
 }
 
 const getCachedData = (key) => {
-  CACHE.stats.totalRequests++
+  // Note: totalRequests is now tracked at the entry point (getHistoricalActivity)
+  // to avoid double-counting when both database and memory cache are checked
   
   const timestamp = CACHE.timestamps.get(key)
   if (!timestamp) {
-    CACHE.stats.misses++
+    CACHE.stats.memoryMisses++
     return null
   }
   
@@ -189,11 +192,11 @@ const getCachedData = (key) => {
   if (now - timestamp > ttl) {
     CACHE.data.delete(key)
     CACHE.timestamps.delete(key)
-    CACHE.stats.misses++
+    CACHE.stats.memoryMisses++
     return null
   }
   
-  CACHE.stats.hits++
+  CACHE.stats.memoryHits++
   return data
 }
 
@@ -214,8 +217,10 @@ const setCachedData = (key, data) => {
 // Reset cache stats every hour for current performance metrics
 const resetCacheStats = () => {
   CACHE.stats = {
-    hits: 0,
-    misses: 0,
+    memoryHits: 0,
+    memoryMisses: 0,
+    databaseHits: 0,
+    apiCalls: 0,
     totalRequests: 0,
     lastReset: Date.now()
   }
@@ -650,6 +655,9 @@ const processCommitsToDaily = (commits) => {
 }
 
 const getRecentActivity = async (resource, useDailyProcessing = false, period = '4weeks') => {
+  // Track every request that comes through
+  CACHE.stats.totalRequests++
+  
   // Check in-memory cache first - include period in cache key to avoid returning same data for different periods
   const cacheKey = generateCacheKey('recent_activity', resource.id || resource.name, { useDailyProcessing, period })
   const cachedResult = getCachedData(cacheKey)
@@ -804,6 +812,9 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
   // Always define cacheKey (needed for storing results later)
   const cacheKey = generateCacheKey('historical_activity', resource.id || resource.name, { startDate, endDate })
   
+  // Track every request that comes through
+  CACHE.stats.totalRequests++
+  
   // Initialize variables that might be needed later
   let dbData = []
   let finalData = []
@@ -822,6 +833,7 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
     
     if (dbData.length > 0) {
       logger.debug(`✅ Using cached database data for ${resource.name} (${dbData.length} weeks)`);
+      CACHE.stats.databaseHits++
       
       const nowForMapping = new Date()
     const currentWeekStartForMapping = getCurrentWeekStart()
@@ -952,10 +964,12 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
       }
       
       commits = await fetchOrgCommits(orgName, since);
+      CACHE.stats.apiCalls++
     } else if (resource.type === 'repository' || resource.social?.github) {
       // For repositories or unknown resources with GitHub URLs
       const repoPath = resource.social.github.replace('https://github.com/', '')
       commits = await fetchRepoCommits(repoPath, since)
+      CACHE.stats.apiCalls++
     } else {
       console.warn(`⚠️ No valid GitHub URL found for ${resource.name} (type: ${resource.type})`);
       return dbData.length > 0 ? finalData : [];
@@ -3441,15 +3455,23 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
         overallHealth: 0      // Will be calculated average
       },
       cacheMetrics: {
-        hitRate: CACHE.stats.totalRequests > 0 ? Math.round((CACHE.stats.hits / CACHE.stats.totalRequests) * 100) : 0,
-        missRate: CACHE.stats.totalRequests > 0 ? Math.round((CACHE.stats.misses / CACHE.stats.totalRequests) * 100) : 0,
+        // Multi-layer hit rate: (memory hits + database hits) / total requests
+        hitRate: CACHE.stats.totalRequests > 0 ? 
+          Math.round(((CACHE.stats.memoryHits + CACHE.stats.databaseHits) / CACHE.stats.totalRequests) * 100) : 0,
+        // Miss rate: only API calls are true misses
+        missRate: CACHE.stats.totalRequests > 0 ? 
+          Math.round((CACHE.stats.apiCalls / CACHE.stats.totalRequests) * 100) : 0,
         cacheSize: githubResources.length,
         evictionRate: 0,
         activeCacheSize: CACHE.data.size,
         maxCacheSize: CACHE.maxSize,
         totalRequests: CACHE.stats.totalRequests,
-        totalHits: CACHE.stats.hits,
-        totalMisses: CACHE.stats.misses
+        memoryHits: CACHE.stats.memoryHits,
+        databaseHits: CACHE.stats.databaseHits,
+        apiCalls: CACHE.stats.apiCalls,
+        // Legacy fields for backward compatibility
+        totalHits: CACHE.stats.memoryHits + CACHE.stats.databaseHits,
+        totalMisses: CACHE.stats.apiCalls
       },
       apiMetrics: {
         rateLimitRemaining: API_STATS.lastRateLimitRemaining || 0,

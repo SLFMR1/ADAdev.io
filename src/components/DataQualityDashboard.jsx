@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { AlertTriangle, CheckCircle, Clock, Database, GitCommit, RefreshCw, TrendingUp, TrendingDown, Activity, Zap } from 'lucide-react'
+import { AlertTriangle, AlertCircle, CheckCircle, Clock, Database, FileText, GitCommit, RefreshCw, Search, TrendingUp, TrendingDown, Activity, Wifi, Zap } from 'lucide-react'
 import { cardanoResources } from '../data/resources';
 
 /**
@@ -544,40 +544,39 @@ const CacheHealthChart = ({ data }) => {
 
   const cacheMetrics = [
     {
-      label: 'HIT_RATE',
+      label: 'OVERALL_HIT_RATE',
       value: data.hitRate || 0,
       icon: Zap,
-      description: 'SERVED_FROM_CACHE'
+      description: `CACHE + DB HITS (${data.memoryHits || 0}M + ${data.databaseHits || 0}DB)`
     },
     {
-      label: 'MISS_RATE',
+      label: 'API_CALL_RATE',
       value: data.missRate || 0,
       icon: Clock,
-      description: 'FRESH_FETCH_REQUIRED'
+      description: `GITHUB_API_CALLS (${data.apiCalls || 0})`
     },
     {
-      label: 'CACHE_SIZE',
+      label: 'MEMORY_CACHE',
       value: data.activeCacheSize || data.cacheSize || 0,
       icon: Database,
       description: `${data.utilizationPercentage || 0}% FULL (${data.maxCacheSize || 'UNLIMITED'} MAX)`,
       isCount: true
     },
     {
-      label: 'EVICTION_RATE',
-      value: data.evictionRate || 0,
-      icon: RefreshCw,
-      description: 'ITEMS_REPLACED'
+      label: 'TOTAL_REQUESTS',
+      value: data.totalRequests || 0,
+      icon: Activity,
+      description: 'REQUESTS_THIS_HOUR',
+      isCount: true
     }
   ]
 
   const getStatusColor = (metric, value) => {
     switch (metric) {
-      case 'HIT_RATE':
+      case 'OVERALL_HIT_RATE':
         return value >= 80 ? 'text-green-400' : value >= 60 ? 'text-yellow-400' : 'text-red-400'
-      case 'MISS_RATE':
+      case 'API_CALL_RATE':
         return value <= 20 ? 'text-green-400' : value <= 40 ? 'text-yellow-400' : 'text-red-400'
-      case 'EVICTION_RATE':
-        return value <= 10 ? 'text-green-400' : value <= 25 ? 'text-yellow-400' : 'text-red-400'
       default:
         return 'text-blue-400'
     }
@@ -606,7 +605,7 @@ const CacheHealthChart = ({ data }) => {
 
       {/* Cache Performance Indicator */}
       <div className="mt-4 p-3 bg-green-400/5 border border-green-400/20 rounded-lg">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-green-500 font-medium font-mono">OVERALL_CACHE_HEALTH</span>
           <span className={`text-sm font-semibold font-mono ${
             data.hitRate >= 80 ? 'text-green-400' :
@@ -616,6 +615,21 @@ const CacheHealthChart = ({ data }) => {
              data.hitRate >= 60 ? 'GOOD' : 'ATTENTION_REQUIRED'}
           </span>
         </div>
+        {data.hitRate < 60 && (
+          <p className="text-xs text-red-400 font-mono">
+            {'>>>'} LOW HIT RATE ({data.hitRate}%) - CONSIDER CACHE TUNING
+          </p>
+        )}
+        {data.hitRate >= 60 && data.hitRate < 80 && (
+          <p className="text-xs text-yellow-400 font-mono">
+            {'>>>'} MODERATE HIT RATE ({data.hitRate}%) - ROOM FOR IMPROVEMENT
+          </p>
+        )}
+        {data.hitRate >= 80 && (
+          <p className="text-xs text-green-400 font-mono">
+            {'>>>'} EXCELLENT HIT RATE ({data.hitRate}%) - CACHE PERFORMING WELL
+          </p>
+        )}
       </div>
     </div>
   )
@@ -881,16 +895,25 @@ const ApiErrorsList = ({ errors, onResourceSelect }) => {
     )
   }
 
-  const errorTypeColors = {
-    'rate_limit': 'text-orange-400 bg-orange-400/10 border-orange-400/30',
-    'timeout': 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
-    'api_error': 'text-red-400 bg-red-400/10 border-red-400/30',
-    'fetch_error': 'text-red-400 bg-red-400/10 border-red-400/30'
+  const getSeverityColors = (severity) => {
+    switch (severity) {
+      case 'info': return 'text-blue-400 bg-blue-400/10 border-blue-400/30'
+      case 'warning': return 'text-orange-400 bg-orange-400/10 border-orange-400/30'
+      case 'error': return 'text-red-400 bg-red-400/10 border-red-400/30'
+      default: return 'text-gray-400 bg-gray-400/10 border-gray-400/30'
+    }
   }
 
   const errorTypeIcons = {
     'rate_limit': RefreshCw,
+    'not_found': Search,
+    'empty_repo': FileText,
+    'server_error': AlertTriangle,
+    'client_error': AlertCircle,
+    'network_error': Wifi,
     'timeout': Clock,
+    'unknown_error': AlertTriangle,
+    // Legacy types for backward compatibility
     'api_error': AlertTriangle,
     'fetch_error': AlertTriangle
   }
@@ -905,7 +928,7 @@ const ApiErrorsList = ({ errors, onResourceSelect }) => {
       <div className="space-y-3 max-h-64 overflow-y-auto" style={{ overscrollBehavior: 'auto' }}>
         {errors.map((error, index) => {
           const Icon = errorTypeIcons[error.type] || AlertTriangle
-          const colorClass = errorTypeColors[error.type] || 'text-red-400 bg-red-400/10 border-red-400/30'
+          const colorClass = getSeverityColors(error.severity)
           
           return (
             <div key={index} className={`flex items-start space-x-3 p-3 rounded border ${colorClass}`}>
