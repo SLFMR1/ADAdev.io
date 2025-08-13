@@ -454,14 +454,34 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       return null;
     }
     
-    const { rawChartData, chartData } = currentPeriodData;
+    const { rawChartData, chartData, isDaily } = currentPeriodData;
     
     // For both organization and repository views, we have individual resource contributions
     if (rawChartData.length > 0) {
-      return chartData.map((dataPoint, dataIdx) => {
+      return chartData.map((dataPoint) => {
         const contributors = rawChartData
           .map(resourceData => {
-            const resourceCount = resourceData.dailyCounts?.[dataIdx] || resourceData.weeklyCounts?.[dataIdx] || 0;
+            let resourceCount = 0;
+            
+            if (isDaily && resourceData.dailyCounts) {
+              // For daily periods, find matching day in dailyCounts
+              const dayIndex = chartData.findIndex(dp => dp.weekStart === dataPoint.weekStart);
+              if (dayIndex >= 0 && dayIndex < resourceData.dailyCounts.length) {
+                resourceCount = resourceData.dailyCounts[dayIndex] || 0;
+              }
+            } else if (!isDaily && resourceData.weeklyData) {
+              // For weekly periods, match by weekStart date (most reliable)
+              const weekData = resourceData.weeklyData.find(w => w.weekStart === dataPoint.weekStart);
+              resourceCount = weekData?.count || 0;
+            } else if (!isDaily && resourceData.weeklyCounts) {
+              // Fallback: if weeklyData not available, match by date in weeklyCounts
+              // This assumes weeklyCounts corresponds to the same weeks as chartData
+              const weekIndex = chartData.findIndex(dp => dp.weekStart === dataPoint.weekStart);
+              if (weekIndex >= 0 && weekIndex < resourceData.weeklyCounts.length) {
+                resourceCount = resourceData.weeklyCounts[weekIndex] || 0;
+              }
+            }
+            
             return {
               resource: resourceData.resource,
               count: resourceCount
