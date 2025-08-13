@@ -1084,11 +1084,11 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                   <div 
                     ref={leaderboardRef} 
                     className={`col-span-2 flex flex-col h-full min-h-0 ${screenshotMode ? 'rounded-lg border border-gray-700/30' : ''}`}
-                    style={screenshotMode ? { padding: '12px 16px', marginTop: 0 } : { padding: '0 8px', marginTop: '-7px' }}
+                    style={screenshotMode ? { padding: '12px 16px', marginTop: 0 } : { padding: '0 8px 0 8px', marginTop: '-7px' }}
                     data-screenshot-mode={screenshotMode}
                   >
                       {/* Top 3 Items */}
-                    <div className="flex-shrink-0 mb-4 relative" style={{ zIndex: 10 }}>
+                    <div className="flex-shrink-0 mb-1 relative" style={{ zIndex: 10 }}>
                         {isLoading ? (
                           <>
                             <SkeletonLeaderboardItem rank={1} />
@@ -1130,7 +1130,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           return (
                             <div 
                               key={`top-${item.resource.id}`} 
-                              className={`flex items-center space-x-4 p-3 rounded-lg transition-colors cursor-pointer ${
+                              className={`flex items-center space-x-4 py-3.5 px-3 rounded-lg transition-colors cursor-pointer ${
                                 screenshotMode 
                                   ? 'text-[14px] leading-[20px] bg-gray-800/30' 
                                   : 'bg-gray-800/30 hover:bg-gray-800/50'
@@ -1150,15 +1150,15 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 {index + 1}
                               </div>
                               <div className="flex-1 min-w-0 overflow-hidden">
-                                <div className={`${isWinner ? 'font-bold' : 'font-medium'} ${screenshotMode ? 'text-[16px] leading-[22px]' : 'text-sm'} text-white truncate`}>
+                                <div className={`${isWinner ? 'font-semibold' : 'font-normal'} ${screenshotMode ? 'text-[17px] leading-[24px]' : 'text-base'} text-white truncate`}>
                                   {item.resource.name}
                                 </div>
-                                <div className={`${screenshotMode ? 'text-[12px] leading-[18px]' : 'text-xs'} text-gray-400 truncate`}>
+                                <div className={`${screenshotMode ? 'text-[13px] leading-[19px]' : 'text-sm'} text-gray-400 truncate`}>
                                     {item.resource.category}
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <div className={`font-bold ${screenshotMode ? 'text-[14px] leading-[20px]' : 'text-sm'} text-white`}>
+                                <div className={`${isWinner ? 'font-bold' : 'font-normal'} ${screenshotMode ? 'text-[15px] leading-[21px]' : 'text-base'} text-white`}>
                                     {item.totalCommits}
                                 </div>
                                 {!screenshotMode && (
@@ -1200,7 +1200,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           return (
                             <div 
                               key={item.resource.id} 
-                              className={`flex items-center space-x-4 p-3 rounded-lg transition-colors cursor-pointer ${
+                              className={`flex items-center space-x-4 py-3.5 px-3 rounded-lg transition-colors cursor-pointer ${
                                 screenshotMode 
                                   ? 'text-[14px] leading-[20px] bg-gray-800/30' 
                                   : 'bg-gray-800/30 hover:bg-gray-800/50'
@@ -1215,7 +1215,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 {adjustedIndex + 1}
                               </div>
                               <div className="flex-1 min-w-0 overflow-hidden">
-                                <div className={`font-medium ${screenshotMode ? 'text-[16px] leading-[22px]' : 'text-sm'} text-white truncate`}>
+                                <div className={`font-normal ${screenshotMode ? 'text-[16px] leading-[22px]' : 'text-sm'} text-white truncate`}>
                                   {item.resource.name}
                                 </div>
                                 <div className={`${screenshotMode ? 'text-[12px] leading-[18px]' : 'text-xs'} text-gray-400 truncate`}>
@@ -1223,7 +1223,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <div className={`font-bold ${screenshotMode ? 'text-[14px] leading-[20px]' : 'text-sm'} text-white`}>
+                                <div className={`font-normal ${screenshotMode ? 'text-[14px] leading-[20px]' : 'text-sm'} text-white`}>
                                     {item.totalCommits}
                                 </div>
                                 {!screenshotMode && (

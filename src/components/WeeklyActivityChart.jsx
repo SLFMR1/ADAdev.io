@@ -122,7 +122,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             
             if (validWeeklyData.length === 0) {
               console.warn(`No valid preloaded activityfound for ${resource.name}`);
-              throw new Error('No activity in this period');
+              throw new Error('No activity in this period or no data available. Please try again later.');
             }
             
             const currentWeek = validWeeklyData[validWeeklyData.length - 1]?.count || 0
@@ -231,7 +231,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           
           if (validWeeklyData.length === 0) {
             console.warn(`No valid weekly data found for ${resource.name}`);
-            throw new Error('No activity in this period');
+            throw new Error('No activity in this period or no data available. Please try again later.');
           }
           
           const currentWeek = validWeeklyData[validWeeklyData.length - 1]?.count || 0
@@ -251,7 +251,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           validateNodeCount(filteredData, selectedPeriod, `WeeklyActivityChart-${resource.name}`)
         } else {
           // No valid weekly data available - throw error instead of showing synthetic data
-          throw new Error('No activity in this period')
+          throw new Error('No activity in this period or no data available. Please try again later.')
         }
       } catch (error) {
         logger.error(`Error loading activity data for ${resource.name}:`, error)
