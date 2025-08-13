@@ -717,6 +717,60 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     return trueHistoricalMax;
   }, [selectedPeriod, chartData, viewMode]);
 
+  // Helper function to calculate sequential period maximum for longer periods
+  const calculateLongerPeriodHistoricalMax = useCallback((currentTotal) => {
+    if (!chartData) return currentTotal * 1.2; // fallback to current behavior
+    
+    // Map period to number of weeks for sequential calculation
+    const periodWeeks = {
+      '5weeks': 4,
+      '3months': 12,
+      '52weeks': 52,
+      '3years': 156
+    };
+    
+    const weeksInPeriod = periodWeeks[selectedPeriod];
+    if (!weeksInPeriod) return currentTotal * 1.2; // fallback for unknown periods
+    
+    let maxSequentialTotal = 0;
+    const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
+    
+    for (const period of periodsToCheck) {
+      const cachedPeriodData = ChartDataCache.get(viewMode, period);
+      if (cachedPeriodData && cachedPeriodData.weeklyChartData) {
+        const transformedData = transformChartData(cachedPeriodData.weeklyChartData, period, 'LongerPeriodHistoricalMax');
+        
+        if (transformedData && transformedData.length >= weeksInPeriod) {
+          // Calculate rolling sums for sequential periods
+          for (let i = 0; i <= transformedData.length - weeksInPeriod; i++) {
+            const sequentialSum = transformedData
+              .slice(i, i + weeksInPeriod)
+              .reduce((sum, week) => sum + (week.count || 0), 0);
+            maxSequentialTotal = Math.max(maxSequentialTotal, sequentialSum);
+          }
+          
+          console.log(`📊 Using ${period} data for ${selectedPeriod} comparison (${transformedData.length} weeks), found max sequential ${weeksInPeriod}-week period: ${maxSequentialTotal}`);
+        }
+        
+        // Use only the first (longest) available period
+        break;
+      }
+    }
+    
+    // If no historical data found, fall back to current behavior
+    if (maxSequentialTotal === 0) {
+      console.log(`📊 No historical data found for ${selectedPeriod} comparison, using 1.2x fallback`);
+      return currentTotal * 1.2;
+    }
+    
+    // Include current period in comparison
+    const trueHistoricalMax = Math.max(maxSequentialTotal, currentTotal);
+    
+    console.log(`📊 ${selectedPeriod} historical max: historical=${maxSequentialTotal}, current=${currentTotal}, final=${trueHistoricalMax}`);
+    
+    return trueHistoricalMax;
+  }, [chartData, viewMode, selectedPeriod]);
+
   // Check if current week is a new record
   const isNewRecord = useMemo(() => {
     if (selectedPeriod !== 'current' || !chartData || !weeklyHistoricalMax) {
@@ -1321,7 +1375,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               }
                               
                               const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
-                              const historicalMax = metrics?.historicalMax || currentTotal * 1.2;
+                              const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
                               const percentage = (currentTotal / historicalMax) * 100;
                               return `${Math.min(100, Math.max(0, Math.round(percentage)))}%`;
                             })(),
@@ -1339,7 +1393,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               return `${weeklyHistoricalMax || 1} (historical peak)`;
                             }
                             const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
-                            return `${metrics?.historicalMax || Math.round(currentTotal * 1.2)} (historical peak)`;
+                            return `${metrics?.historicalMax || Math.round(calculateLongerPeriodHistoricalMax(currentTotal))} (historical peak)`;
                           })()}
                         </span>
                       </div>
