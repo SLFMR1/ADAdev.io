@@ -1392,7 +1392,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             title={(() => {
                               const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(chartData?.reduce((total, item) => total + (item.count || 0), 0) || 0);
                               if (historicalMax === null) {
-                                return 'Insufficient historical data for meaningful comparison - need more data points to establish baseline';
+                                return 'Current period performance (no historical data for comparison)';
                               }
                               return `Comparison against the best performing sequential ${selectedPeriod === '5weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period found in historical data`;
                             })()}
@@ -1400,7 +1400,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             {(() => {
                               const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(chartData?.reduce((total, item) => total + (item.count || 0), 0) || 0);
                               if (historicalMax === null) {
-                                return 'insufficient historical data';
+                                return 'current maximum';
                               }
                               return `vs. best ${selectedPeriod === '5weeks' ? '4-week' : 
                                                  selectedPeriod === '3months' ? '3-month' : 
@@ -1460,7 +1460,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
                               const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
                               if (historicalMax === null) {
-                                return '0%'; // Insufficient historical data
+                                return '100%'; // Current period is the maximum for young repos
                               }
                               const percentage = (currentTotal / historicalMax) * 100;
                               return `${Math.min(100, Math.max(0, Math.round(percentage)))}%`;

@@ -1140,9 +1140,9 @@ const calculateHistoricalMaximums = async (resource) => {
         result.metadata.minimumWeeksNeeded = minimumWeeks
         result.metadata.availableWeeks = weeklyCommits.length
       } else {
-        // No data: use reasonable baseline
-        result.maximums[periodKey] = weekCount * 5 // 5 commits per week baseline
-        result.metadata.dataQuality = 'estimated'
+        // Insufficient historical data: use current period as maximum
+        result.maximums[periodKey] = null // Let frontend use current period as max
+        result.metadata.dataQuality = 'insufficient_data'
       }
     })
 
@@ -1184,18 +1184,13 @@ const calculateHistoricalMaximums = async (resource) => {
   }
 }
 
-// Create reasonable fallback maximums when no data is available
+// Create empty maximums when no data is available
 const createFallbackMaximums = () => ({
-  maximums: {
-    '5weeks': 25,   // 5 commits/week baseline
-    '3months': 65,  // 5 commits/week baseline 
-    '52weeks': 260, // 5 commits/week baseline
-    '3years': 780   // 5 commits/week baseline
-  },
+  maximums: {},
   metadata: {
     hasHistoricalData: false,
     totalWeeksAvailable: 0,
-    dataQuality: 'fallback'
+    dataQuality: 'no_data'
   }
 })
 

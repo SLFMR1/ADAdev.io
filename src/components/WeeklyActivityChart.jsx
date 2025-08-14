@@ -167,32 +167,107 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         
         const serverPeriod = getServerPeriod(selectedPeriod)
         
-        // Use the proven server API with resource-specific parameters
-        const params = new URLSearchParams({
-          resourceId: resource.id?.toString() || resource.name,
-          resourceName: resource.name,
-          period: serverPeriod
-        })
+        // Use the proven server API with organization detection (same as DevelopmentActivityWidget)
+        const isOrganization = resource.type === 'organization'
         
-        const response = await fetch(`/api/development-activity?${params}`)
+        let apiUrl
+        if (isOrganization) {
+          // For organizations: use viewMode approach like DevelopmentActivityWidget
+          apiUrl = `/api/development-activity?viewMode=organization&period=${serverPeriod}`
+        } else {
+          // For repositories: use resource-specific parameters
+          const params = new URLSearchParams({
+            resourceId: resource.id?.toString() || resource.name,
+            resourceName: resource.name,
+            period: serverPeriod
+          })
+          apiUrl = `/api/development-activity?${params}`
+        }
+        
+        const response = await fetch(apiUrl)
         if (!response.ok) {
           throw new Error(`Server responded with ${response.status}: ${response.statusText}`)
         }
         
         const serverData = await response.json()
         
-        // Transform server response to expected format
-        const resourceData = {
-          commitsPerWeekDetailed: serverData.weeklyData || [],
-          commitsPerWeek: serverData.commitsPerWeek || 0,
-          repoInfo: serverData.repoInfo || null,
-          dataSources: serverData.dataSources || { database: true, github: false },
-          historicalMaximums: serverData.historicalMaximums || {},
-          historicalMetadata: serverData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' }
+        let resourceData
+        if (isOrganization) {
+          // For organizations: extract specific resource from aggregated data (same as fetchGitHubUpdates)
+          let organizationData = null
+          
+          // Check preloaded periods data
+          if (serverData.preloadedPeriods && serverData.preloadedPeriods[serverPeriod]) {
+            const periodData = serverData.preloadedPeriods[serverPeriod]
+            const chartData = periodData.weeklyChartData || periodData.dailyChartData || []
+            
+            // Find matching resource by name or GitHub URL
+            organizationData = chartData.find(item => {
+              if (!item.resource) return false
+              
+              const nameMatch = item.resource.name === resource.name
+              const githubMatch = item.resource.social?.github === resource.social.github
+              const githubUrlMatch = item.resource.social?.github && resource.social?.github && 
+                item.resource.social.github.toLowerCase() === resource.social.github.toLowerCase()
+              
+              return nameMatch || githubMatch || githubUrlMatch
+            })
+          }
+          
+          if (!organizationData) {
+            throw new Error(`Organization data not found for ${resource.name}`)
+          }
+          
+          // Transform organizational data to expected format
+          const commitsPerWeekDetailed = organizationData.weeklyCounts ? 
+            organizationData.weeklyCounts.map((count, index) => {
+              // Calculate week start date going backwards from today
+              const today = new Date()
+              const weekStart = new Date(today)
+              weekStart.setDate(today.getDate() - (organizationData.weeklyCounts.length - 1 - index) * 7)
+              
+              // Adjust to Sunday of that week (GitHub standard)
+              const dayOfWeek = weekStart.getDay()
+              weekStart.setDate(weekStart.getDate() - dayOfWeek)
+              
+              return {
+                weekStart: weekStart.toISOString().slice(0, 10),
+                count: count,
+                year: weekStart.getFullYear(),
+                week: Math.ceil((weekStart.getTime() - new Date(weekStart.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))
+              }
+            }) : []
+          
+          resourceData = {
+            commitsPerWeekDetailed: commitsPerWeekDetailed,
+            commitsPerWeek: organizationData.totalCommits || 0,
+            repoInfo: {
+              name: resource.name,
+              htmlUrl: resource.social?.github,
+              isOrganization: true,
+              stargazersCount: organizationData.resource?.stargazersCount || 0,
+              forksCount: organizationData.resource?.forksCount || 0,
+              language: organizationData.resource?.language || null
+            },
+            dataSources: { database: true, github: false },
+            historicalMaximums: {},
+            historicalMetadata: { hasHistoricalData: true, dataQuality: 'database' }
+          }
+        } else {
+          // For repositories: use direct response format
+          resourceData = {
+            commitsPerWeekDetailed: serverData.weeklyData || [],
+            commitsPerWeek: serverData.commitsPerWeek || 0,
+            repoInfo: serverData.repoInfo || null,
+            dataSources: serverData.dataSources || { database: true, github: false },
+            historicalMaximums: serverData.historicalMaximums || {},
+            historicalMetadata: serverData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' }
+          }
         }
         
-        // Cache the data using centralized cache
-        ChartDataCache.set('repository', selectedPeriod, resourceData, resource.id)
+        // Cache the data using centralized cache with correct viewMode
+        const cacheViewMode = isOrganization ? 'organization' : 'repository'
+        ChartDataCache.set(cacheViewMode, selectedPeriod, resourceData, resource.id)
         
         logger.log(`✅ Server API data received - sources:`, resourceData.dataSources)
         
@@ -305,14 +380,38 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       return 1;
     }
     
+    // Special handling for 3-year period: check if we have sufficient historical data
+    if (selectedPeriod === '3years') {
+      // For 3-year period, we need more than 3 years of data to have meaningful historical comparison
+      // Since we only cache 3 years, there's no historical data beyond the current period
+      return null; // Return null to indicate insufficient historical data
+    }
+    
     let maxWeekTotal = 0;
     const currentPeriodTotal = weeklyData.reduce((total, week) => total + (week.count || 0), 0);
     
-    // Use all available periods for comprehensive historical comparison
-    // Priority: 3years > 52weeks > 3months > 5weeks
-    const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
+    // Check repository age to determine realistic historical periods
+    let availablePeriods = ['3years', '52weeks', '3months', '5weeks'];
     
-    for (const period of periodsToCheck) {
+    if (activityData?.repoInfo?.createdAt || activityData?.repoInfo?.created_at) {
+      const repoCreatedDate = new Date(activityData.repoInfo.createdAt || activityData.repoInfo.created_at);
+      const now = new Date();
+      const repoAgeMonths = Math.floor((now.getTime() - repoCreatedDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+      const repoAgeWeeks = Math.floor((now.getTime() - repoCreatedDate.getTime()) / (1000 * 60 * 60 * 24 * 7));
+      
+      // Filter out periods longer than repository age
+      availablePeriods = availablePeriods.filter(period => {
+        if (period === '3years' && repoAgeMonths < 36) return false;
+        if (period === '52weeks' && repoAgeWeeks < 52) return false;
+        if (period === '3months' && repoAgeMonths < 3) return false;
+        return true;
+      });
+      
+      logger.debug(`📊 Repository age: ${repoAgeMonths} months (${repoAgeWeeks} weeks), checking periods: ${availablePeriods.join(', ')}`);
+    }
+    
+    // Use available periods for historical comparison (longest to shortest priority)
+    for (const period of availablePeriods) {
       const cachedPeriodData = ChartDataCache.get('repository', period, resource.id);
       if (cachedPeriodData && cachedPeriodData.commitsPerWeekDetailed) {
         const weeklyDataForTransform = cachedPeriodData.commitsPerWeekDetailed;
@@ -364,6 +463,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const calculateIsNewRecord = () => {
     if (!weeklyData || weeklyData.length === 0) {
       return false;
+    }
+    
+    // Special handling for 3-year period: no new record possible without sufficient historical data
+    if (selectedPeriod === '3years') {
+      return false; // Can't be a new record without historical comparison data
     }
     
     const currentPeriodTotal = weeklyData.reduce((total, week) => total + (week.count || 0), 0);
@@ -1130,10 +1234,15 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   }
                   
                   // For longer periods, use dynamic historical maximum
-                  const historicalMax = weeklyHistoricalMax || 1;
+                  const historicalMax = weeklyHistoricalMax;
+                  
+                  // Handle insufficient historical data case
+                  if (historicalMax === null) {
+                    return '0%'; // No progress bar for insufficient data
+                  }
                   
                   // Calculate percentage with bounds checking
-                  const percentage = (currentValue / historicalMax) * 100;
+                  const percentage = (currentValue / (historicalMax || 1)) * 100;
                   return `${Math.min(100, Math.max(0, Math.round(percentage)))}%`;
                 })(),
                 background: `linear-gradient(to right, ${accentColor.hex}, ${accentColor.hex}dd)`,
@@ -1147,6 +1256,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               {(() => {
                 const isLongerPeriod = selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
                 if (isLongerPeriod) {
+                  if (weeklyHistoricalMax === null) {
+                    return 'insufficient historical data';
+                  }
                   return `${weeklyHistoricalMax || 1} (historical peak)`;
                 } else {
                   return maxCommits;

@@ -126,17 +126,32 @@ class GitHubService {
     logger.log(`🚀 Client requesting FAST cached updates for ${resource.name}`)
     
     try {
-      // Use the OPTIMIZED database-cached endpoint for instant loading
-      const response = await fetch(`/api/resource-updates`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          resourceId: resource.name, // Use resource name as ID for now
-          resourceName: resource.name 
+      // Detect organization vs repository for appropriate endpoint
+      const isOrganization = resource.type === 'organization'
+      let response
+      
+      if (isOrganization) {
+        // For organizations: use global updates endpoint to get aggregated data
+        logger.log(`🏢 Organization detected: ${resource.name}, using global updates endpoint`)
+        response = await fetch(`/api/global-updates`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
         })
-      })
+      } else {
+        // For repositories: use the OPTIMIZED database-cached endpoint for instant loading
+        response = await fetch(`/api/resource-updates`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            resourceId: resource.name, // Use resource name as ID for now
+            resourceName: resource.name 
+          })
+        })
+      }
       
       if (!response.ok) {
         // Fallback to old endpoint if new one fails
@@ -163,40 +178,109 @@ class GitHubService {
       
       const data = await response.json()
       
-      // Transform the data to match the expected format
-      const transformedData = {
-        releases: data.releases.map(release => ({
-          id: release.id,
-          name: release.name || release.tag_name,
-          tagName: release.tag_name,
-          publishedAt: release.published_at,
-          htmlUrl: release.html_url,
-          draft: release.draft,
-          prerelease: release.prerelease,
-          repositoryName: release.repository?.name
-        })),
-        commits: data.commits.map(commit => ({
-          sha: commit.sha,
-          message: commit.commit?.message || '',
-          date: commit.commit?.author?.date,
-          author: commit.commit?.author?.name,
-          htmlUrl: commit.html_url,
-          repositoryName: commit.repository?.name
-        })),
-        repoInfo: {
-          name: resource.name,
-          htmlUrl: githubUrl,
-          stargazersCount: 0,
-          forksCount: 0,
-          language: null
-        },
-        commitsPerWeek: 0 // Could calculate from commit dates if needed
+      let transformedData
+      if (isOrganization) {
+        // For organizations: filter global data for this specific organization
+        const allCommits = data.commits || []
+        const allReleases = data.releases || []
+        
+        // Filter commits and releases for this organization by matching GitHub URLs or resource names
+        const organizationCommits = allCommits.filter(commit => {
+          const commitResource = commit.resource
+          if (!commitResource) return false
+          
+          const nameMatch = commitResource.name === resource.name
+          const githubMatch = commitResource.social?.github === resource.social.github
+          const githubUrlMatch = commitResource.social?.github && resource.social?.github && 
+            commitResource.social.github.toLowerCase() === resource.social.github.toLowerCase()
+          
+          return nameMatch || githubMatch || githubUrlMatch
+        })
+        
+        const organizationReleases = allReleases.filter(release => {
+          const releaseResource = release.resource
+          if (!releaseResource) return false
+          
+          const nameMatch = releaseResource.name === resource.name
+          const githubMatch = releaseResource.social?.github === resource.social.github
+          const githubUrlMatch = releaseResource.social?.github && resource.social?.github && 
+            releaseResource.social.github.toLowerCase() === resource.social.github.toLowerCase()
+          
+          return nameMatch || githubMatch || githubUrlMatch
+        })
+        
+        transformedData = {
+          releases: organizationReleases.map(release => ({
+            id: release.id,
+            name: release.name || release.tag_name,
+            tagName: release.tag_name,
+            publishedAt: release.published_at,
+            htmlUrl: release.html_url,
+            draft: release.draft,
+            prerelease: release.prerelease,
+            repositoryName: release.repository?.name
+          })),
+          commits: organizationCommits.map(commit => ({
+            sha: commit.sha,
+            message: commit.commit?.message || '',
+            date: commit.commit?.author?.date,
+            author: commit.commit?.author?.name,
+            htmlUrl: commit.html_url,
+            repositoryName: commit.repository?.name
+          })),
+          repoInfo: {
+            name: resource.name,
+            htmlUrl: githubUrl,
+            isOrganization: true,
+            stargazersCount: 0,
+            forksCount: 0,
+            language: null
+          },
+          commitsPerWeek: 0 // Could calculate from commit dates if needed
+        }
+        
+        logger.log(`🏢 Organization updates for ${resource.name}:`, {
+          totalGlobalCommits: allCommits.length,
+          totalGlobalReleases: allReleases.length,
+          filteredCommits: transformedData.commits.length,
+          filteredReleases: transformedData.releases.length
+        })
+      } else {
+        // For repositories: use direct response format
+        transformedData = {
+          releases: data.releases.map(release => ({
+            id: release.id,
+            name: release.name || release.tag_name,
+            tagName: release.tag_name,
+            publishedAt: release.published_at,
+            htmlUrl: release.html_url,
+            draft: release.draft,
+            prerelease: release.prerelease,
+            repositoryName: release.repository?.name
+          })),
+          commits: data.commits.map(commit => ({
+            sha: commit.sha,
+            message: commit.commit?.message || '',
+            date: commit.commit?.author?.date,
+            author: commit.commit?.author?.name,
+            htmlUrl: commit.html_url,
+            repositoryName: commit.repository?.name
+          })),
+          repoInfo: {
+            name: resource.name,
+            htmlUrl: githubUrl,
+            stargazersCount: 0,
+            forksCount: 0,
+            language: null
+          },
+          commitsPerWeek: 0 // Could calculate from commit dates if needed
+        }
+        
+        logger.log(`📦 Repository updates for ${resource.name}:`, {
+          releases: transformedData.releases.length,
+          commits: transformedData.commits.length
+        })
       }
-      
-      logger.log(`⚡ FAST cached updates for ${resource.name}:`, {
-        releases: transformedData.releases.length,
-        commits: transformedData.commits.length
-      })
       
       return transformedData
     } catch (error) {
