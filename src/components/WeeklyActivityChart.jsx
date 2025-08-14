@@ -1125,6 +1125,14 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               const maxLabel = Math.max(Math.ceil(maxCommits / 10) * 10, 10)
               const step = Math.max(1, Math.floor(maxLabel / 5))
               
+              // Calculate effective padding for Y-axis label positioning
+              let yAxisLabelPadding = chartPadding
+              if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
+                yAxisLabelPadding = Math.max(20, chartPadding * 0.6)
+              } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
+                yAxisLabelPadding = chartPadding * 1.2
+              }
+
               // Generate Y-axis labels
               for (let i = 0; i <= maxLabel; i += step) {
                 if (i <= maxCommits) {
@@ -1132,7 +1140,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   labels.push(
                     <text 
                       key={`y-label-${i}`}
-                      x={chartPadding - 12} 
+                      x={yAxisLabelPadding - 12} 
                       y={y + 4} 
                       fontSize="12" 
                       fill={accentColor.hex} 
