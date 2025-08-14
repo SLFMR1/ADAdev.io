@@ -579,7 +579,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     
     // Fixed linear position based on array index (same as nodes)
     const x = effectivePadding + i * stepX
-    const y = chartHeight - effectivePadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * effectivePadding)
+    // Use consistent padding for Y calculation to avoid misplaced 0-commit points
+    const yCalculationPadding = chartPadding  // Always use standard padding for Y positioning
+    const y = chartHeight - yCalculationPadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * yCalculationPadding)
     
     // Validate coordinates
     let validX = x
@@ -589,11 +591,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       validX = effectivePadding + (i * 10)
     }
     if (isNaN(validY) || !isFinite(validY)) {
-      validY = chartHeight - effectivePadding
+      validY = chartHeight - yCalculationPadding
     }
     
     validX = Math.max(effectivePadding, Math.min(validX, chartWidth - effectiveRightPadding))
-    validY = Math.max(effectivePadding, Math.min(validY, chartHeight - effectivePadding))
+    validY = Math.max(yCalculationPadding, Math.min(validY, chartHeight - yCalculationPadding))
     
     if (isNaN(validX) || isNaN(validY)) {
       console.warn(`Invalid coordinates for point ${i}: x=${validX}, y=${validY}`)
@@ -944,7 +946,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               
               // Fixed linear position based on array index
               const x = effectivePadding + i * stepX
-              const y = chartHeight - effectivePadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * effectivePadding)
+              // Use consistent padding for Y calculation to avoid misplaced 0-commit points
+              const yCalculationPadding = chartPadding  // Always use standard padding for Y positioning
+              const y = chartHeight - yCalculationPadding - (safeCount / safeMaxCommits) * (chartHeight - 2 * yCalculationPadding)
               
               // Validate coordinates
               let safeX = x
@@ -954,11 +958,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 safeX = effectivePadding + (i * 10)
               }
               if (isNaN(safeY) || !isFinite(safeY)) {
-                safeY = chartHeight - effectivePadding
+                safeY = chartHeight - yCalculationPadding
               }
               
               safeX = Math.max(effectivePadding, Math.min(safeX, chartWidth - effectiveRightPadding))
-              safeY = Math.max(effectivePadding, Math.min(safeY, chartHeight - effectivePadding))
+              safeY = Math.max(yCalculationPadding, Math.min(safeY, chartHeight - yCalculationPadding))
               
               return (
                 <g key={i}>
