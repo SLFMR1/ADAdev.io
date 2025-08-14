@@ -7,6 +7,7 @@ import { generateChartPoints, validateNodeCount } from '../utils/chartDataUtils'
 
 const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 300, padding = 40, rightPadding, period, screenshotMode = false, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' }, contributingResources = null }, svgRef) => {
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
+  const areaGradientId = `aggregated-area-gradient-${(accentColor.hex || '#FFFFFF').replace('#','')}`
   
   if (!weeklyData || weeklyData.length === 0) {
     return (
@@ -191,6 +192,10 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
   
   // Generate chart points with calculated dimensions
   const chartPoints = generateChartPoints(weeklyData, effectiveWidth, height, effectivePadding, effectiveRightPadding);
+  const areaBaselineY = height - effectivePadding
+  const areaLeftX = effectivePadding
+  const areaRightX = effectiveWidth - effectiveRightPadding
+  const areaPoints = `${areaLeftX},${areaBaselineY} ${chartPoints} ${areaRightX},${areaBaselineY}`
   
   return (
     <div className="relative">
@@ -203,6 +208,11 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           <linearGradient id="accent-gradient" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor={accentColor.hex} />
             <stop offset="100%" stopColor={accentColor.hex} />
+          </linearGradient>
+          <linearGradient id={areaGradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={accentColor.hex} stopOpacity="0.35" />
+            <stop offset="80%" stopColor={accentColor.hex} stopOpacity="0.12" />
+            <stop offset="100%" stopColor={accentColor.hex} stopOpacity="0" />
           </linearGradient>
           <filter id="glow">
             <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
@@ -268,6 +278,12 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         ))}
 
         {/* Glow */}
+        {/* Area under the line */}
+        <polygon
+          points={areaPoints}
+          fill={`url(#${areaGradientId})`}
+          stroke="none"
+        />
         <polyline
           points={chartPoints}
           fill="none"
@@ -343,39 +359,49 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         {/* X-axis labels */}
         {(() => {
           const labels = [];
+          const placed = [];
+          const canPlace = (x) => placed.every(p => Math.abs(p.x - x) >= minLabelSpacing);
           // More lenient spacing for shorter periods
-          const minLabelSpacing = (period === 'current' || period === '4weeks' || period === '5weeks') 
-            ? 40  // Tighter spacing for short periods
-            : 60; // Standard spacing for longer periods
-          let lastLabelX = -minLabelSpacing;
-          
-          // Sort labels by priority and apply collision detection
-          xLabels
-            .map((label, i) => ({ label, index: i }))
+          const minLabelSpacing = (period === 'current' || period === '4weeks' || period === '5weeks')
+            ? 40
+            : 60;
+
+          // Build candidates with x positions
+          const candidates = xLabels
+            .map((label, index) => ({ label, index }))
             .filter(item => item.label)
-            .sort((a, b) => (b.label.priority || 0) - (a.label.priority || 0))
-            .forEach(({ label, index }) => {
+            .map(({ label, index }) => {
               const x = effectivePadding + (index / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding);
-              
-              if (x - lastLabelX >= minLabelSpacing) {
-                lastLabelX = x;
-                labels.push(
-                  <text
-                    key={`x-label-${index}`}
-                    x={x}
-                    y={height - effectivePadding + (screenshotMode ? 12 : 16)}
-                    fontSize={label.type === 'year' ? '15' : label.type === 'quarter' ? '13' : '12'}
-                    fontWeight={label.type === 'year' ? 'bold' : label.type === 'quarter' ? '600' : '500'}
-                    fill={accentColor.hex}
-                    textAnchor="middle"
-                    style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
-                  >
-                    {label.value}
-                  </text>
-                );
-              }
+              return { x, index, label };
             });
-          
+
+          // Place labels by priority groups, but always left-to-right to avoid rightmost blocking earlier ones
+          const typePriorityOrder = ['year', 'quarter', 'month', 'week', 'day'];
+          typePriorityOrder.forEach(type => {
+            candidates
+              .filter(c => (c.label.type || 'week') === type)
+              .sort((a, b) => a.index - b.index)
+              .forEach(c => {
+                if (canPlace(c.x)) {
+                  placed.push({ x: c.x, type: c.label.type });
+                  labels.push(
+                    <text
+                      key={`x-label-${c.index}`}
+                      x={c.x}
+                      y={height - effectivePadding + (screenshotMode ? 12 : 16)}
+                      fontSize={c.label.type === 'year' ? '15' : c.label.type === 'quarter' ? '13' : '12'}
+                      fontWeight={c.label.type === 'year' ? 'bold' : c.label.type === 'quarter' ? '600' : '500'}
+                      fill={accentColor.hex}
+                      textAnchor="middle"
+                      style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
+                    >
+                      {c.label.value}
+                    </text>
+                  );
+                }
+              });
+          });
+
           return labels;
         })()}
       </svg>

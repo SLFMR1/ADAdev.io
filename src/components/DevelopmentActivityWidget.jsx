@@ -656,7 +656,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     shareToXHandler(leaderboardRef.current, 'leaderboard');
   };
 
-  const { leaderboard, chartData, metrics, isDaily } = currentPeriodData || {};
+  const { leaderboard, chartData, metrics } = currentPeriodData || {};
 
   // Labels for screenshot mode (dropdowns become static text)
   const selectedPeriodLabel = useMemo(() => {
@@ -717,9 +717,10 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     return trueHistoricalMax;
   }, [selectedPeriod, chartData, viewMode]);
 
+
   // Helper function to calculate sequential period maximum for longer periods
   const calculateLongerPeriodHistoricalMax = useCallback((currentTotal) => {
-    if (!chartData) return currentTotal * 1.2; // fallback to current behavior
+    if (!chartData) return null; // insufficient data
     
     // Map period to number of weeks for sequential calculation
     const periodWeeks = {
@@ -730,7 +731,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     };
     
     const weeksInPeriod = periodWeeks[selectedPeriod];
-    if (!weeksInPeriod) return currentTotal * 1.2; // fallback for unknown periods
+    if (!weeksInPeriod) return null; // unknown period
     
     let maxSequentialTotal = 0;
     const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
@@ -740,7 +741,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       if (cachedPeriodData && cachedPeriodData.weeklyChartData) {
         const transformedData = transformChartData(cachedPeriodData.weeklyChartData, period, 'LongerPeriodHistoricalMax');
         
-        if (transformedData && transformedData.length >= weeksInPeriod) {
+        if (transformedData && transformedData.length > weeksInPeriod) {
           // Calculate rolling sums for sequential periods
           for (let i = 0; i <= transformedData.length - weeksInPeriod; i++) {
             const sequentialSum = transformedData
@@ -757,16 +758,24 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       }
     }
     
-    // If no historical data found, fall back to current behavior
+    // If no historical data found, return null to indicate insufficient data
     if (maxSequentialTotal === 0) {
-      console.log(`📊 No historical data found for ${selectedPeriod} comparison, using 1.2x fallback`);
-      return currentTotal * 1.2;
+      console.log(`📊 No historical data found for ${selectedPeriod} comparison, insufficient data for meaningful comparison`);
+      return null;
     }
     
     // Include current period in comparison
     const trueHistoricalMax = Math.max(maxSequentialTotal, currentTotal);
     
     console.log(`📊 ${selectedPeriod} historical max: historical=${maxSequentialTotal}, current=${currentTotal}, final=${trueHistoricalMax}`);
+    console.log(`📊 DATA VERIFICATION - ${selectedPeriod} calculation details:`, {
+      weeksInPeriod,
+      currentTotal,
+      maxSequentialTotal,
+      finalResult: trueHistoricalMax,
+      usedHistoricalData: maxSequentialTotal > 0,
+      fallbackUsed: maxSequentialTotal === 0
+    });
     
     return trueHistoricalMax;
   }, [chartData, viewMode, selectedPeriod]);
@@ -1057,19 +1066,34 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                         ) : metrics ? (
                           <>
                       <div className="text-center">
-                              <div className="text-white font-bold text-lg">{metrics.totalActiveRepos}</div>
+                              <div 
+                                className="text-white font-bold text-lg"
+                                title={`Repositories with at least one commit in this ${selectedPeriod === 'current' ? '7-day' : selectedPeriod === '5weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period`}
+                              >
+                                {metrics.totalActiveRepos}
+                              </div>
                         <div className="text-gray-400 text-xs">Active Repos</div>
                       </div>
                       <div className="text-center">
-                              <div className="text-white font-bold text-lg">{metrics.avgCommitsPerRepo}</div>
+                              <div 
+                                className="text-white font-bold text-lg"
+                                title={"Average commits per active repository during this period"}
+                              >
+                                {metrics.avgCommitsPerRepo}
+                              </div>
                         <div className="text-gray-400 text-xs">
-                                {isDaily ? 'Avg Commits/Repo/Day' : 'Avg Commits/Repo/Week'}
+                                {'Avg Commits/Repo'}
                         </div>
                       </div>
                       <div className="text-center">
-                              <div className="text-white font-bold text-lg">{metrics.totalCommits}</div>
+                              <div 
+                                className="text-white font-bold text-lg"
+                                title={"Total commits across all repositories during this period"}
+                              >
+                                {metrics.totalCommits}
+                              </div>
                         <div className="text-gray-400 text-xs">
-                                {isDaily ? 'Total Commits/Day' : 'Total Commits/Week'}
+                                {'Total Commits'}
                         </div>
                       </div>
                           </>
@@ -1182,21 +1206,31 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
                           if (index === 0) {
                             containerStyle = {
-                              boxShadow: `0 0 20px rgba(${currentAccentColor.rgb}, 0.3), 0 0 30px rgba(${currentAccentColor.rgb}, 0.5)`,
-                              border: `1px solid rgba(${currentAccentColor.rgb}, 0.5)`,
+                              boxShadow: `0 0 0 1px rgba(${currentAccentColor.rgb}, 0.85), 0 0 8px 1px rgba(${currentAccentColor.rgb}, 0.5), inset 0 0 0 1px rgba(${currentAccentColor.rgb}, 0.75), inset 0 0 8px 1px rgba(${currentAccentColor.rgb}, 0.45)`,
+                              border: `1px solid rgba(${currentAccentColor.rgb}, 0.6)`,
+                              outline: `1px solid rgba(${currentAccentColor.rgb}, 1)`,
+                              outlineOffset: '0px',
+                              transform: 'scale(1.02)',
+                              transition: 'transform 200ms ease, box-shadow 200ms ease',
+                              backgroundImage: `linear-gradient(90deg, rgba(${currentAccentColor.rgb}, 0.10), rgba(${currentAccentColor.rgb}, 0.06) 40%, rgba(${currentAccentColor.rgb}, 0.00))`,
+                              backdropFilter: 'blur(2px)',
                               zIndex: 13
                             };
                             isWinner = true;
                           } else if (index === 1) {
                             containerStyle = {
-                              boxShadow: `0 0 15px rgba(${currentAccentColor.rgb}, 0.25), 0 0 25px rgba(${currentAccentColor.rgb}, 0.4)`,
-                              border: `1px solid rgba(${currentAccentColor.rgb}, 0.4)`,
+                              boxShadow: `0 0 0 1px rgba(${currentAccentColor.rgb}, 0.65), 0 0 6px 1px rgba(${currentAccentColor.rgb}, 0.35), inset 0 0 0 1px rgba(${currentAccentColor.rgb}, 0.55), inset 0 0 6px 1px rgba(${currentAccentColor.rgb}, 0.3)`,
+                              border: `1px solid rgba(${currentAccentColor.rgb}, 0.45)`,
+                              outline: `1px solid rgba(${currentAccentColor.rgb}, 0.7)`,
+                              outlineOffset: '0px',
                               zIndex: 12
                             };
                           } else if (index === 2) {
                             containerStyle = {
-                              boxShadow: `0 0 10px rgba(${currentAccentColor.rgb}, 0.2), 0 0 20px rgba(${currentAccentColor.rgb}, 0.3)`,
-                              border: `1px solid rgba(${currentAccentColor.rgb}, 0.3)`,
+                              boxShadow: `0 0 0 1px rgba(${currentAccentColor.rgb}, 0.35), 0 0 4px 1px rgba(${currentAccentColor.rgb}, 0.25), inset 0 0 0 1px rgba(${currentAccentColor.rgb}, 0.45), inset 0 0 4px 1px rgba(${currentAccentColor.rgb}, 0.2)`,
+                              border: `1px solid rgba(${currentAccentColor.rgb}, 0.25)`,
+                              outline: `1px solid rgba(${currentAccentColor.rgb}, 0.3)`,
+                              outlineOffset: '0px',
                               zIndex: 11
                             };
                           }
@@ -1224,7 +1258,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 {index + 1}
                               </div>
                               <div className="flex-1 min-w-0 overflow-hidden">
-                                <div className={`${isWinner ? 'font-semibold' : 'font-normal'} ${screenshotMode ? 'text-[17px] leading-[24px]' : 'text-base'} text-white truncate`}>
+                                <div className={`${isWinner ? 'font-semibold' : 'font-normal'} ${screenshotMode ? 'text-[17px] leading-[24px]' : 'text-base'} text-white truncate`} style={isWinner ? { textShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.35)` } : undefined}>
                                   {item.resource.name}
                                 </div>
                                 <div className={`${screenshotMode ? 'text-[13px] leading-[19px]' : 'text-sm'} text-gray-400 truncate`}>
@@ -1232,7 +1266,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <div className={`${isWinner ? 'font-bold' : 'font-normal'} ${screenshotMode ? 'text-[15px] leading-[21px]' : 'text-base'} text-white`}>
+                                <div className={`${isWinner ? 'font-bold' : 'font-normal'} ${screenshotMode ? 'text-[15px] leading-[21px]' : 'text-base'} text-white`} style={isWinner ? { textShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.35)` } : undefined}>
                                     {item.totalCommits}
                                 </div>
                                 {!screenshotMode && (
@@ -1320,7 +1354,23 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                   <div className="bg-gray-800/50 rounded-lg p-3 mt-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex flex-col">
-                        <span className="text-gray-400 text-xs">
+                        <span 
+                          className="text-gray-400 text-xs"
+                          title={(() => {
+                            if (selectedPeriod === 'current') {
+                              return 'Current 7-day period performance vs. best historical 7-day period. Includes today\'s incomplete data.';
+                            } else if (selectedPeriod === '5weeks') {
+                              return 'Current 4-week period performance vs. best historical sequential 4-week period. Includes current incomplete week.';
+                            } else if (selectedPeriod === '3months') {
+                              return 'Current 3-month period performance vs. best historical sequential 3-month period. Includes current incomplete week.';
+                            } else if (selectedPeriod === '52weeks') {
+                              return 'Current 12-month period performance vs. best historical sequential 12-month period. Includes current incomplete week.';
+                            } else if (selectedPeriod === '3years') {
+                              return 'Current 3-year period performance vs. best historical sequential 3-year period. Includes current incomplete week.';
+                            }
+                            return 'Current period performance vs. historical maximum';
+                          })()}
+                        >
                           {selectedPeriod === 'current' ? 'Current 7-Day Total' : 
                            selectedPeriod === '5weeks' ? 'Current 4-Week Total' : 
                            selectedPeriod === '3months' ? 'Current 3-Month Total' : 
@@ -1330,23 +1380,56 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             <span 
                               className="ml-2 text-xs opacity-75"
                               style={{ color: currentAccentColor.hex }}
+                              title="This current 7-day period has set a new record!"
                             >
                               • new record
                             </span>
                           )}
                         </span>
                         {selectedPeriod !== 'current' && (
-                          <span className="text-gray-500 text-xs mt-0.5">
-                            vs. best {selectedPeriod === '5weeks' ? '4-week' : 
-                                         selectedPeriod === '3months' ? '3-month' : 
-                                         selectedPeriod === '52weeks' ? '12-month' : 
-                                         selectedPeriod === '3years' ? '3-year' : ''} period
+                          <span 
+                            className="text-gray-500 text-xs mt-0.5"
+                            title={(() => {
+                              const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(chartData?.reduce((total, item) => total + (item.count || 0), 0) || 0);
+                              if (historicalMax === null) {
+                                return 'Insufficient historical data for meaningful comparison - need more data points to establish baseline';
+                              }
+                              return `Comparison against the best performing sequential ${selectedPeriod === '5weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period found in historical data`;
+                            })()}
+                          >
+                            {(() => {
+                              const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(chartData?.reduce((total, item) => total + (item.count || 0), 0) || 0);
+                              if (historicalMax === null) {
+                                return 'insufficient historical data';
+                              }
+                              return `vs. best ${selectedPeriod === '5weeks' ? '4-week' : 
+                                                 selectedPeriod === '3months' ? '3-month' : 
+                                                 selectedPeriod === '52weeks' ? '12-month' : 
+                                                 selectedPeriod === '3years' ? '3-year' : ''} period`;
+                            })()}
                           </span>
                         )}
                       </div>
                       <div className="flex items-center space-x-1">
                         <GitCommit size={12} style={{ color: currentAccentColor.hex }} />
-                        <span className="font-bold text-lg" style={{ color: currentAccentColor.hex }}>
+                        <span 
+                          className="font-bold text-lg" 
+                          style={{ color: currentAccentColor.hex }}
+                          title={(() => {
+                            if (selectedPeriod === 'current') {
+                              return 'Total commits across the current 7-day period (includes today\'s incomplete data)';
+                            } else if (selectedPeriod === '5weeks') {
+                              return 'Total commits across the current 4-week period (includes current incomplete week)';
+                            } else if (selectedPeriod === '3months') {
+                              return 'Total commits across the current 3-month period (includes current incomplete week)';
+                            } else if (selectedPeriod === '52weeks') {
+                              return 'Total commits across the current 12-month period (includes current incomplete week)';
+                            } else if (selectedPeriod === '3years') {
+                              return 'Total commits across the current 3-year period (includes current incomplete week)';
+                            }
+                            return 'Total commits for the current period';
+                          })()}
+                        >
                           {(() => {
                             if (selectedPeriod === 'current') {
                               // For 7-day period, show total commits across all 7 days
@@ -1376,6 +1459,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               
                               const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
                               const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                              if (historicalMax === null) {
+                                return '0%'; // Insufficient historical data
+                              }
                               const percentage = (currentTotal / historicalMax) * 100;
                               return `${Math.min(100, Math.max(0, Math.round(percentage)))}%`;
                             })(),
@@ -1393,7 +1479,11 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               return `${weeklyHistoricalMax || 1} (historical peak)`;
                             }
                             const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
-                            return `${metrics?.historicalMax || Math.round(calculateLongerPeriodHistoricalMax(currentTotal))} (historical peak)`;
+                            const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                            if (historicalMax === null) {
+                              return 'Insufficient historical data for meaningful comparison';
+                            }
+                            return `${Math.round(historicalMax)} (historical peak)`;
                           })()}
                         </span>
                       </div>
