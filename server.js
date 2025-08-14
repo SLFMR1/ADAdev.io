@@ -707,7 +707,10 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
         weeklyData: [],
         repoInfo: null
       }
-      setCachedData(cacheKey, emptyResult)
+      // Cache rate-limited results for only 1 minute instead of 30 minutes
+      // by setting custom timestamp
+      CACHE.data.set(cacheKey, emptyResult)
+      CACHE.timestamps.set(cacheKey, Date.now() + 60 * 1000) // 1 minute TTL
       return emptyResult
     }
     
