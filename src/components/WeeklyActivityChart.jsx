@@ -1217,7 +1217,10 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
 
         {/* Bar Chart - uses dynamic historical maximums for meaningful progress bars */}
         <div className="relative">
-          <div className="w-full bg-gray-700 rounded-full h-2">
+          <div 
+            className="w-full bg-gray-700 rounded-full h-2 cursor-help" 
+            title="Historical maximum may include the current incomplete week"
+          >
             <div 
               className="h-2 rounded-full transition-all duration-500 ease-out"
               style={{ 
