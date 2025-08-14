@@ -294,59 +294,6 @@ const classifyError = (error, statusCode) => {
 }
 
 // GitHub API functions
-// Detect realistic data limits from actual commit history
-const detectRepoDataLimits = (commits) => {
-  if (!commits || commits.length === 0) {
-    return { 
-      maxRealisticPeriod: 'current', 
-      availablePeriods: ['current'],
-      reason: 'no_commits',
-      ageWeeks: 0
-    }
-  }
-
-  // Find oldest commit date
-  const dates = commits.map(c => new Date(c.commit?.author?.date || c.date)).filter(d => !isNaN(d.getTime()))
-  if (dates.length === 0) {
-    return { 
-      maxRealisticPeriod: 'current', 
-      availablePeriods: ['current'],
-      reason: 'invalid_dates',
-      ageWeeks: 0
-    }
-  }
-
-  const oldestDate = new Date(Math.min(...dates))
-  const ageWeeks = Math.floor((Date.now() - oldestDate.getTime()) / (7 * 24 * 60 * 60 * 1000))
-  
-  // Be realistic about what periods make sense
-  let maxRealisticPeriod = 'current'
-  let availablePeriods = ['current']
-  
-  if (ageWeeks >= 156) { // 3+ years of actual commits
-    maxRealisticPeriod = '3years'
-    availablePeriods = ['current', '4weeks', '3months', '52weeks', '3years']
-  } else if (ageWeeks >= 52) { // 1+ year of commits
-    maxRealisticPeriod = '52weeks' 
-    availablePeriods = ['current', '4weeks', '3months', '52weeks']
-  } else if (ageWeeks >= 13) { // 3+ months of commits
-    maxRealisticPeriod = '3months'
-    availablePeriods = ['current', '4weeks', '3months']
-  } else if (ageWeeks >= 4) { // 4+ weeks of commits
-    maxRealisticPeriod = '4weeks'
-    availablePeriods = ['current', '4weeks']
-  }
-  
-  return {
-    maxRealisticPeriod,
-    availablePeriods, 
-    reason: 'detected_from_commits',
-    ageWeeks,
-    oldestCommitDate: oldestDate.toISOString(),
-    totalCommits: commits.length
-  }
-}
-
 const fetchRepoCommits = async (repoPath, since = null) => {
   const cacheKey = generateCacheKey('commits', repoPath, { since })
   const cached = getCachedData(cacheKey)
@@ -2997,31 +2944,12 @@ const ensureHistoricalDataCompleteness = async () => {
         }
         
         const weeksAvailable = existingData?.length || 0
-        // First, detect realistic data limits for this resource
-        let dataLimits = { maxRealisticPeriod: '3years', availablePeriods: ['current', '4weeks', '3months', '52weeks', '3years'], ageWeeks: 156 }
-        
-        if (resource.type === 'repository' && resource.social?.github) {
-          const repoPath = resource.social.github.replace('https://github.com/', '')
-          try {
-            // Quick check with recent commits to estimate age
-            const recentCommits = await fetchRepoCommits(repoPath, new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()) // Last year
-            if (recentCommits.length > 0) {
-              dataLimits = detectRepoDataLimits(recentCommits)
-            }
-          } catch (error) {
-            // Continue with conservative estimate if detection fails
-          }
-        }
-        
         const missingPeriods = []
         
-        // Check only realistic requirements based on actual repo age
+        // Check each required period
         for (const [period, requiredWeeks] of Object.entries(HISTORICAL_REQUIREMENTS)) {
-          if (dataLimits.availablePeriods.includes(period)) {
-            const realisticRequirement = Math.min(requiredWeeks, dataLimits.ageWeeks)
-            if (weeksAvailable < realisticRequirement) {
-              missingPeriods.push(period)
-            }
+          if (weeksAvailable < requiredWeeks) {
+            missingPeriods.push(period)
           }
         }
         
@@ -3030,12 +2958,11 @@ const ensureHistoricalDataCompleteness = async () => {
             resource,
             resourceId,
             weeksAvailable,
-            missingPeriods,
-            dataLimits // Include limits for smarter backfilling
+            missingPeriods
           })
-          console.log(`📋 ${resource.name}: ${weeksAvailable} weeks available, missing: ${missingPeriods.join(', ')} (max realistic: ${dataLimits.ageWeeks} weeks)`)
+          console.log(`📋 ${resource.name}: ${weeksAvailable} weeks available, missing: ${missingPeriods.join(', ')}`)
         } else {
-          console.log(`✅ ${resource.name}: Complete historical data (${weeksAvailable} weeks - ALL REALISTIC PERIODS SATISFIED)`)
+          console.log(`✅ ${resource.name}: Complete historical data (${weeksAvailable} weeks - ALL PERIODS SATISFIED)`)
         }
         
       } catch (error) {
@@ -3099,23 +3026,10 @@ const ensureHistoricalDataCompleteness = async () => {
           )
           
           if (historicalData && historicalData.length > 0) {
-            console.log(`📥 ${resource.name}: Fetched ${historicalData.length} weeks of data, now checking realistic limits...`)
+            console.log(`📥 ${resource.name}: Fetched ${historicalData.length} weeks of data, now verifying completeness...`)
             
-            // Detect what's actually possible from the commits we fetched
-            let allCommits = []
-            if (resource.type === 'repository' && resource.social?.github) {
-              const repoPath = resource.social.github.replace('https://github.com/', '')
-              try {
-                // Get ALL commits to determine realistic age limits
-                allCommits = await fetchRepoCommits(repoPath)
-              } catch (error) {
-                console.warn(`Could not fetch all commits for age detection: ${error.message}`)
-              }
-            }
-            
-            const dataLimits = detectRepoDataLimits(allCommits)
-            console.log(`🧠 ${resource.name}: Detected limits - Max period: ${dataLimits.maxRealisticPeriod}, Age: ${dataLimits.ageWeeks} weeks (${dataLimits.reason})`)
-            
+            // CRITICAL: Re-check database to verify what we actually have now
+            // CRITICAL FIX: Use repo_path for verification too, same as initial check
             const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
             
             if (!repoPath) {
@@ -3140,26 +3054,18 @@ const ensureHistoricalDataCompleteness = async () => {
             const actualWeeksAvailable = verificationData?.length || 0
             const stillMissingPeriods = []
             
-            // Only check periods that are actually realistic for this repo
-            const realisticRequirements = {}
+            // Check each required period against actual data
             for (const [period, requiredWeeks] of Object.entries(HISTORICAL_REQUIREMENTS)) {
-              if (dataLimits.availablePeriods.includes(period)) {
-                realisticRequirements[period] = Math.min(requiredWeeks, dataLimits.ageWeeks)
-              }
-            }
-            
-            // Check only realistic requirements 
-            for (const [period, requiredWeeks] of Object.entries(realisticRequirements)) {
               if (actualWeeksAvailable < requiredWeeks) {
                 stillMissingPeriods.push(period)
               }
             }
             
             if (stillMissingPeriods.length === 0) {
-              console.log(`✅ ${resource.name}: ALL REALISTIC REQUIREMENTS MET (${actualWeeksAvailable} weeks available, max possible: ${dataLimits.ageWeeks})`)
+              console.log(`✅ ${resource.name}: ALL REQUIREMENTS MET (${actualWeeksAvailable} weeks available)`)
               successCount++
             } else {
-              console.log(`📋 ${resource.name}: Some gaps remain - ${actualWeeksAvailable} weeks available, missing: ${stillMissingPeriods.join(', ')} (realistic for ${dataLimits.ageWeeks}-week-old repo)`)
+              console.log(`⚠️ ${resource.name}: INCOMPLETE - ${actualWeeksAvailable} weeks available, still missing: ${stillMissingPeriods.join(', ')}`)
               incompleteCount++
             }
           } else {
