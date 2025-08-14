@@ -1155,12 +1155,20 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4)`
                 }}
               >
-                <div className="font-semibold mb-1" style={{ color: accentColor.hex }}>
-                  {tooltip.value} commits
-                </div>
-                <div className="text-gray-300 text-xs leading-relaxed">
-                  {tooltip.label}
-                </div>
+                {tooltip.label ? (
+                  <>
+                    <div className="font-semibold mb-1" style={{ color: accentColor.hex }}>
+                      {tooltip.value} commits
+                    </div>
+                    <div className="text-gray-300 text-xs leading-relaxed">
+                      {tooltip.label}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-gray-300 text-xs leading-relaxed">
+                    {tooltip.value}
+                  </div>
+                )}
               </div>
             </Portal>
           )}
@@ -1218,8 +1226,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         {/* Bar Chart - uses dynamic historical maximums for meaningful progress bars */}
         <div className="relative">
           <div 
-            className="w-full bg-gray-700 rounded-full h-2 cursor-help" 
-            title="Historical maximum may include the current incomplete week"
+            className="w-full bg-gray-700 rounded-full h-2"
           >
             <div 
               className="h-2 rounded-full transition-all duration-500 ease-out"
@@ -1255,7 +1262,20 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           </div>
           <div className="flex justify-between text-xs text-gray-400 mt-1">
             <span>0</span>
-            <span>
+            <span 
+              className="cursor-help relative"
+              onMouseEnter={(e) => {
+                const rect = e.target.getBoundingClientRect();
+                setTooltip({
+                  show: true,
+                  x: rect.right,
+                  y: rect.top,
+                  value: 'Historical maximum may include the current incomplete week',
+                  label: ''
+                });
+              }}
+              onMouseLeave={() => setTooltip({ show: false, x: 0, y: 0, value: 0, label: '' })}
+            >
               {(() => {
                 const isLongerPeriod = selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
                 if (isLongerPeriod) {

@@ -93,6 +93,9 @@ let requestCount = 0
 let lastRequestTime = 0
 let consecutiveFailures = 0
 
+// Background refresh control to prevent blocking user requests
+let backgroundRefreshInProgress = false
+
 const rateLimitedFetch = async (url, options = {}) => {
   const now = Date.now()
   const timeSinceLastRequest = now - lastRequestTime
@@ -661,6 +664,13 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
   // Check in-memory cache first - include period in cache key to avoid returning same data for different periods
   const cacheKey = generateCacheKey('recent_activity', resource.id || resource.name, { useDailyProcessing, period })
   const cachedResult = getCachedData(cacheKey)
+  
+  // PRIORITY: Serve cache during background refresh to prevent blocking user requests
+  if (backgroundRefreshInProgress && cachedResult) {
+    logger.debug(`⚡ Serving cached data during background refresh for ${resource.name}`)
+    return cachedResult
+  }
+  
   if (cachedResult) {
     logger.debug(`✅ Using cached recent activity for ${resource.name}`);
     return cachedResult
@@ -823,6 +833,15 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
   if (forceRefresh) {
     logger.debug(`🔄 Force refresh enabled for ${resource.name} - skipping all cache checks`)
   } else {
+    
+    // PRIORITY: Check in-memory cache during background refresh
+    if (backgroundRefreshInProgress) {
+      const cachedResult = getCachedData(cacheKey)
+      if (cachedResult) {
+        logger.debug(`⚡ Serving cached historical data during background refresh for ${resource.name}`)
+        return cachedResult
+      }
+    }
     // Check database cache first for ALL resources (both repos and orgs)
     
     try {
@@ -2761,7 +2780,9 @@ async function populateUpdatesCache(priority = 'all') {
     return
   }
   
-  logger.debug(`🔄 Populating updates cache (priority: ${priority})...`)
+  // Set background refresh flag to prioritize cache for user requests
+  backgroundRefreshInProgress = true
+  logger.debug(`🔄 Populating updates cache (priority: ${priority})... [Background mode enabled]`)
   
   try {
     const resources = await loadResources()
@@ -2883,6 +2904,10 @@ async function populateUpdatesCache(priority = 'all') {
     
   } catch (error) {
     logger.error('❌ Error populating updates cache:', error)
+  } finally {
+    // Reset background refresh flag to allow normal GitHub API calls
+    backgroundRefreshInProgress = false
+    logger.debug(`🔄 Background refresh completed, normal API access restored`)
   }
 }
 
