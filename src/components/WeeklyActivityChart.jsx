@@ -601,6 +601,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 <stop offset="50%" stopColor={accentColor.hex} />
                 <stop offset="100%" stopColor={accentColor.hex} />
               </linearGradient>
+              <linearGradient id={`weekly-area-gradient-${(accentColor.hex || '#FFFFFF').replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={accentColor.hex} stopOpacity="0.35" />
+                <stop offset="80%" stopColor={accentColor.hex} stopOpacity="0.12" />
+                <stop offset="100%" stopColor={accentColor.hex} stopOpacity="0" />
+              </linearGradient>
               <filter id="glow">
                 <feGaussianBlur stdDeviation="2" result="coloredBlur" />
                 <feMerge>
@@ -727,6 +732,35 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 />
               )
             })}
+
+            {/* Area under the line */}
+            {(() => {
+              // Calculate area baseline and points for gradient fill
+              const areaBaselineY = chartHeight - chartPadding;
+              
+              // Get the left and right X positions from chart points
+              let areaLeftX = chartPadding;
+              let areaRightX = chartWidth - chartPadding;
+              
+              if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
+                areaLeftX = Math.max(20, chartPadding * 0.6);
+                areaRightX = chartWidth - Math.max(15, chartPadding * 0.6);
+              } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
+                areaLeftX = chartPadding * 1.2;
+                areaRightX = chartWidth - chartPadding * 1.2;
+              }
+              
+              const areaPoints = `${areaLeftX},${areaBaselineY} ${chartPoints} ${areaRightX},${areaBaselineY}`;
+              const areaGradientId = `weekly-area-gradient-${(accentColor.hex || '#FFFFFF').replace('#','')}`;
+              
+              return (
+                <polygon
+                  points={areaPoints}
+                  fill={`url(#${areaGradientId})`}
+                  stroke="none"
+                />
+              );
+            })()}
 
             {/* Week ticks */}
             {validWeeklyData.map((w, i) => {
