@@ -184,17 +184,23 @@ class GitHubService {
         const allCommits = data.commits || []
         const allReleases = data.releases || []
         
-        // Filter commits and releases for this organization by matching GitHub URLs or resource names
+        // Filter commits and releases for this organization by matching GitHub URLs, resource names, or repository ownership
         const organizationCommits = allCommits.filter(commit => {
           const commitResource = commit.resource
           if (!commitResource) return false
           
+          // Direct resource name match
           const nameMatch = commitResource.name === resource.name
           const githubMatch = commitResource.social?.github === resource.social.github
           const githubUrlMatch = commitResource.social?.github && resource.social?.github && 
             commitResource.social.github.toLowerCase() === resource.social.github.toLowerCase()
           
-          return nameMatch || githubMatch || githubUrlMatch
+          // Repository ownership match - check if commit's repository belongs to this organization
+          const orgName = resource.organization || resource.repo_path
+          const repoOwnershipMatch = orgName && commit.repository?.full_name && 
+            commit.repository.full_name.toLowerCase().startsWith(orgName.toLowerCase() + '/')
+          
+          return nameMatch || githubMatch || githubUrlMatch || repoOwnershipMatch
         })
         
         const organizationReleases = allReleases.filter(release => {

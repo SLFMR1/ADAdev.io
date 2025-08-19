@@ -4088,10 +4088,10 @@ const startServer = async () => {
           console.log('   • Active projects: Every 30 minutes (current data only)')
           console.log('   • All projects: Every 24 hours (immutable data)')
           
-          // High priority: Active/popular projects every 30 minutes (current data updates)
+          // High priority: All projects every 30 minutes (current data updates)
           setInterval(() => {
             console.log('⚡ Running high-priority updates cache refresh...')
-            populateUpdatesCache('active')
+            populateUpdatesCache('all')
           }, 30 * 60 * 1000) // 30 minutes
           
           // Standard priority: All projects every 24 hours (immutable data)
