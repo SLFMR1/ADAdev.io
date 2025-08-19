@@ -86,6 +86,7 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, an
       obj.type = isRepository ? 'repository' : 'organization'
       obj.organization = githubInfo.organization
       obj.repository = isRepository ? githubInfo.repository : null
+      // For organizations, repo_path should be the organization name; for repositories, use "org/repo"
       obj.repo_path = isRepository ? `${githubInfo.organization}/${githubInfo.repository}` : githubInfo.organization
     } else {
       // Fallback if no GitHub URL

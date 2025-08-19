@@ -816,14 +816,14 @@ export const cardanoResources = {
       ],
       website: "https://cardanofoundation.org/",
       social: {
-        github: "https://github.com/orgs/cardano-foundation",
+        github: "https://github.com/cardano-foundation",
         x: "https://x.com/Cardano_CF"
       },
       category: "Education & Documentation",
-      type: "repository",
-      organization: "orgs",
-      repository: "cardano-foundation",
-      repo_path: "orgs/cardano-foundation"
+      type: "organization",
+      organization: "cardano-foundation",
+      repository: null,
+      repo_path: "cardano-foundation"
     }
   ],
   "Wallets & User Tools": [
