@@ -803,6 +803,27 @@ export const cardanoResources = {
       "organization": "input-output-hk",
       "repository": "cardano-documentation",
       "repo_path": "input-output-hk/cardano-documentation"
+    },
+    {
+      id: 66,
+      name: "Cardano Foundation",
+      logo: "https://cardanofoundation.org/cardano-logo.svg",
+      description: "The Cardano Foundation works with institutions, businesses, regulators, and policymakers to solve problems in new ways.",
+      fullDescription: "The Cardano Foundation is an independent, Swiss-based not-for-profit organization tasked with advancing Cardano\nas a public infrastructure across a wide range of industries. The Foundation works to scale the diversity, quality, and quantity of on-chain activities.",
+      keySolutions: [
+        "token registry",
+        "business contact"
+      ],
+      website: "https://cardanofoundation.org/",
+      social: {
+        github: "https://github.com/orgs/cardano-foundation",
+        x: "https://x.com/Cardano_CF"
+      },
+      category: "Education & Documentation",
+      type: "repository",
+      organization: "orgs",
+      repository: "cardano-foundation",
+      repo_path: "orgs/cardano-foundation"
     }
   ],
   "Wallets & User Tools": [
