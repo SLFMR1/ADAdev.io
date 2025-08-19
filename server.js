@@ -1751,17 +1751,51 @@ app.get('/api/development-activity', async (req, res) => {
         let activityData;
         let totalCommits;
         
-        // Use getRecentActivity with daily processing for 'current' period, getHistoricalActivity for others
-        if (period === 'current') {
-          // For 7-day period, use getRecentActivity with daily processing
-          const recentData = await getRecentActivity(targetResource, true, 'current');
-          activityData = recentData.weeklyData; // This contains daily data for 7-day period
-          totalCommits = recentData.commitsPerWeek;
+        // Check bulk cache first for instant loading
+        const viewModeForCache = targetResource.type === 'organization' ? 'organization' : 'repository';
+        const cacheKey = `${viewModeForCache}-activity`;
+        const bulkCache = VIEW_MODE_CACHE.get(cacheKey);
+        
+        if (bulkCache && bulkCache.data && bulkCache.data.preloadedPeriods && bulkCache.data.preloadedPeriods[mappedPeriod]) {
+          // Extract individual resource data from bulk cache
+          const periodData = bulkCache.data.preloadedPeriods[mappedPeriod];
+          const cachedResource = periodData.dailyChartData?.find(item => 
+            item.resource && (
+              item.resource.name === targetResource.name ||
+              item.resource.id === targetResource.id ||
+              (resourceId && (item.resource.id?.toString() === resourceId || item.resource.name === resourceId))
+            )
+          );
+          
+          if (cachedResource && cachedResource.weeklyData) {
+            logger.debug(`⚡ Using bulk cache for ${targetResource.name} (${mappedPeriod} period)`);
+            activityData = cachedResource.weeklyData;
+            totalCommits = cachedResource.weeklyData.reduce((sum, week) => sum + (week?.count || 0), 0);
+          } else {
+            logger.debug(`🔄 Cache miss for ${targetResource.name} - falling back to fresh data`);
+            // Fallback to existing logic
+            if (period === 'current') {
+              const recentData = await getRecentActivity(targetResource, true, 'current');
+              activityData = recentData.weeklyData;
+              totalCommits = recentData.commitsPerWeek;
+            } else {
+              activityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
+              totalCommits = Array.isArray(activityData) ? 
+                activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
+            }
+          }
         } else {
-          // For other periods, use getHistoricalActivity
-          activityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
-          totalCommits = Array.isArray(activityData) ? 
-            activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
+          logger.debug(`🔄 No bulk cache available for ${targetResource.name} - fetching fresh data`);
+          // Fallback to existing logic when bulk cache not available
+          if (period === 'current') {
+            const recentData = await getRecentActivity(targetResource, true, 'current');
+            activityData = recentData.weeklyData;
+            totalCommits = recentData.commitsPerWeek;
+          } else {
+            activityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
+            totalCommits = Array.isArray(activityData) ? 
+              activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
+          }
         }
         
         // Get repo info for organizations
