@@ -1260,7 +1260,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   
                   // Handle insufficient historical data case
                   if (historicalMax === null) {
-                    return '0%'; // No progress bar for insufficient data
+                    return '100%'; // Show full bar when historical comparison isn't available
                   }
                   
                   // Calculate percentage with bounds checking
