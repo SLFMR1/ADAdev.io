@@ -817,7 +817,7 @@ export const cardanoResources = {
       ],
       website: "https://docs.cardano.org/",
       category: "Education & Documentation",
-      type: "organization",
+      type: "misc",
       organization: null,
       repository: null,
       repo_path: null,

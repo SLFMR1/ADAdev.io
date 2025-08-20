@@ -16,7 +16,7 @@ const initialForm = {
   category: '',
   customTabTitle: '',
   customTabContent: '',
-  resourceType: 'organization' // 'organization' or 'repository'
+  resourceType: 'organization' // 'organization' | 'repository' | 'misc'
 }
 
 const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, animationState }) => {
@@ -81,15 +81,22 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, an
       category: customCategory || category
     }
     
-    // Add GitHub metadata
-    if (githubInfo) {
+    // Add type-specific metadata
+    if (resourceType === 'misc') {
+      // For misc/non-GitHub resources, do not include GitHub metadata
+      obj.type = 'misc'
+      obj.organization = null
+      obj.repository = null
+      obj.repo_path = null
+    } else if (githubInfo) {
+      // For GitHub-based resources, infer organization/repository details
       obj.type = isRepository ? 'repository' : 'organization'
       obj.organization = githubInfo.organization
       obj.repository = isRepository ? githubInfo.repository : null
       // For organizations, repo_path should be the organization name; for repositories, use "org/repo"
       obj.repo_path = isRepository ? `${githubInfo.organization}/${githubInfo.repository}` : githubInfo.organization
     } else {
-      // Fallback if no GitHub URL
+      // Fallback if no GitHub URL provided
       obj.type = resourceType
       obj.organization = null
       obj.repository = null
@@ -113,7 +120,7 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, an
 
   // Generate PR template
   const generatePRTemplate = (snippet) => {
-    return `## New Resource Submission\n\nPlease review and copy the code snippet below into resources.js.\n\n\`\`\`javascript\n${snippet}\`\`\`\n\n---\n\n### Guidelines:\n- Ensure the resource is Cardano-related\n- Provide accurate and up-to-date information\n- Key Solutions should be a comma-separated list of keywords that describe the resource\n- Include all available social links\n- Use appropriate category\n- Ensure logo URL is accessible\n- GitHub metadata (type, organization, repository, repo_path) is auto-generated from the GitHub URL\n\nThank you for contributing to the Cardano developer ecosystem!`
+    return `## New Resource Submission\n\nPlease review and copy the code snippet below into resources.js.\n\n\`\`\`javascript\n${snippet}\`\`\`\n\n---\n\n### Guidelines:\n- Ensure the resource is Cardano-related\n- Provide accurate and up-to-date information\n- Key Solutions should be a comma-separated list of keywords that describe the resource\n- Include all available social links\n- Use appropriate category\n- Ensure logo URL is accessible\n- If you select \'Organization\' or \'Repository\', GitHub metadata (type, organization, repository, repo_path) is auto-generated from the GitHub URL\n- If you select \'Misc\', no GitHub metadata will be included (you can still add a GitHub link under social)\n\nThank you for contributing to the Cardano developer ecosystem!`
   }
 
   // Handle form change
@@ -212,6 +219,7 @@ const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, an
                   <select name="resourceType" value={form.resourceType} onChange={handleChange} className="w-full bg-gray-800 text-white rounded p-2 text-xs">
                     <option value="organization">Organization (e.g., github.com/org-name)</option>
                     <option value="repository">Repository (e.g., github.com/org-name/repo-name)</option>
+                    <option value="misc">Misc / Non-GitHub (no repo metadata)</option>
                   </select>
                   <input name="discord" value={form.discord} onChange={handleChange} placeholder="Discord URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
                   <input name="x" value={form.x} onChange={handleChange} placeholder="X (Twitter) URL" className="w-full bg-gray-800 text-white rounded p-2 text-xs" />
