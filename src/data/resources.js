@@ -782,29 +782,6 @@ export const cardanoResources = {
       "repo_path": "OpShin/opshin-pioneer-program"
     },
     {
-      "id": 38,
-      "name": "Cardano Foundation Docs",
-      "logo": "https://developers.cardano.org/img/cardano-black.svg",
-      "description": "Comprehensive documentation from the Cardano Foundation covering all aspects of Cardano.",
-      "fullDescription": "The Cardano Foundation provides comprehensive documentation covering all aspects of the Cardano blockchain, including technical specifications, governance, security guidelines, and best practices for developers and users.",
-      "keySolutions": [
-        "Technical specs",
-        "Governance",
-        "Security guidelines",
-        "Best practices"
-      ],
-      "website": "https://docs.cardano.org/",
-      "social": {
-        "github": "https://github.com/input-output-hk/cardano-documentation",
-        "x": "https://twitter.com/inputoutputHK"
-      },
-      "category": "Education & Documentation",
-      "type": "repository",
-      "organization": "input-output-hk",
-      "repository": "cardano-documentation",
-      "repo_path": "input-output-hk/cardano-documentation"
-    },
-    {
       id: 66,
       name: "Cardano Foundation",
       logo: "https://cardanofoundation.org/cardano-logo.svg",
@@ -812,7 +789,11 @@ export const cardanoResources = {
       fullDescription: "The Cardano Foundation is an independent, Swiss-based not-for-profit organization tasked with advancing Cardano\nas a public infrastructure across a wide range of industries. The Foundation works to scale the diversity, quality, and quantity of on-chain activities.",
       keySolutions: [
         "token registry",
-        "business contact"
+        "business contact",
+        "Technical specs",
+        "Governance",
+        "Security guidelines",
+        "Best practices"
       ],
       website: "https://cardanofoundation.org/",
       social: {
@@ -824,6 +805,23 @@ export const cardanoResources = {
       organization: "cardano-foundation",
       repository: null,
       repo_path: "cardano-foundation"
+    },
+    {
+      id: 67,
+      name: "Cardano Docs",
+      logo: "https://docs.cardano.org/assets/cardano-logo.svg",
+      description: "Dive into Cardano's fundamentals, from beginner explainers to in-depth coverage of core concepts, architecture and networking, and the platform's evolution.",
+      fullDescription: "Dive into Cardano's fundamentals, from beginner explainers to in-depth coverage of core concepts, architecture and networking, and the platform's evolution.\n\nWelcome to the central hub for Cardano documentation. Here, you'll find content that describes and supports the features on both the Cardano mainnet and testnet environments.\n\nThis includes basic explainers for newcomers to Cardano, explanations of the core features, details about Cardano's design and evolution, insights into how the Cardano network operates, and platform architecture. You can also access developer resources that explain the core concepts and provide links to developer documentation for more technical tutorials.\n\nIf you are interested in building tools on Cardano, integrating with Cardano, and connecting with the wider developer community, please visit the Cardano Developer Portal.",
+      keySolutions: [
+        "Cardano Documentation"
+      ],
+      website: "https://docs.cardano.org/",
+      category: "Education & Documentation",
+      type: "organization",
+      organization: null,
+      repository: null,
+      repo_path: null,
+      docs: "https://docs.cardano.org/"
     }
   ],
   "Wallets & User Tools": [
