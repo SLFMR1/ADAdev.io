@@ -401,6 +401,35 @@ const fetchRepoReleases = async (repoPath, limit = 10) => {
   }
 }
 
+const fetchRepoInfo = async (repoPath) => {
+  const cacheKey = generateCacheKey('repo_info', repoPath)
+  const cached = getCachedData(cacheKey)
+  if (cached) return cached
+  
+  try {
+    const url = `${GITHUB_API_BASE}/repos/${repoPath}`
+    const response = await rateLimitedFetch(url)
+    const repoInfo = await response.json()
+    
+    // Validate that repoInfo has expected structure
+    if (!repoInfo || typeof repoInfo !== 'object' || !repoInfo.created_at) {
+      console.warn(`Invalid repo info response for ${repoPath}:`, typeof repoInfo)
+      return null
+    }
+    
+    // Cache for 24 hours - repository creation date doesn't change
+    setCachedData(cacheKey, repoInfo, 24 * 60 * 60 * 1000)
+    return repoInfo
+  } catch (error) {
+    if (error.message.includes('404')) {
+      console.warn(`Repository ${repoPath} not found or not accessible`)
+      return null
+    }
+    console.error(`Error fetching repo info for ${repoPath}:`, error.message)
+    return null
+  }
+}
+
 const fetchOrgRepos = async (orgName) => {
   const cacheKey = generateCacheKey('org_repos', orgName)
   const cached = getCachedData(cacheKey)
@@ -2985,6 +3014,80 @@ const ensureHistoricalDataCompleteness = async () => {
     
     const resourcesNeedingData = []
     
+    // Real repository age detection using GitHub API
+    const getRealRepositoryAge = async (resource) => {
+      try {
+        // For repositories: use GitHub API to get actual creation date
+        if (resource.type === 'repository' || resource.social?.github) {
+          const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
+          if (repoPath) {
+            const repoInfo = await fetchRepoInfo(repoPath)
+            if (repoInfo && repoInfo.created_at) {
+              const createdDate = new Date(repoInfo.created_at)
+              const ageWeeks = Math.floor((Date.now() - createdDate.getTime()) / (7 * 24 * 60 * 60 * 1000))
+              return { ageWeeks, source: 'github', createdDate: repoInfo.created_at }
+            }
+          }
+        }
+        
+        // For organizations: get oldest repository in the org
+        if (resource.type === 'organization') {
+          const orgName = resource.organization || 
+                          resource.social?.github?.replace('https://github.com/', '')
+          if (orgName) {
+            const repos = await fetchOrgRepos(orgName)
+            if (repos && repos.length > 0) {
+              const oldestRepo = repos.reduce((oldest, repo) => 
+                new Date(repo.created_at) < new Date(oldest.created_at) ? repo : oldest
+              )
+              const ageWeeks = Math.floor((Date.now() - new Date(oldestRepo.created_at)) / (7 * 24 * 60 * 60 * 1000))
+              return { ageWeeks, source: 'github_org', createdDate: oldestRepo.created_at, oldestRepo: oldestRepo.name }
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ Could not fetch real age for ${resource.name}: ${error.message}`)
+      }
+      
+      // Fallback to conservative assumption - use full requirements
+      console.warn(`⚠️ ${resource.name}: Using conservative age assumption (GitHub age detection failed)`)
+      return { ageWeeks: 208, source: 'conservative_fallback', createdDate: null } // Assume 4 years for mature ecosystem
+    }
+    
+    // Age-aware period requirements using real GitHub age
+    const getAgeAwareRequirements = async (resource) => {
+      const ageInfo = await getRealRepositoryAge(resource)
+      const repoAgeWeeks = ageInfo.ageWeeks
+      const baseRequirements = HISTORICAL_REQUIREMENTS
+      
+      if (!repoAgeWeeks) return baseRequirements // No age data, use full requirements
+      
+      // Filter requirements to only include periods the repo has existed for
+      const ageAwareRequirements = Object.fromEntries(
+        Object.entries(baseRequirements).filter(([period, weeks]) => {
+          const hasExistedLongEnough = weeks <= repoAgeWeeks
+          if (!hasExistedLongEnough && ageInfo.source !== 'conservative_fallback') {
+            console.log(`📅 ${resource.name}: Excluding ${period} (requires ${weeks}w, actual age: ${repoAgeWeeks}w from ${ageInfo.source})`)
+          }
+          return hasExistedLongEnough
+        })
+      )
+      
+      return { requirements: ageAwareRequirements, ageInfo }
+    }
+    
+    // Helper function to format age information with source indicator
+    const formatAgeInfo = (ageInfo) => {
+      if (!ageInfo || !ageInfo.ageWeeks) return ''
+      
+      const years = Math.floor(ageInfo.ageWeeks / 52)
+      const weeks = ageInfo.ageWeeks % 52
+      const sourceIndicator = ageInfo.source === 'github' ? '' : 
+                             ageInfo.source === 'github_org' ? ' (org)' : 
+                             ageInfo.source === 'conservative_fallback' ? ' (est)' : ' (db)'
+      return ` | Age: ${years}yr ${weeks}wk${sourceIndicator}`
+    }
+    
     // Check each resource for data completeness
     for (const resource of resourcesWithGitHub) {
       // CRITICAL: Use same resource identification pattern as storage functions
@@ -3012,12 +3115,26 @@ const ensureHistoricalDataCompleteness = async () => {
         }
         
         const weeksAvailable = existingData?.length || 0
+        const ageResult = await getAgeAwareRequirements(resource)
+        const ageAwareRequirements = ageResult.requirements
+        const ageInfo = ageResult.ageInfo
         const missingPeriods = []
+        const now = new Date()
         
-        // Check each required period
-        for (const [period, requiredWeeks] of Object.entries(HISTORICAL_REQUIREMENTS)) {
-          if (weeksAvailable < requiredWeeks) {
-            missingPeriods.push(period)
+        // Period-specific availability check with real GitHub age awareness
+        for (const [period, requiredWeeks] of Object.entries(ageAwareRequirements)) {
+          const periodStartDate = new Date(now.getTime() - (requiredWeeks * 7 * 24 * 60 * 60 * 1000))
+          
+          // Count weeks actually available for this specific period
+          const weeksInPeriod = existingData?.filter(week => {
+            const weekDate = new Date(week.week_start)
+            return weekDate >= periodStartDate
+          }).length || 0
+          
+          const coveragePercent = Math.round((weeksInPeriod / requiredWeeks) * 100)
+          
+          if (weeksInPeriod < requiredWeeks) {
+            missingPeriods.push(`${period}(${weeksInPeriod}/${requiredWeeks}=${coveragePercent}%)`)
           }
         }
         
@@ -3028,9 +3145,13 @@ const ensureHistoricalDataCompleteness = async () => {
             weeksAvailable,
             missingPeriods
           })
-          console.log(`📋 ${resource.name}: ${weeksAvailable} weeks available, missing: ${missingPeriods.join(', ')}`)
+          const ageInfoStr = formatAgeInfo(ageInfo)
+          console.log(`📋 ${resource.name}: Total=${weeksAvailable} weeks${ageInfoStr} | Missing: ${missingPeriods.join(', ')}`)
         } else {
-          console.log(`✅ ${resource.name}: Complete historical data (${weeksAvailable} weeks - ALL PERIODS SATISFIED)`)
+          const ageInfoStr = formatAgeInfo(ageInfo)
+          const periodsCount = Object.keys(ageAwareRequirements).length
+          const allPeriodsInfo = periodsCount < Object.keys(HISTORICAL_REQUIREMENTS).length ? ` (${periodsCount}/${Object.keys(HISTORICAL_REQUIREMENTS).length} periods applicable)` : ''
+          console.log(`✅ ${resource.name}: Complete historical data (${weeksAvailable} weeks${ageInfoStr} - ALL PERIODS SATISFIED${allPeriodsInfo})`)
         }
         
       } catch (error) {
@@ -3069,9 +3190,15 @@ const ensureHistoricalDataCompleteness = async () => {
           
           // Check if we're currently rate limited before attempting fetch
           if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
-            console.warn(`⚠️ Skipping ${resource.name} - GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`);
-            errorCount++
-            continue
+            const waitTimeMs = rateLimitResetTime.getTime() - Date.now()
+            console.log(`⏳ Rate limited - waiting ${Math.ceil(waitTimeMs / 60000)} minutes until ${rateLimitResetTime.toLocaleString()}`)
+            console.log(`🔄 Will resume processing ${resourcesNeedingData.length - processedCount + 1} remaining resources after rate limit resets`)
+            
+            // Wait for rate limit to reset
+            await new Promise(resolve => setTimeout(resolve, waitTimeMs))
+            
+            console.log(`✅ Rate limit reset - resuming backfill operations`)
+            // Continue with current resource (don't increment processedCount or continue)
           }
           
           console.log(`🔄 Fetching historical data for ${resource.name} (${processedCount}/${resourcesNeedingData.length})...`)
@@ -3122,10 +3249,18 @@ const ensureHistoricalDataCompleteness = async () => {
             const actualWeeksAvailable = verificationData?.length || 0
             const stillMissingPeriods = []
             
-            // Check each required period against actual data
-            for (const [period, requiredWeeks] of Object.entries(HISTORICAL_REQUIREMENTS)) {
-              if (actualWeeksAvailable < requiredWeeks) {
-                stillMissingPeriods.push(period)
+            // Check each required period against actual data using real age-aware requirements
+            const postBackfillAgeResult = await getAgeAwareRequirements(resource)
+            const postBackfillAgeAware = postBackfillAgeResult.requirements
+            for (const [period, requiredWeeks] of Object.entries(postBackfillAgeAware)) {
+              const periodStartDate = new Date(Date.now() - (requiredWeeks * 7 * 24 * 60 * 60 * 1000))
+              const weeksInPeriod = verificationData?.filter(week => {
+                const weekDate = new Date(week.week_start)
+                return weekDate >= periodStartDate
+              }).length || 0
+              
+              if (weeksInPeriod < requiredWeeks) {
+                stillMissingPeriods.push(`${period}(${weeksInPeriod}/${requiredWeeks})`)
               }
             }
             
