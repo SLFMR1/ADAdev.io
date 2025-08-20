@@ -207,12 +207,18 @@ class GitHubService {
           const releaseResource = release.resource
           if (!releaseResource) return false
           
+          // Direct resource name match
           const nameMatch = releaseResource.name === resource.name
           const githubMatch = releaseResource.social?.github === resource.social.github
           const githubUrlMatch = releaseResource.social?.github && resource.social?.github && 
             releaseResource.social.github.toLowerCase() === resource.social.github.toLowerCase()
           
-          return nameMatch || githubMatch || githubUrlMatch
+          // Repository ownership match - check if release's repository belongs to this organization
+          const orgName = resource.organization || resource.repo_path
+          const repoOwnershipMatch = orgName && release.repository?.full_name && 
+            release.repository.full_name.toLowerCase().startsWith(orgName.toLowerCase() + '/')
+          
+          return nameMatch || githubMatch || githubUrlMatch || repoOwnershipMatch
         })
         
         transformedData = {
