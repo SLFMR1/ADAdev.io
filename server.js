@@ -845,6 +845,51 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
         return cachedResult
       }
     }
+    
+    // OPTIMIZATION: Check bulk cache for performance boost (fallback to database if miss)
+    try {
+      const startDateTime = new Date(startDate).getTime()
+      const endDateTime = new Date(endDate).getTime()
+      const periodDays = Math.ceil((endDateTime - startDateTime) / (24 * 60 * 60 * 1000))
+      
+      // Only use bulk cache for longer immutable periods where performance matters most
+      if (periodDays >= 28) { // 4+ weeks
+        const viewModeForCache = resource.type === 'organization' ? 'organization' : 'repository'
+        const cacheKey = `${viewModeForCache}-activity`
+        const bulkCache = VIEW_MODE_CACHE.get(cacheKey)
+        
+        if (bulkCache && bulkCache.data && bulkCache.data.preloadedPeriods) {
+          // Find appropriate period in bulk cache
+          let periodKey = null
+          if (periodDays >= 1000) periodKey = '3years'      // 3+ years
+          else if (periodDays >= 300) periodKey = '52weeks'  // 10+ months  
+          else if (periodDays >= 70) periodKey = '3months'   // 2+ months
+          else if (periodDays >= 28) periodKey = '5weeks'    // 4+ weeks
+          
+          if (periodKey && bulkCache.data.preloadedPeriods[periodKey]) {
+            const periodData = bulkCache.data.preloadedPeriods[periodKey]
+            const chartData = periodData.weeklyChartData || periodData.dailyChartData || []
+            
+            // Find matching resource in bulk cache
+            const cachedResource = chartData.find(item => {
+              if (!item.resource) return false
+              const nameMatch = item.resource.name === resource.name
+              const githubMatch = item.resource.social?.github === resource.social?.github
+              return nameMatch || githubMatch
+            })
+            
+            if (cachedResource && cachedResource.weeklyData) {
+              logger.debug(`⚡ Using bulk cache optimization for ${resource.name} (${periodKey} period)`)
+              return cachedResource.weeklyData
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Silently continue to database - bulk cache is optimization only
+      logger.debug(`Bulk cache optimization failed for ${resource.name}, continuing to database`)
+    }
+    
     // Check database cache first for ALL resources (both repos and orgs)
     
     try {
@@ -1751,51 +1796,17 @@ app.get('/api/development-activity', async (req, res) => {
         let activityData;
         let totalCommits;
         
-        // Check bulk cache first for instant loading
-        const viewModeForCache = targetResource.type === 'organization' ? 'organization' : 'repository';
-        const cacheKey = `${viewModeForCache}-activity`;
-        const bulkCache = VIEW_MODE_CACHE.get(cacheKey);
-        
-        if (bulkCache && bulkCache.data && bulkCache.data.preloadedPeriods && bulkCache.data.preloadedPeriods[mappedPeriod]) {
-          // Extract individual resource data from bulk cache
-          const periodData = bulkCache.data.preloadedPeriods[mappedPeriod];
-          const cachedResource = periodData.dailyChartData?.find(item => 
-            item.resource && (
-              item.resource.name === targetResource.name ||
-              item.resource.id === targetResource.id ||
-              (resourceId && (item.resource.id?.toString() === resourceId || item.resource.name === resourceId))
-            )
-          );
-          
-          if (cachedResource && cachedResource.weeklyData) {
-            logger.debug(`⚡ Using bulk cache for ${targetResource.name} (${mappedPeriod} period)`);
-            activityData = cachedResource.weeklyData;
-            totalCommits = cachedResource.weeklyData.reduce((sum, week) => sum + (week?.count || 0), 0);
-          } else {
-            logger.debug(`🔄 Cache miss for ${targetResource.name} - falling back to fresh data`);
-            // Fallback to existing logic
-            if (period === 'current') {
-              const recentData = await getRecentActivity(targetResource, true, 'current');
-              activityData = recentData.weeklyData;
-              totalCommits = recentData.commitsPerWeek;
-            } else {
-              activityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
-              totalCommits = Array.isArray(activityData) ? 
-                activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
-            }
-          }
+        // Clean direct call to core data functions (bulk cache optimization moved to getHistoricalActivity)
+        if (period === 'current') {
+          // For 7-day period, use getRecentActivity with daily processing
+          const recentData = await getRecentActivity(targetResource, true, 'current');
+          activityData = recentData.weeklyData;
+          totalCommits = recentData.commitsPerWeek;
         } else {
-          logger.debug(`🔄 No bulk cache available for ${targetResource.name} - fetching fresh data`);
-          // Fallback to existing logic when bulk cache not available
-          if (period === 'current') {
-            const recentData = await getRecentActivity(targetResource, true, 'current');
-            activityData = recentData.weeklyData;
-            totalCommits = recentData.commitsPerWeek;
-          } else {
-            activityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
-            totalCommits = Array.isArray(activityData) ? 
-              activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
-          }
+          // For historical periods, use getHistoricalActivity (with internal bulk cache optimization)
+          activityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
+          totalCommits = Array.isArray(activityData) ? 
+            activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
         }
         
         // Get repo info for organizations
