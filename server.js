@@ -336,12 +336,14 @@ const fetchRepoCommits = async (repoPath, since = null) => {
       } else {
         page++
         // Add small delay between pages to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100))
+        // Reduced delay for historical backfills since we have rate limit handling
+        await new Promise(resolve => setTimeout(resolve, 50))
       }
       
-      // Safety limit to prevent infinite loops (adjust as needed)
-      if (page > 50) {
-        console.warn(`Reached page limit (${page}) for ${repoPath}, stopping pagination`)
+      // Safety limit to prevent infinite loops - increased for historical data completeness
+      // For repositories like Cardano Node (6+ years), we need more pages to get full history
+      if (page > 500) {
+        console.warn(`Reached maximum page limit (${page}) for ${repoPath}, stopping pagination`)
         break
       }
     }
@@ -609,14 +611,39 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
 const processCommitsToWeekly = (commits) => {
   const weeklyData = new Map()
   
-  // Create continuous weekly data for the last 52 weeks (1 year)
-  const weeksToTrack = 52
-  const today = new Date()
+  // Process ALL commits provided, not just limited weeks
+  // First, find the actual date range of commits to determine weeks needed
+  let oldestCommitDate = null
+  let newestCommitDate = null
   
-  // Initialize all weeks with 0 commits
-  for (let i = weeksToTrack - 1; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - (i * 7))
+  commits.forEach((commit) => {
+    const commitDate = commit.commit?.author?.date || commit.date
+    if (!commitDate) return
+    
+    const date = new Date(commitDate)
+    if (isNaN(date.getTime())) return
+    
+    if (!oldestCommitDate || date < oldestCommitDate) {
+      oldestCommitDate = date
+    }
+    if (!newestCommitDate || date > newestCommitDate) {
+      newestCommitDate = date
+    }
+  })
+  
+  // If no valid commits, return empty data
+  if (!oldestCommitDate) {
+    return []
+  }
+  
+  // Calculate weeks from oldest commit to now for continuous data
+  const today = new Date()
+  const weeksToTrack = Math.ceil((today.getTime() - oldestCommitDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+  
+  // Initialize all weeks with 0 commits (from oldest commit to now)
+  for (let i = 0; i < weeksToTrack; i++) {
+    const date = new Date(oldestCommitDate)
+    date.setDate(date.getDate() + (i * 7))
     const weekStart = getWeekStart(date)
     const weekKey = weekStart.toISOString().slice(0, 10)
     weeklyData.set(weekKey, 0)
