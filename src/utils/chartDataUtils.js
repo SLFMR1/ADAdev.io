@@ -1,4 +1,4 @@
-import { getWeekStart, getCurrentWeekStart } from './weekCalculation'
+import { getWeekStart, getCurrentWeekStart, isCurrentWeek } from './weekCalculation'
 import logger from './logger-frontend'
 
 /**
@@ -273,22 +273,18 @@ const transformWeeklyData = (rawData, periodKey, componentName) => {
   // More robust current week filtering - handle timezone differences and edge cases
   let completedWeeks = allWeekStarts
   if (shouldExcludeCurrentWeekForPeriod) {
-    completedWeeks = allWeekStarts.filter(weekStart => {
-      // Check if this week is the current week by comparing week start dates
-      const weekStartDate = new Date(weekStart)
-      const currentWeekStartDate = new Date(currentWeekStart)
-      
-      // Calculate the difference in days between the two week starts
-      const diffTime = Math.abs(weekStartDate.getTime() - currentWeekStartDate.getTime())
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      
-      // Keep only weeks that are NOT the current week (7+ days away AND not the current week key)
-      return diffDays >= 7 && weekStart !== currentWeekKey
-    })
+    // Filter out the current, incomplete week for historical periods.
+    // Appending 'T00:00:00' ensures the date string is parsed in the local timezone,
+    // which aligns with how `isCurrentWeek` and `getCurrentWeekStart` operate.
+    completedWeeks = allWeekStarts.filter(weekStart => !isCurrentWeek(`${weekStart}T00:00:00`));
   }
-  
+
+  // **New Change**: Filter out any future weeks unconditionally
+  const today = new Date();
+  const pastAndPresentWeeks = completedWeeks.filter(weekStart => new Date(`${weekStart}T00:00:00`) <= today);
+
   // Take exactly the number of weeks expected for this period
-  const weeksToUse = completedWeeks.slice(-config.weeks)
+  const weeksToUse = pastAndPresentWeeks.slice(-config.weeks)
   
   // Generate chart data ensuring continuous sequence (current week included/excluded based on period type)
   weeksToUse.forEach(weekStart => {

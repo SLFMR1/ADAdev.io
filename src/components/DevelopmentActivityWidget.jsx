@@ -1356,13 +1356,13 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             if (selectedPeriod === 'current') {
                               return 'Current 7-day period performance vs. best historical 7-day period. Includes today\'s incomplete data.';
                             } else if (selectedPeriod === '5weeks') {
-                              return 'Current 4-week period performance vs. best historical sequential 4-week period. Includes current incomplete week.';
+                              return 'Current 4-week period performance vs. best historical sequential 4-week period. Excludes current incomplete week.';
                             } else if (selectedPeriod === '3months') {
-                              return 'Current 3-month period performance vs. best historical sequential 3-month period. Includes current incomplete week.';
+                              return 'Current 3-month period performance vs. best historical sequential 3-month period. Excludes current incomplete week.';
                             } else if (selectedPeriod === '52weeks') {
-                              return 'Current 12-month period performance vs. best historical sequential 12-month period. Includes current incomplete week.';
+                              return 'Current 12-month period performance vs. best historical sequential 12-month period. Excludes current incomplete week.';
                             } else if (selectedPeriod === '3years') {
-                              return 'Current 3-year period performance vs. best historical sequential 3-year period. Includes current incomplete week.';
+                              return 'Current 3-year period performance vs. best historical sequential 3-year period. Excludes current incomplete week.';
                             }
                             return 'Current period performance vs. historical maximum';
                           })()}
@@ -1415,13 +1415,13 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             if (selectedPeriod === 'current') {
                               return 'Total commits across the current 7-day period (includes today\'s incomplete data)';
                             } else if (selectedPeriod === '5weeks') {
-                              return 'Total commits across the current 4-week period (includes current incomplete week)';
+                              return 'Total commits across the current 4-week period (Excludes current incomplete week)';
                             } else if (selectedPeriod === '3months') {
-                              return 'Total commits across the current 3-month period (includes current incomplete week)';
+                              return 'Total commits across the current 3-month period (Excludes current incomplete week)';
                             } else if (selectedPeriod === '52weeks') {
-                              return 'Total commits across the current 12-month period (includes current incomplete week)';
+                              return 'Total commits across the current 12-month period (Excludes current incomplete week)';
                             } else if (selectedPeriod === '3years') {
-                              return 'Total commits across the current 3-year period (includes current incomplete week)';
+                              return 'Total commits across the current 3-year period (Excludes current incomplete week)';
                             }
                             return 'Total commits for the current period';
                           })()}

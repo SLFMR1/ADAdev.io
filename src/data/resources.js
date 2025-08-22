@@ -786,7 +786,7 @@ export const cardanoResources = {
     {
       id: 66,
       name: "Cardano Foundation",
-      logo: "https://cardanofoundation.org/cardano-logo.svg",
+      logo: "https://c-ipfs-gw.nmkr.io/ipfs/QmXAG1GtyWwEmaxosskZoT4hWoyNQyhVekAmqqpciTBsun",
       description: "The Cardano Foundation works with institutions, businesses, regulators, and policymakers to solve problems in new ways.",
       fullDescription: "The Cardano Foundation is an independent, Swiss-based not-for-profit organization tasked with advancing Cardano\nas a public infrastructure across a wide range of industries. The Foundation works to scale the diversity, quality, and quantity of on-chain activities.",
       keySolutions: [

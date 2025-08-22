@@ -622,11 +622,6 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         return;
       }
       
-      // Always calculate correct Sunday-based week range regardless of stored weekStart
-      const correctWeekStart = getWeekStart(weekStartDate);
-      const correctEndOfWeek = new Date(correctWeekStart);
-      correctEndOfWeek.setDate(correctWeekStart.getDate() + 6);
-      
       // Format dates nicely
       const formatDate = (date) => {
         return date.toLocaleDateString('en-US', { 
@@ -636,21 +631,26 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         });
       };
       
-      const startDate = formatDate(correctWeekStart);
-      const endDate = formatDate(correctEndOfWeek);
       const weekNumber = weekIdx + 1;
-      
-      // Create period-appropriate labels
-      let periodLabel = '';
+      let label;
+
       if (selectedPeriod === 'current') {
-        periodLabel = `Day ${weekNumber}`;
-      } else if (selectedPeriod === '4weeks' || selectedPeriod === '5weeks') {
-        periodLabel = `Week ${weekNumber}`;
+        // For daily view, show the specific date
+        const periodLabel = `Day ${weekNumber}`;
+        const dayDate = formatDate(weekStartDate);
+        label = `${periodLabel} • ${dayDate}`;
       } else {
-        periodLabel = `Week ${weekNumber}`;
+        // For weekly views, calculate and show the week range
+        const correctWeekStart = getWeekStart(weekStartDate);
+        const correctEndOfWeek = new Date(correctWeekStart);
+        correctEndOfWeek.setDate(correctWeekStart.getDate() + 6);
+        
+        const startDate = formatDate(correctWeekStart);
+        const endDate = formatDate(correctEndOfWeek);
+        
+        const periodLabel = `Week ${weekNumber}`;
+        label = `${periodLabel} • ${startDate} – ${endDate}`;
       }
-      
-      const label = `${periodLabel} • ${startDate} – ${endDate}`;
       
       // Get viewport-relative position (don't add scroll offset since tooltip is fixed)
       const rect = e.target.getBoundingClientRect();
@@ -1061,12 +1061,17 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                     }
                   } else if (selectedPeriod === '4weeks' || selectedPeriod === 'current') {
                     // For 4-week and current (7-day) views: show all labels when space allows
-                    if (day <= 7) {
-                      markerType = 'month';
-                      labelText = date.toLocaleString('default', { month: 'short' });
-                    } else {
-                      markerType = 'week';
-                      labelText = `W${i + 1}`;
+                    if (selectedPeriod === 'current') {
+                      markerType = 'day';
+                      labelText = date.toLocaleDateString('en-US', { weekday: 'short' });
+                    } else { // 4weeks
+                      if (day <= 7) {
+                        markerType = 'month';
+                        labelText = date.toLocaleString('default', { month: 'short' });
+                      } else {
+                        markerType = 'week';
+                        labelText = `W${i + 1}`;
+                      }
                     }
                   } else {
                     // For shorter periods: show weeks and key dates
