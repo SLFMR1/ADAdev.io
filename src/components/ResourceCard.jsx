@@ -446,7 +446,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       setShareMessage('');
       setScreenshotMode(false);
       setIsSharing(false);
-    }, 4000);
+    }, 10000);
   };
 
   const showShareError = (message) => {
@@ -524,10 +524,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       const result = await shareToX(blob, tweetText);
       
       if (result.success) {
-        showShareSuccess(result.message);
-        setTimeout(() => {
-          window.open('https://x.com/intent/tweet', '_blank');
-        }, result.message.includes('Opening X') ? 3000 : 2000);
+        showShareSuccess(`Copied! Paste anywhere you like,<br>or <a href="https://x.com/intent/tweet" target="_blank" rel="noopener noreferrer" style="color: ${currentAccentColor.hex}; text-decoration: underline;">open X</a>`);
       } else {
         showShareError(result.message);
       }
@@ -790,12 +787,11 @@ const ResourceCard = ({ resource, onViewResource }) => {
                         />
                       </button>
                       {shareMessage && (
-                        <div className={`text-sm font-medium transition-all duration-300 ${
+                        <div className={`text-sm font-medium transition-all duration-300 max-w-64 ${
                           shareMessageType === 'success' 
                             ? 'bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent' 
                             : 'bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent'
-                        }`}>
-                          {shareMessage}
+                        }`} dangerouslySetInnerHTML={{ __html: shareMessage }}>
                         </div>
                       )}
                     </div>

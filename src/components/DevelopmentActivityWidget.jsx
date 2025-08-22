@@ -513,7 +513,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   const showShareSuccess = (message) => {
     setShareMessage(message);
     setShareMessageType('success');
-    setTimeout(() => setShareMessage(''), 4000);
+    setTimeout(() => setShareMessage(''), 10000);
   };
 
   const showShareError = (message) => {
@@ -625,10 +625,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       const result = await shareToX(blob, tweetText, handles);
       
       if (result.success) {
-        showShareSuccess(result.message);
-        setTimeout(() => {
-          window.open('https://x.com/intent/tweet', '_blank');
-        }, result.message.includes('Opening X') ? 3000 : 2000);
+        showShareSuccess(`Copied! Paste anywhere you like,<br>or <a href="https://x.com/intent/tweet" target="_blank" rel="noopener noreferrer" style="color: ${currentAccentColor.hex}; text-decoration: underline;">open X</a>`);
       } else {
         showShareError(result.message);
       }
@@ -993,7 +990,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           </button>
                           <div className="px-3 py-2 border-t border-gray-700">
                             <div className="text-xs text-gray-400">
-                              Copies image + text to clipboard, opens Twitter
+                              Copies image + text to clipboard.
                             </div>
                           </div>
                         </div>
@@ -1022,12 +1019,11 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                       </button>
                     </div>
                     {shareMessage && (
-                      <div className={`text-sm font-medium transition-all duration-300 truncate max-w-32 ${
+                      <div className={`text-sm font-medium transition-all duration-300 max-w-64 ${
                         shareMessageType === 'success' 
                           ? 'bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent' 
                           : 'bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent'
-                      }`}>
-                        {shareMessage}
+                      }`} dangerouslySetInnerHTML={{ __html: shareMessage }}>
                       </div>
                     )}
                   </div>

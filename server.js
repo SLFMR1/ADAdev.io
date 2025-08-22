@@ -67,6 +67,42 @@ const REQUEST_INTERVAL = 500 // ms between requests (increased from 200ms)
 let isRateLimited = false
 let rateLimitResetTime = null
 
+// Simple retry tracking for 7-day data
+const failedCurrentPeriodRequests = new Set()
+
+// Retry failed 7-day requests after rate limit reset
+const retryFailedRequests = async () => {
+  if (failedCurrentPeriodRequests.size === 0) return
+  
+  logger.info(`🔄 Retrying ${failedCurrentPeriodRequests.size} failed 7-day requests`)
+  
+  try {
+    const resources = await loadResources()
+    
+    for (const resourceName of failedCurrentPeriodRequests) {
+      try {
+        // Find the full resource data by name
+        const resource = resources.find(r => r.name === resourceName)
+        if (!resource) {
+          logger.warn(`❌ Resource not found for retry: ${resourceName}`)
+          continue
+        }
+        
+        // Retry the 7-day request
+        await getRecentActivity(resource, true, 'current')
+        logger.debug(`✅ Retry successful for ${resourceName}`)
+      } catch (error) {
+        logger.warn(`❌ Retry failed for ${resourceName}: ${error.message}`)
+      }
+    }
+  } catch (error) {
+    logger.error(`❌ Failed to load resources for retry: ${error.message}`)
+  }
+  
+  // Clear the failed requests set
+  failedCurrentPeriodRequests.clear()
+}
+
 // In-memory cache for performance - optimized for small memory footprint
 const CACHE = {
   data: new Map(),
@@ -140,6 +176,11 @@ const rateLimitedFetch = async (url, options = {}) => {
       isRateLimited = false
       rateLimitResetTime = null
       logger.info('✅ GitHub rate limit has reset')
+      
+      // Retry failed 7-day requests
+      retryFailedRequests().catch(error => 
+        logger.error('Error retrying failed requests:', error.message)
+      )
     }
     
     if (!response.ok) {
@@ -757,6 +798,12 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
     // Check if we're currently rate limited
     if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
       logger.warn(`⚠️ Skipping ${resource.name} - GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`);
+      
+      // Track failed 7-day requests for retry
+      if (useDailyProcessing) {
+        failedCurrentPeriodRequests.add(resource.name)
+      }
+      
       const emptyResult = {
         commits: [],
         commitsPerWeek: 0,
