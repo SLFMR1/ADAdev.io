@@ -679,7 +679,8 @@ export const cardanoResources = {
       ],
       "website": "https://cardano-community.github.io/guild-operators/Build/dbsync/",
       "social": {
-        "github": "https://github.com/input-output-hk/cardano-db-sync"
+        "github": "https://github.com/input-output-hk/cardano-db-sync",
+        "x": "https://x.com/IOHKMedia"
       },
       "docs": "https://github.com/IntersectMBO/cardano-db-sync/blob/master/doc/Readme.md",
       "category": "Analytics & Data",
@@ -726,7 +727,8 @@ export const cardanoResources = {
       ],
       "website": "https://github.com/input-output-hk/plutus-pioneer-program",
       "social": {
-        "github": "https://github.com/input-output-hk/plutus-pioneer-program"
+        "github": "https://github.com/input-output-hk/plutus-pioneer-program",
+        "x": "https://x.com/IOHKMedia"
       },
       "docs": "https://iog-academy.gitbook.io/plutus-pioneers-program-fourth-cohort/",
       "category": "Education & Documentation",
@@ -890,7 +892,8 @@ export const cardanoResources = {
       "website": "https://www.lace.io/",
       "social": {
         "github": "https://github.com/input-output-hk/lace",
-        "discord": "https://discord.com/invite/lace-1073034511664824360?utm_source=lace.io&utm_medium=website&utm_campaign=general&utm_content=button"
+        "discord": "https://discord.com/invite/lace-1073034511664824360?utm_source=lace.io&utm_medium=website&utm_campaign=general&utm_content=button",
+        "x": "https://x.com/lace_io"
       },
       "blog": "https://www.lace.io/blog",
       "category": "Wallets & User Tools",
@@ -1326,7 +1329,8 @@ export const cardanoResources = {
       ],
       "website": "https://github.com/input-output-hk/cardano-node",
       "social": {
-        "github": "https://github.com/input-output-hk/cardano-node"
+        "github": "https://github.com/input-output-hk/cardano-node",
+        "x": "https://x.com/IOHKMedia"
       },
       "category": "Core Infrastructure",
       "type": "repository",
@@ -1374,7 +1378,8 @@ export const cardanoResources = {
       "website": "https://hydra.family/head-protocol/",
       "social": {
         "github": "https://github.com/input-output-hk/hydra",
-        "discord": "https://discord.com/invite/Qq5vNTg9PT"
+        "discord": "https://discord.com/invite/Qq5vNTg9PT",
+        "x": "https://x.com/IOHKMedia"
       },
       "docs": "https://hydra.family/head-protocol/docs",
       "category": "Layer 2 Scaling Solutions",
