@@ -124,6 +124,16 @@ const CACHE = {
   }
 }
 
+// Helper function to find resource in bulk cache (DRY implementation)
+const findResourceInBulkCache = (chartData, targetResource) => {
+  return chartData.find(item => {
+    if (!item.resource) return false
+    const nameMatch = item.resource.name === targetResource.name
+    const githubMatch = item.resource.social?.github === targetResource.social?.github
+    return nameMatch || githubMatch
+  })
+}
+
 // Rate limiting with exponential backoff
 let requestCount = 0
 let lastRequestTime = 0
@@ -772,6 +782,36 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
     logger.debug(`✅ Using cached recent activity for ${resource.name}`);
     return cachedResult
   }
+
+  // Check bulk cache optimization for recent activity
+  if (VIEW_MODE_CACHE.data && !useDailyProcessing) {
+    const bulkCache = VIEW_MODE_CACHE
+    
+    // Map period to bulk cache period keys
+    let periodKey = null
+    if (period === '4weeks') periodKey = '5weeks'
+    else if (period === '3months') periodKey = '3months'
+    else if (period === '52weeks') periodKey = '52weeks'
+    else if (period === '3years') periodKey = '3years'
+    
+    if (periodKey && bulkCache.data.preloadedPeriods[periodKey]) {
+      const periodData = bulkCache.data.preloadedPeriods[periodKey]
+      const chartData = periodData.weeklyChartData || periodData.dailyChartData || []
+      
+      // Find matching resource in bulk cache using DRY helper
+      const cachedResource = findResourceInBulkCache(chartData, resource)
+      
+      if (cachedResource && cachedResource.weeklyData) {
+        logger.debug(`⚡ Using bulk cache optimization for recent activity ${resource.name} (${periodKey} period)`)
+        return {
+          commits: cachedResource.weeklyData.commits || [],
+          commitsPerWeek: cachedResource.weeklyData.commitsPerWeek || 0,
+          weeklyData: cachedResource.weeklyData.weeklyData || [],
+          repoInfo: cachedResource.weeklyData.repoInfo || null
+        }
+      }
+    }
+  }
   
   let commits = []
   let repoInfo = null
@@ -973,13 +1013,8 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
             const periodData = bulkCache.data.preloadedPeriods[periodKey]
             const chartData = periodData.weeklyChartData || periodData.dailyChartData || []
             
-            // Find matching resource in bulk cache
-            const cachedResource = chartData.find(item => {
-              if (!item.resource) return false
-              const nameMatch = item.resource.name === resource.name
-              const githubMatch = item.resource.social?.github === resource.social?.github
-              return nameMatch || githubMatch
-            })
+            // Find matching resource in bulk cache using DRY helper
+            const cachedResource = findResourceInBulkCache(chartData, resource)
             
             if (cachedResource && cachedResource.weeklyData) {
               logger.debug(`⚡ Using bulk cache optimization for ${resource.name} (${periodKey} period)`)
