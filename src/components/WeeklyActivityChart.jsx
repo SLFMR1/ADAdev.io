@@ -683,13 +683,17 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           <div className="flex items-center space-x-1">
             <GitCommit size={12} style={{ color: accentColor.hex }} />
             <span className="font-bold text-lg" style={{ color: accentColor.hex }}>
-              {selectedPeriod === 'current' 
-                ? validWeeklyData.reduce((total, week) => total + (week.count || 0), 0)
-                : validWeeklyData[validWeeklyData.length - 1]?.count || 0
-              }
+              {(() => {
+                const total = validWeeklyData.reduce((sum, week) => sum + (week.count || 0), 0)
+                if (selectedPeriod === 'current') {
+                  return Math.round(total / 7) // Daily average for 7-day view
+                } else {
+                  return Math.round(total / validWeeklyData.length) // Weekly average
+                }
+              })()}
             </span>
             <span className="text-gray-400 text-xs">
-              {selectedPeriod === 'current' ? 'total' : 'last complete week'}
+              {selectedPeriod === 'current' ? 'avg per day' : 'avg per week'}
             </span>
           </div>
         </div>
