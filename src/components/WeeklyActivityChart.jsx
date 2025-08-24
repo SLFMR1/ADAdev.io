@@ -761,15 +761,22 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             {/* Month boundary grid lines */}
             {validWeeklyData.map((w, i) => {
               const weekDate = new Date(w.weekStart);
+              // For year transitions, use week end date (same logic as X-axis labels)
+              const weekEndDate = new Date(weekDate);
+              weekEndDate.setDate(weekDate.getDate() + 6);
+              
               const month = weekDate.getMonth();
               const day = weekDate.getDate();
+              const weekEndYear = weekEndDate.getFullYear();
+              const weekStartYear = weekDate.getFullYear();
               
               // Only show grid lines for important markers
               let shouldShowGrid = false;
               let gridStyle = {};
               
               if (selectedPeriod === '3years') {
-                if (month === 0 && day <= 7) {
+                // Year transition: when week end crosses into new year
+                if (weekEndYear !== weekStartYear) {
                   shouldShowGrid = true;
                   gridStyle = { strokeDasharray: "6 3", strokeWidth: "1.5", opacity: "0.4" };
                 } else if ([0, 3, 6, 9].includes(month) && day <= 7 && i % 3 === 0) {
@@ -777,7 +784,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   gridStyle = { strokeDasharray: "4 2", strokeWidth: "1", opacity: "0.25" };
                 }
               } else if (selectedPeriod === '52weeks') {
-                if (month === 0 && day <= 7) {
+                // Year transition: when week end crosses into new year
+                if (weekEndYear !== weekStartYear) {
                   shouldShowGrid = true;
                   gridStyle = { strokeDasharray: "6 3", strokeWidth: "1.5", opacity: "0.4" };
                 } else if ([0, 3, 6, 9].includes(month) && day <= 7) {
@@ -814,30 +822,21 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               
               if (!shouldShowGrid) return null;
               
-              // Use linear scale: fixed position based on array index (same as chart points)
-              let effectivePadding = chartPadding
-              let effectiveRightPadding = chartPadding
-              
-              if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-                effectivePadding = Math.max(20, chartPadding * 0.6)
-                effectiveRightPadding = Math.max(15, chartPadding * 0.6)
-              } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
-                effectivePadding = chartPadding * 1.2
-                effectiveRightPadding = chartPadding * 1.2
-              }
-              
-              const availableWidth = chartWidth - effectivePadding - effectiveRightPadding;
-              const stepX = validWeeklyData.length > 1 ? availableWidth / (validWeeklyData.length - 1) : 0;
-              const x = effectivePadding + i * stepX;
+              // Use temporal positioning (same as X-axis labels) for proper alignment
+              const labelDate = new Date(w.weekStart);
+              const timeDiff = labelDate.getTime() - new Date(validWeeklyData[0].weekStart).getTime();
+              const totalTimeSpan = new Date(validWeeklyData[validWeeklyData.length - 1].weekStart).getTime() - new Date(validWeeklyData[0].weekStart).getTime();
+              const ratio = totalTimeSpan > 0 ? timeDiff / totalTimeSpan : 0;
+              const x = chartPadding + ratio * (chartWidth - chartPadding * 2);
               
               // Validate coordinates
-              const safeX = isNaN(x) || !isFinite(x) ? effectivePadding : Math.max(effectivePadding, Math.min(x, chartWidth - effectiveRightPadding));
+              const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding));
               
               return (
                 <line
                   key={`month-grid-${i}`}
                   x1={safeX}
-                  y1={effectivePadding}
+                  y1={chartPadding}
                   x2={safeX}
                   y2={chartHeight - bottomPadding + 25}
                   stroke={accentColor.hex}
