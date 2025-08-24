@@ -1319,15 +1319,15 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 {adjustedIndex + 1}
                               </div>
                               <div className="flex-1 min-w-0 overflow-hidden">
-                                <div className={`font-normal ${screenshotMode ? 'text-[16px] leading-[22px]' : 'text-sm'} text-white truncate`}>
+                                <div className={`font-normal ${screenshotMode ? 'text-[17px] leading-[24px]' : 'text-base'} text-white truncate`}>
                                   {item.resource.name}
                                 </div>
-                                <div className={`${screenshotMode ? 'text-[12px] leading-[18px]' : 'text-xs'} text-gray-400 truncate`}>
+                                <div className={`${screenshotMode ? 'text-[13px] leading-[19px]' : 'text-sm'} text-gray-400 truncate`}>
                                     {item.resource.category}
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <div className={`font-normal ${screenshotMode ? 'text-[14px] leading-[20px]' : 'text-sm'} text-white`}>
+                                <div className={`font-normal ${screenshotMode ? 'text-[15px] leading-[21px]' : 'text-base'} text-white`}>
                                     {item.totalCommits}
                                 </div>
                                 {!screenshotMode && (
