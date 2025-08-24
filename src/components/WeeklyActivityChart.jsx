@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { fetchGitHubUpdates } from '../services/github'
 import { TrendingUp, Calendar, GitCommit } from 'lucide-react'
 import logger from '../utils/logger-frontend'
@@ -34,10 +34,43 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   })
   const [error, setError] = useState(null)
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
+  const [containerWidth, setContainerWidth] = useState(0)
+  const containerRef = useRef(null)
+  
   // Use centralized period configuration - removed duplicate mapping
   
   // Use selectedPeriod directly instead of internal timePeriod state
   // const timePeriod = selectedPeriod // Not needed anymore
+
+  // Measure container width on mount and resize
+  useEffect(() => {
+    const updateContainerWidth = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.offsetWidth
+        setContainerWidth(width)
+      }
+    }
+
+    updateContainerWidth()
+    
+    // Use ResizeObserver for more efficient container size monitoring
+    let resizeObserver
+    if (containerRef.current && window.ResizeObserver) {
+      resizeObserver = new ResizeObserver(updateContainerWidth)
+      resizeObserver.observe(containerRef.current)
+    } else {
+      // Fallback to window resize listener
+      window.addEventListener('resize', updateContainerWidth)
+    }
+    
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+      } else {
+        window.removeEventListener('resize', updateContainerWidth)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const loadActivityData = async () => {
@@ -510,11 +543,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const isNewRecord = calculateIsNewRecord();
   
 
-  // Chart configuration - just made a bit wider
-  const chartWidth = window.innerWidth < 1024 ? 300 : 850 
-  const chartHeight = window.innerWidth < 1024 ? 180 : 320
-  const chartPadding = window.innerWidth < 1024 ? 30 : 50
-  const bottomPadding = window.innerWidth < 1024 ? 50 : 70
+  // Chart configuration - responsive to container width
+  const chartWidth = containerWidth || (window.innerWidth < 1024 ? 300 : 850)
+  const chartHeight = Math.max(175, Math.min(400, chartWidth * 0.4)) // Responsive height based on width - reduced by 5px for label space
+  const chartPadding = window.innerWidth < 1024 ? 15 : 25
+  const bottomPadding = window.innerWidth < 1024 ? 40 : 50
   
   // Validate and sanitize weekly data with enhanced error handling
   const validWeeklyData = weeklyData
@@ -569,11 +602,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     let effectiveRightPadding = chartPadding
     
     if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-      effectivePadding = Math.max(20, chartPadding * 0.6)
-      effectiveRightPadding = Math.max(15, chartPadding * 0.6)
+      effectivePadding = Math.max(10, chartPadding * 0.4)
+      effectiveRightPadding = Math.max(8, chartPadding * 0.4)
     } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
-      effectivePadding = chartPadding * 1.2
-      effectiveRightPadding = chartPadding * 1.2
+      effectivePadding = chartPadding * 0.8
+      effectiveRightPadding = chartPadding * 0.8
     }
     
     // Linear scale: each position is exactly the same distance apart
@@ -676,9 +709,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
 
 
   return (
-    <div className="w-full">
+    <div className="w-full" ref={containerRef}>
       {/* Line Chart */}
-      <div className="bg-gray-800/50 rounded-lg p-4 sm:p-6" style={{ minHeight: window.innerWidth < 1024 ? 280 : 400 }}>
+      <div className="bg-gray-800/50 rounded-lg p-4 sm:p-6" style={{ minHeight: Math.max(280, chartHeight + 100) }}>
         <div className="flex items-center justify-between mb-3">
           <span className="text-gray-400 text-xs">
             {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'} (Historical Complete Weeks)
@@ -703,7 +736,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
 
         {/* Line Chart */}
         <div className="relative">
-          <svg width={chartWidth} height={chartHeight} className="w-full">
+          <svg width="100%" height={chartHeight + 60} viewBox={`0 0 ${chartWidth} ${chartHeight + 60}`} preserveAspectRatio="xMidYMid meet">
             {/* Definitions - must come first */}
             <defs>
               <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -855,11 +888,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               let areaRightX = chartWidth - chartPadding;
               
               if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-                areaLeftX = Math.max(20, chartPadding * 0.6);
-                areaRightX = chartWidth - Math.max(15, chartPadding * 0.6);
+                areaLeftX = Math.max(10, chartPadding * 0.4);
+                areaRightX = chartWidth - Math.max(8, chartPadding * 0.4);
               } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
-                areaLeftX = chartPadding * 1.2;
-                areaRightX = chartWidth - chartPadding * 1.2;
+                areaLeftX = chartPadding * 0.8;
+                areaRightX = chartWidth - chartPadding * 0.8;
               }
               
               const areaPoints = `${areaLeftX},${areaBaselineY} ${chartPoints} ${areaRightX},${areaBaselineY}`;
@@ -881,11 +914,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               let effectiveRightPadding = chartPadding
               
               if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-                effectivePadding = Math.max(20, chartPadding * 0.6)
-                effectiveRightPadding = Math.max(15, chartPadding * 0.6)
+                effectivePadding = Math.max(10, chartPadding * 0.4)
+                effectiveRightPadding = Math.max(8, chartPadding * 0.4)
               } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
-                effectivePadding = chartPadding * 1.2
-                effectiveRightPadding = chartPadding * 1.2
+                effectivePadding = chartPadding * 0.8
+                effectiveRightPadding = chartPadding * 0.8
               }
               
               const availableWidth = chartWidth - effectivePadding - effectiveRightPadding;
@@ -939,11 +972,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               let effectiveRightPadding = chartPadding
               
               if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-                effectivePadding = Math.max(20, chartPadding * 0.6)
-                effectiveRightPadding = Math.max(15, chartPadding * 0.6)
+                effectivePadding = Math.max(10, chartPadding * 0.4)
+                effectiveRightPadding = Math.max(8, chartPadding * 0.4)
               } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
-                effectivePadding = chartPadding * 1.2
-                effectiveRightPadding = chartPadding * 1.2
+                effectivePadding = chartPadding * 0.8
+                effectiveRightPadding = chartPadding * 0.8
               }
               
               // Linear scale: each position is exactly the same distance apart
@@ -1021,7 +1054,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                     <text
                       key={`label-${label.index}`}
                       x={x}
-                      y={chartHeight - bottomPadding + 40}
+                      y={chartHeight - bottomPadding + 55}
                       fontSize={label.priority > 1 ? "14" : "12"}
                       fill={accentColor.hex}
                       textAnchor="middle"
@@ -1045,9 +1078,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               // Calculate effective padding for Y-axis label positioning
               let yAxisLabelPadding = chartPadding
               if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-                yAxisLabelPadding = Math.max(20, chartPadding * 0.6)
+                yAxisLabelPadding = Math.max(10, chartPadding * 0.4)
               } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
-                yAxisLabelPadding = chartPadding * 1.2
+                yAxisLabelPadding = chartPadding * 0.8
               }
 
               // Generate Y-axis labels
