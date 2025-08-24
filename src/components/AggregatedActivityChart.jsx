@@ -1,7 +1,7 @@
 import React, { useState, forwardRef } from 'react'
 import Portal from './Portal'
 import { getWeekStart } from '../utils/weekCalculation'
-import { generateChartPoints, validateNodeCount } from '../utils/chartDataUtils'
+import { generateChartPoints, validateNodeCount, generateChartXAxisLabels } from '../utils/chartDataUtils'
 
 // Use centralized chart point generation - removed duplicate function
 
@@ -35,60 +35,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
   // Validate node count for the period
   validateNodeCount(weeklyData, period, 'AggregatedActivityChart')
   
-  // X-axis label logic - improved for all periods
-  const xLabels = weeklyData.map((w, i) => {
-    const date = new Date(w.weekStart)
-    const month = date.getMonth()
-    const year = date.getFullYear()
-    const day = date.getDate()
-    const currentYear = new Date().getFullYear()
-    
-    // Determine important markers based on period
-    if (period === '3years') {
-      // Show years prominently and quarters moderately
-      if (month === 0 && day <= 7) {
-        return { type: 'year', value: year.toString(), priority: 3 }
-      } else if ([0, 3, 6, 9].includes(month) && day <= 7 && i % 3 === 0) {
-        return { type: 'quarter', value: `Q${Math.floor(month / 3) + 1}`, priority: 2 }
-      }
-    } else if (period === '52weeks') {
-      // Show year and quarters for 1-year view
-      if (month === 0 && day <= 7) {
-        return { type: 'year', value: year.toString(), priority: 3 }
-      } else if ([0, 3, 6, 9].includes(month) && day <= 7) {
-        return { type: 'quarter', value: date.toLocaleString('default', { month: 'short' }), priority: 2 }
-      } else if (day <= 7 && i % 4 === 0) {
-        return { type: 'month', value: date.toLocaleString('default', { month: 'short' }), priority: 1 }
-      }
-    } else if (period === '3months') {
-      // Show months and some weeks for 3-month view
-      if (day <= 7) {
-        return { type: 'month', value: date.toLocaleString('default', { month: 'short' }), priority: 2 }
-      } else if (i % 2 === 0) {
-        return { type: 'week', value: `W${Math.floor(i / 2) + 1}`, priority: 1 }
-      }
-    } else if (period === 'current') {
-      // For 7-day view, show day names for all days
-      const dayName = date.toLocaleString('default', { weekday: 'short' })
-      return { type: 'day', value: dayName, priority: 2 }
-    } else if (period === '4weeks' || period === '5weeks') {
-      // For 4-5 week views, show all weeks
-      if (day <= 7) {
-        return { type: 'month', value: date.toLocaleString('default', { month: 'short' }), priority: 2 }
-      } else {
-        return { type: 'week', value: `W${i + 1}`, priority: 1 }
-      }
-    } else {
-      // For other periods, show months and weeks
-      if (day <= 7) {
-        return { type: 'month', value: date.toLocaleString('default', { month: 'short' }), priority: 2 }
-      } else if (i % 2 === 0) {
-        return { type: 'week', value: `W${Math.floor(i / 2) + 1}`, priority: 1 }
-      }
-    }
-    
-    return null
-  })
+  const xAxisLabels = generateChartXAxisLabels(weeklyData, period);
   
   // Tooltip handlers with viewport-relative positioning
   const handleNodeMouseOver = (e, value, weekIdx) => {
@@ -245,21 +192,21 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         })}
         
         {/* Vertical month boundary grid lines */}
-        {xLabels.map((label, i) =>
+        {xAxisLabels.map((label, i) =>
           label && label.type && (
             // Show all labels for short periods, filter for longer periods
             (period === 'current' || period === '4weeks' || period === '5weeks' || 
-             ['year', 'quarter', 'month'].includes(label.type)) && (
+             ['year', 'month', 'day', 'date', 'midmonth'].includes(label.type)) && (
             <line
               key={`month-grid-${i}`}
-              x1={effectivePadding + (i / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
+              x1={effectivePadding + (label.index / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
               y1={effectivePadding}
-              x2={effectivePadding + (i / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
+              x2={effectivePadding + (label.index / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding)}
               y2={height - effectivePadding}
               stroke={accentColor.hex}
-              strokeDasharray={label.type === 'year' ? "6 3" : label.type === 'day' ? "2 2" : "4 2"}
-              strokeWidth={label.type === 'year' ? "1.5" : label.type === 'day' ? "0.8" : "1"}
-              opacity={label.type === 'year' ? "0.4" : label.type === 'day' ? "0.2" : "0.25"}
+              strokeDasharray={label.type === 'year' ? "6 3" : label.type === 'day' ? "2 2" : label.type === 'date' || label.type === 'midmonth' ? "3 1" : "4 2"}
+              strokeWidth={label.type === 'year' ? "1.5" : label.type === 'day' || label.type === 'date' || label.type === 'midmonth' ? "0.8" : "1"}
+              opacity={label.type === 'year' ? "0.4" : label.type === 'day' || label.type === 'date' || label.type === 'midmonth' ? "0.2" : "0.25"}
             />
           ))
         )}
@@ -273,7 +220,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
             y2={height - effectivePadding + 8}
             stroke={accentColor.hex}
             strokeWidth="1"
-            opacity="0.3"
+            opacity="0.15"
           />
         ))}
 
@@ -348,7 +295,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
               fill={accentColor.hex}
               textAnchor="end"
               dominantBaseline="middle"
-              fontWeight="500"
+              fontWeight="300"
               style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
             >
               {label}
@@ -364,38 +311,34 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           // More lenient spacing for shorter periods
           const minLabelSpacing = (period === 'current' || period === '4weeks' || period === '5weeks')
             ? 40
-            : 60;
+            : 40;
 
           // Build candidates with x positions
-          const candidates = xLabels
-            .map((label, index) => ({ label, index }))
-            .filter(item => item.label)
-            .map(({ label, index }) => {
-              const x = effectivePadding + (index / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding);
-              return { x, index, label };
-            });
+          const candidates = xAxisLabels
+            .filter(item => item.text);
 
           // Place labels by priority groups, but always left-to-right to avoid rightmost blocking earlier ones
-          const typePriorityOrder = ['year', 'quarter', 'month', 'week', 'day'];
-          typePriorityOrder.forEach(type => {
+          const priorityOrder = [2, 1];
+          priorityOrder.forEach(priority => {
             candidates
-              .filter(c => (c.label.type || 'week') === type)
+              .filter(c => c.priority === priority)
               .sort((a, b) => a.index - b.index)
               .forEach(c => {
-                if (canPlace(c.x)) {
-                  placed.push({ x: c.x, type: c.label.type });
+                const x = effectivePadding + (c.index / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding);
+                if (canPlace(x)) {
+                  placed.push({ x });
                   labels.push(
                     <text
                       key={`x-label-${c.index}`}
-                      x={c.x}
-                      y={height - effectivePadding + (screenshotMode ? 12 : 16)}
-                      fontSize={c.label.type === 'year' ? '15' : c.label.type === 'quarter' ? '13' : '12'}
-                      fontWeight={c.label.type === 'year' ? 'bold' : c.label.type === 'quarter' ? '600' : '500'}
+                      x={x}
+                      y={height - effectivePadding + (screenshotMode ? 18 : 24) + (c.type === 'year' ? 5 : 0)}
+                      fontSize={c.type === 'year' ? '15' : c.type === 'month' ? '13' : '12'}
+                      fontWeight="300"
                       fill={accentColor.hex}
                       textAnchor="middle"
                       style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
                     >
-                      {c.label.value}
+                      {c.text}
                     </text>
                   );
                 }

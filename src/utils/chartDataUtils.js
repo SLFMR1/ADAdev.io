@@ -397,3 +397,105 @@ export const getServerPeriod = (clientPeriod) => {
   const config = getPeriodConfig(clientPeriod)
   return config.serverPeriod
 }
+
+/**
+ * Generates smart x-axis labels for charts based on the selected period.
+ * @param {Array} data - The chart data array, containing objects with a `weekStart` property.
+ * @param {string} period - The selected time period (e.g., 'current', '5weeks', '3months').
+ * @returns {Array} An array of label objects with properties { x, text, priority, ... } to be rendered.
+ */
+export const generateChartXAxisLabels = (data, period) => {
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  const labels = [];
+  
+  let lastMonth = -1;
+  let lastYear = -1;
+
+  data.forEach((d, i) => {
+    const date = new Date(d.weekStart);
+    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+    const prevDate = i > 0 ? new Date(data[i - 1].weekStart) : null;
+    if(prevDate) {
+      prevDate.setMinutes(prevDate.getMinutes() + prevDate.getTimezoneOffset());
+    }
+
+    const month = date.toLocaleString('default', { month: 'short' });
+    const year = date.getFullYear();
+
+    let label = null;
+
+    switch (period) {
+      case 'current': // 7 days
+        if (i === 0 || date.getDate() === 1) {
+            label = { text: month, priority: 2, type: 'month' };
+        } else {
+            label = { text: date.toLocaleString('default', { weekday: 'short' }), priority: 1, type: 'day' };
+        }
+        break;
+      
+      case '4weeks':
+      case '5weeks': // 4 weeks
+        const weekEndDate = new Date(date);
+        weekEndDate.setDate(date.getDate() + 6);
+        if (i === 0 || (prevDate && date.getMonth() !== prevDate.getMonth())) {
+          label = { text: month, priority: 2, type: 'month' };
+        } else {
+          label = { text: weekEndDate.getDate().toString(), priority: 1, type: 'date' };
+        }
+        break;
+
+      case '3months':
+        if (date.getMonth() !== lastMonth) {
+          label = { text: month, priority: 2, type: 'month' };
+          lastMonth = date.getMonth();
+        }
+        break;
+
+      case '52weeks': // 12 months
+        // Check if this week spans into a new year (week end date crosses Jan 1st)
+        const weekEnd52 = new Date(date);
+        weekEnd52.setDate(date.getDate() + 6);
+        const weekEndYear = weekEnd52.getFullYear();
+        
+        if (weekEndYear !== lastYear) {
+          label = { text: weekEndYear.toString(), priority: 2, type: 'year' };
+          lastYear = weekEndYear;
+          lastMonth = -1; // Reset month tracking on year change
+        }
+        if (!label && date.getMonth() !== lastMonth) {
+          label = { text: month, priority: 1, type: 'month' };
+          lastMonth = date.getMonth();
+        }
+        break;
+
+      case '3years':
+        // Check if this week spans into a new year (week end date crosses Jan 1st)
+        const weekEnd3y = new Date(date);
+        weekEnd3y.setDate(date.getDate() + 6);
+        const weekEndYear3y = weekEnd3y.getFullYear();
+        
+        if (weekEndYear3y !== lastYear) {
+          label = { text: weekEndYear3y.toString(), priority: 2, type: 'year' };
+          lastYear = weekEndYear3y;
+          lastMonth = -1; // Reset month tracking
+        }
+        if (!label && date.getMonth() === 6 && lastMonth !== 6) {
+          label = { text: 'Jul', priority: 1, type: 'month' };
+          lastMonth = 6;
+        }
+        break;
+        
+      default:
+        break;
+    }
+
+    if (label) {
+      labels.push({ ...label, index: i });
+    }
+  });
+
+  return labels;
+};
