@@ -1050,7 +1050,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                   {/* Left Column - Metrics Bar and Chart */}
                   <div className="col-span-3 flex flex-col space-y-3 h-full min-h-0">
                       {/* Metrics Bar */}
-                    <div className={`grid grid-cols-3 gap-2 py-3 px-4 rounded-lg items-center flex-shrink-0 ${
+                    <div className={`grid grid-cols-3 gap-2 py-2 px-4 rounded-lg items-center flex-shrink-0 ${
                       screenshotMode ? 'border border-gray-700/30' : 'bg-gray-800/50'
                     }`}>
                         {isLoading ? (
@@ -1182,7 +1182,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     data-screenshot-mode={screenshotMode}
                   >
                       {/* Top 3 Items */}
-                    <div className="flex-shrink-0 mb-1 relative" style={{ zIndex: 10 }}>
+                      <div className="flex-shrink-0 mb-1 relative" style={{ zIndex: 10 }}>
                         {isLoading ? (
                           <>
                             <SkeletonLeaderboardItem rank={1} />
@@ -1234,13 +1234,13 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           return (
                             <div 
                               key={`top-${item.resource.id}`} 
-                              className={`flex items-center space-x-4 py-3.5 px-3 rounded-lg transition-colors cursor-pointer ${
+                              className={`flex items-center space-x-4 py-3 px-3 rounded-lg transition-colors cursor-pointer ${
                                 screenshotMode 
                                   ? 'text-[14px] leading-[20px] bg-gray-800/30' 
                                   : 'bg-gray-800/30 hover:bg-gray-800/50'
                               }`}
                               style={{ 
-                                margin: '8px 0', 
+                                margin: '10px 0', 
                                 position: 'relative', 
                                 ...containerStyle 
                               }}
@@ -1257,19 +1257,11 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 <div className={`${isWinner ? 'font-semibold' : 'font-normal'} ${screenshotMode ? 'text-[17px] leading-[24px]' : 'text-base'} text-white truncate`} style={isWinner ? { textShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.35)` } : undefined}>
                                   {item.resource.name}
                                 </div>
-                                <div className={`${screenshotMode ? 'text-[13px] leading-[19px]' : 'text-sm'} text-gray-400 truncate`}>
-                                    {item.resource.category}
-                                </div>
                               </div>
                               <div className="text-right flex-shrink-0">
                                 <div className={`${isWinner ? 'font-bold' : 'font-normal'} ${screenshotMode ? 'text-[15px] leading-[21px]' : 'text-base'} text-white`} style={isWinner ? { textShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.35)` } : undefined}>
                                     {item.totalCommits}
                                 </div>
-                                {!screenshotMode && (
-                                  <div className="text-xs text-gray-400 truncate">
-                                    {getActivityLevel(item.totalCommits)}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           );
@@ -1279,9 +1271,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
                       {/* Scrollable List */}
                     <div 
-                      className="overflow-y-auto space-y-3 pr-2 relative scrollbar-hide" 
+                      className="overflow-y-auto space-y-1.5 pr-2 relative scrollbar-hide" 
                       style={{ 
-                          height: '280px',
+                          height: '325px',
                         transform: 'translateZ(0)', 
                         willChange: 'scroll-position',
                         zIndex: 1
@@ -1304,7 +1296,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           return (
                             <div 
                               key={item.resource.id} 
-                              className={`flex items-center space-x-4 py-3.5 px-3 rounded-lg transition-colors cursor-pointer ${
+                              className={`flex items-center space-x-4 py-2 px-3 rounded-lg transition-colors cursor-pointer ${
                                 screenshotMode 
                                   ? 'text-[14px] leading-[20px] bg-gray-800/30' 
                                   : 'bg-gray-800/30 hover:bg-gray-800/50'
@@ -1322,19 +1314,11 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 <div className={`font-normal ${screenshotMode ? 'text-[17px] leading-[24px]' : 'text-base'} text-white truncate`}>
                                   {item.resource.name}
                                 </div>
-                                <div className={`${screenshotMode ? 'text-[13px] leading-[19px]' : 'text-sm'} text-gray-400 truncate`}>
-                                    {item.resource.category}
-                                </div>
                               </div>
                               <div className="text-right flex-shrink-0">
                                 <div className={`font-normal ${screenshotMode ? 'text-[15px] leading-[21px]' : 'text-base'} text-white`}>
                                     {item.totalCommits}
                                 </div>
-                                {!screenshotMode && (
-                                  <div className="text-xs text-gray-400 truncate">
-                                    {getActivityLevel(item.totalCommits)}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           );
