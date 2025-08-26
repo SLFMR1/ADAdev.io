@@ -240,77 +240,60 @@ const transformDailyData = (rawData, componentName) => {
  */
 const transformWeeklyData = (rawData, periodKey, componentName) => {
   const config = getPeriodConfig(periodKey)
-  const aggregatedData = []
   
-  // Get all unique weekStart dates from database
-  const allWeekStartsSet = new Set()
-  
+  // **FIX**: Aggregate all data into a map FIRST to ensure consistent counts.
+  const aggregatedCommitMap = new Map()
   rawData.forEach(item => {
     if (item.weeklyData && Array.isArray(item.weeklyData)) {
       item.weeklyData.forEach(weekData => {
-        if (weekData && weekData.weekStart) {
-          allWeekStartsSet.add(weekData.weekStart)
+        if (weekData && weekData.weekStart && typeof weekData.count === 'number') {
+          const currentCount = aggregatedCommitMap.get(weekData.weekStart) || 0
+          aggregatedCommitMap.set(weekData.weekStart, currentCount + weekData.count)
         }
       })
     }
   })
-  
-  // Convert to sorted array (chronological order)
-  const allWeekStarts = Array.from(allWeekStartsSet).sort()
-  
-  if (allWeekStarts.length === 0) {
+
+  // Convert map to a sorted array of unique weeks.
+  const allAggregatedWeeks = Array.from(aggregatedCommitMap.entries())
+    .map(([weekStart, count]) => ({ weekStart, count }))
+    .sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart))
+
+  if (allAggregatedWeeks.length === 0) {
     logger.warn(`${componentName}: No valid week starts found in data for ${periodKey}`)
     return []
   }
-  
-  // Filter out current incomplete week for non-daily periods only
-  const currentWeekStart = getCurrentWeekStart()
-  const currentWeekKey = currentWeekStart.toISOString().slice(0, 10)
-  
-  // Only exclude current week for non-daily periods (4weeks, 3months, 52weeks, 3years)
+
+  // **FIX**: Perform filtering and slicing on the fully aggregated data.
+  const allWeekStarts = allAggregatedWeeks.map(w => w.weekStart)
+
+  // Filter out current incomplete week for non-daily periods only.
   const shouldExcludeCurrentWeekForPeriod = shouldExcludeCurrentWeek(periodKey)
-  
-  // More robust current week filtering - handle timezone differences and edge cases
-  let completedWeeks = allWeekStarts
+  let completedWeeksData = allAggregatedWeeks
   if (shouldExcludeCurrentWeekForPeriod) {
-    // Filter out the current, incomplete week for historical periods.
-    // Appending 'T00:00:00' ensures the date string is parsed in the local timezone,
-    // which aligns with how `isCurrentWeek` and `getCurrentWeekStart` operate.
-    completedWeeks = allWeekStarts.filter(weekStart => !isCurrentWeek(`${weekStart}T00:00:00`));
+    completedWeeksData = allAggregatedWeeks.filter(week => !isCurrentWeek(`${week.weekStart}T00:00:00`))
   }
 
-  // **New Change**: Filter out any future weeks unconditionally
-  const today = new Date();
-  const pastAndPresentWeeks = completedWeeks.filter(weekStart => new Date(`${weekStart}T00:00:00`) <= today);
+  // Prioritize most recent weeks.
+  const availableWeeks = completedWeeksData.length
+  const requestedWeeks = config.weeks
+  const weeksToUse = availableWeeks >= requestedWeeks
+    ? completedWeeksData.slice(-requestedWeeks) // Slice the correct number of weeks from the end.
+    : completedWeeksData // Use all available data if less than requested.
+  
+  // Log data completeness for debugging.
+  if (weeksToUse.length < config.weeks) {
+    logger.warn(`${componentName}: Incomplete data for ${periodKey} - expected ${config.weeks} weeks, got ${weeksToUse.length} weeks`);
+  }
+  
+  // The data is already aggregated, so we can just return it.
+  const finalChartData = weeksToUse;
 
-  // Take exactly the number of weeks expected for this period
-  const weeksToUse = pastAndPresentWeeks.slice(-config.weeks)
+  // Validate node count.
+  validateNodeCount(finalChartData, periodKey, componentName)
   
-  // Generate chart data ensuring continuous sequence (current week included/excluded based on period type)
-  weeksToUse.forEach(weekStart => {
-    let totalCount = 0
-    
-    // Sum commits for this specific week across all resources
-    rawData.forEach(item => {
-      if (item.weeklyData && Array.isArray(item.weeklyData)) {
-        const weekData = item.weeklyData.find(w => w.weekStart === weekStart)
-        if (weekData && typeof weekData.count === 'number') {
-          totalCount += weekData.count
-        }
-      }
-    })
-    
-    aggregatedData.push({
-      count: totalCount,
-      weekStart: weekStart
-    })
-  })
-  
-  // Validate node count
-  validateNodeCount(aggregatedData, periodKey, componentName)
-  
-  logger.log(`${componentName}: ✓ Transformed weekly data for ${periodKey}: ${aggregatedData.length} weeks ${shouldExcludeCurrentWeekForPeriod ? '(current week excluded)' : '(current week included)'}`)
-  return aggregatedData
+  logger.log(`${componentName}: ✓ Transformed weekly data for ${periodKey}: ${finalChartData.length} weeks ${shouldExcludeCurrentWeekForPeriod ? '(current week excluded)' : '(current week included)'}`)
+  return finalChartData
 }
 
 /**

@@ -391,15 +391,14 @@ const fetchRepoCommits = async (repoPath, since = null) => {
         await new Promise(resolve => setTimeout(resolve, 50))
       }
       
-      // Safety limit to prevent infinite loops - increased for historical data completeness
-      // For repositories like Cardano Node (6+ years), we need more pages to get full history
-      if (page > 500) {
-        console.warn(`Reached maximum page limit (${page}) for ${repoPath}, stopping pagination`)
+      // Removed 500-page limit to ensure full history. Add a much larger safety break for bugs.
+      if (page > 2000) { // Safety break for truly massive repos (> 200k commits)
+        logger.error(`[CRITICAL] Reached maximum page limit (2000) for ${repoPath}, stopping pagination to prevent server overload.`)
         break
       }
     }
     
-    logger.debug(`📄 Fetched ${allCommits.length} total commits from ${page} pages for ${repoPath}`)
+    logger.debug(`📄 Fetched ${allCommits.length} total commits from ${page - 1} pages for ${repoPath}`)
     
     // Enrich each commit with repository information for maintainCommitsCache
     const enrichedCommits = allCommits.map(commit => ({
@@ -812,6 +811,49 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
       }
     }
   }
+
+  // Add database fallback for getRecentActivity (skip for daily processing periods that need granular data)
+  if (!useDailyProcessing) {
+    let dbData = []
+    
+    try {
+      const periodToDays = {
+        '4weeks': 35,    // 5 weeks (aligned with bulk cache)
+        '3months': 91,   // 13 weeks (aligned with bulk cache)
+        '52weeks': 364,  // 52 weeks (aligned with bulk cache)
+        '3years': 1092   // 156 weeks (aligned with bulk cache)
+      }
+      const timeWindow = periodToDays[period] || 30 // Default to 30 days
+      const since = new Date(Date.now() - timeWindow * 24 * 60 * 60 * 1000).toISOString()
+      const endDate = new Date().toISOString()
+      dbData = await getWeeklyActivity(resource, since, endDate)
+    } catch (error) {
+      console.warn(`Database query failed for ${resource.name}:`, error.message)
+    }
+    
+    if (dbData.length > 0) {
+      logger.debug(`✅ Using cached database data for recent activity ${resource.name} (${dbData.length} weeks)`)
+      CACHE.stats.databaseHits++
+      
+      const mappedData = dbData.map(row => ({
+        weekStart: row.week_start,
+        count: row.commit_count,
+        year: row.year,
+        week: row.week_number,
+        isCurrentWeek: false
+      }))
+      
+      const result = {
+        commits: [], // Database doesn't store individual commits
+        commitsPerWeek: mappedData.reduce((sum, week) => sum + week.count, 0),
+        weeklyData: mappedData,
+        repoInfo: null
+      }
+      
+      setCachedData(cacheKey, result)
+      return result
+    }
+  }
   
   let commits = []
   let repoInfo = null
@@ -822,12 +864,12 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
     if (useDailyProcessing) {
       timeWindow = 7; // 7 days for daily processing (regardless of period)
     } else {
-      // Map period to appropriate time window in days
+      // Map period to appropriate time window in days (aligned with bulk cache)
       const periodToDays = {
-        '4weeks': 28,    // 4 weeks
-        '3months': 90,   // ~3 months
-        '52weeks': 365,  // 1 year
-        '3years': 1095   // 3 years
+        '4weeks': 35,    // 5 weeks (aligned with bulk cache '5weeks' period)
+        '3months': 91,   // 13 weeks (aligned with bulk cache)
+        '52weeks': 364,  // 52 weeks (aligned with bulk cache)
+        '3years': 1092   // 156 weeks (aligned with bulk cache)
       };
       timeWindow = periodToDays[period] || 30; // Default to 30 days if period not found
     }
@@ -837,7 +879,7 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
     
     // Check if we're currently rate limited
     if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
-      logger.warn(`⚠️ Skipping ${resource.name} - GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`);
+      logger.warn(`⚠️ Skipping ${resource.name} - GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`)
       
       // Track failed 7-day requests for retry
       if (useDailyProcessing) {
@@ -1129,84 +1171,19 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
     }
   }
   
-  // Check if we're currently rate limited
-  if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
-    logger.warn(`⚠️ GitHub API rate limited until ${rateLimitResetTime.toLocaleString()}`);
-    
-    // Return database data if available, rather than empty results
-    if (dbData.length > 0) {
-      logger.debug(`📊 Using existing database data for ${resource.name} (rate limited fallback)`);
-      return finalData
-    }
-    
-    logger.warn(`⚠️ No database data available for ${resource.name} - returning empty results`);
-    return []
+  // **REMOVED GITHUB API FALLBACK**
+  // The database is now the single source of truth for historical data.
+  // If data is not present here, it means it needs to be backfilled by the background process.
+  
+  if (dbData.length > 0) {
+    logger.debug(`✅ Serving final historical data for ${resource.name} from database.`);
+    setCachedData(cacheKey, finalData) // Cache the processed database data in memory
+    return finalData; // finalData is the processed version of dbData
   }
-  
-  logger.debug(`🔄 Fetching fresh data from GitHub API for ${resource.name}...`);
-  
-  // Fallback to GitHub API with enhanced error handling
-  const since = new Date(startDate).toISOString()
-  let commits = []
-  
-  try {
-    logger.debug(`🔄 Fetching fresh GitHub data for ${resource.name} (${startDate} to ${endDate})`);
-    
-    if (resource.type === 'organization') {
-      // For organizations, use repo_path first, then organization field, then extract from GitHub URL
-      let orgName;
-      if (resource.repo_path) {
-        orgName = resource.repo_path;
-      } else if (resource.organization) {
-        orgName = resource.organization;
-      } else if (resource.social?.github) {
-        orgName = resource.social.github.replace('https://github.com/', '');
-      }
-      
-      if (!orgName) {
-        console.warn(`⚠️ No organization name found for ${resource.name}`);
-        return dbData.length > 0 ? finalData : [];
-      }
-      
-      commits = await fetchOrgCommits(orgName, since);
-      CACHE.stats.apiCalls++
-    } else if (resource.type === 'repository' || resource.social?.github) {
-      // For repositories or unknown resources with GitHub URLs
-      const repoPath = resource.social.github.replace('https://github.com/', '')
-      commits = await fetchRepoCommits(repoPath, since)
-      CACHE.stats.apiCalls++
-    } else {
-      console.warn(`⚠️ No valid GitHub URL found for ${resource.name} (type: ${resource.type})`);
-      return dbData.length > 0 ? finalData : [];
-    }
-  } catch (error) {
-    console.error(`Failed to fetch commits for ${resource.name}:`, error.message)
-    // Return cached data if available, otherwise empty
-    return dbData.length > 0 ? finalData : []
-  }
-  
-  const weeklyData = processCommitsToWeekly(commits)
-  logger.debug(`📊 Processed ${commits.length} commits into ${weeklyData.length} weeks for ${resource.name}`)
-  
-  // Store in both in-memory cache and database for future use
-  setCachedData(cacheKey, weeklyData)
-  
-  // Store in database with proper current week handling
-  try {
-    await supabaseService.storeWeeklyActivity(resource, weeklyData)
-    
-    // Verify storage succeeded
-    const verification = await verifyDataStored(resource, weeklyData)
-    if (verification.success) {
-      logger.debug(`✅ Successfully stored fresh data for ${resource.name} (${verification.stored}/${verification.expected} weeks)`)
-    } else {
-      logger.warn(`⚠️ Storage verification failed for ${resource.name}: expected ${verification.expected}, stored ${verification.stored}`)
-    }
-  } catch (error) {
-    console.warn(`Failed to store activity data for ${resource.name}:`, error.message)
-  }
-  
-  return weeklyData
+
+  // If we reach this point, data is not in any cache and not in the database.
+  logger.warn(`⚠️ No historical data found for ${resource.name} in date range ${startDate} to ${endDate}. This resource needs to be backfilled.`);
+  return []; // Return empty array, do not fetch from GitHub live.
 }
 
 // Calculate historical maximum totals for each period type with graceful fallbacks
@@ -3252,7 +3229,9 @@ const ensureHistoricalDataCompleteness = async () => {
             resource,
             resourceId,
             weeksAvailable,
-            missingPeriods
+            missingPeriods,
+            startDate: ageInfo.createdDate, // **FIX**: Add the repository creation date for backfilling
+            endDate: now.toISOString()      // **FIX**: Add end date for clarity
           })
           const ageInfoStr = formatAgeInfo(ageInfo)
           console.log(`📋 ${resource.name}: Total=${weeksAvailable} weeks${ageInfoStr} | Missing: ${missingPeriods.join(', ')}`)
@@ -3295,7 +3274,8 @@ const ensureHistoricalDataCompleteness = async () => {
       for (const item of batch) {
         try {
           processedCount++
-          const { resource, resourceId, weeksAvailable } = item
+          // **FIX:** Destructure startDate and endDate from the item here.
+          const { resource, resourceId, startDate, endDate } = item
           
           // Check if we're currently rate limited before attempting fetch
           if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
@@ -3312,25 +3292,24 @@ const ensureHistoricalDataCompleteness = async () => {
           
           console.log(`🔄 Fetching historical data for ${resource.name} (${processedCount}/${resourcesNeedingData.length})...`)
           
-          // Calculate how far back we need to go (max 3 years)
-          const maxWeeksNeeded = Math.max(...Object.values(HISTORICAL_REQUIREMENTS))
-          const weeksToFetch = Math.min(maxWeeksNeeded, 156) // Cap at 3 years
+          // **FIX:** Use the startDate from the item object, which is now correctly defined, and handle nulls.
+          const since = startDate ? new Date(startDate).toISOString() : null
+          let commits = []
+          if (resource.type === 'organization') {
+            const orgName = resource.social.github.replace('https://github.com/', '');
+            commits = await fetchOrgCommits(orgName, since);
+          } else {
+            const repoPath = resource.social.github.replace('https://github.com/', '')
+            commits = await fetchRepoCommits(repoPath, since)
+          }
+
+          const historicalData = processCommitsToWeekly(commits)
           
-          const endDate = new Date()
-          const startDate = new Date(endDate.getTime() - (weeksToFetch * 7 * 24 * 60 * 60 * 1000))
-          
-          // Use existing getHistoricalActivity function with force refresh
-          // Pass forceRefresh=true to bypass caching for historical backfill
-          console.log(`📡 Forcing fresh historical data fetch for ${resource.name}`)
-          const historicalData = await getHistoricalActivity(
-            resource, 
-            startDate.toISOString(), 
-            endDate.toISOString(),
-            true // forceRefresh = true to bypass cache
-          )
-          
+          // Store the newly fetched data in the database
+          await supabaseService.storeWeeklyActivity(resource, historicalData)
+
           if (historicalData && historicalData.length > 0) {
-            console.log(`📥 ${resource.name}: Fetched ${historicalData.length} weeks of data, now verifying completeness...`)
+            console.log(`📥 ${resource.name}: Fetched and stored ${historicalData.length} weeks of data, now verifying completeness...`)
             
             // CRITICAL: Re-check database to verify what we actually have now
             // CRITICAL FIX: Use repo_path for verification too, same as initial check
@@ -4389,3 +4368,24 @@ const startServer = async () => {
 }
 
 startServer()
+
+// Get historical maximums for a resource
+app.post('/api/github/historical-maximums', async (req, res) => {
+  try {
+    const resource = req.body;
+    if (!resource || !resource.name) {
+      return res.status(400).json({ error: 'Invalid resource data provided.' });
+    }
+
+    logger.debug(`🔍 Calculating historical maximums for ${resource.name}`);
+    const maximumsData = await calculateHistoricalMaximums(resource);
+    
+    res.json(maximumsData);
+  } catch (error) {
+    logger.error(`❌ Error calculating historical maximums for ${req.body?.name}:`, error);
+    res.status(500).json({ 
+      error: 'Failed to calculate historical maximums', 
+      message: error.message 
+    });
+  }
+});

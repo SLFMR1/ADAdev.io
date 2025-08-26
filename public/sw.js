@@ -140,55 +140,39 @@ async function handleGitHubAPIRequest(request) {
 // Handle server API requests with caching
 async function handleServerAPIRequest(request) {
   const cache = await caches.open(API_CACHE_NAME)
-  
-  // Check cache first
-  const cachedResponse = await cache.match(request)
-  if (cachedResponse) {
-    const cacheTime = new Date(cachedResponse.headers.get('sw-cache-time'))
-    const now = new Date()
-    
-    if (now - cacheTime < API_CACHE_DURATION) {
-      log('Serving server API from cache:', request.url)
-      return cachedResponse
-    } else {
-      log('Server API cache expired, fetching fresh data:', request.url)
-      cache.delete(request)
-    }
-  }
 
-  // Fetch fresh data
+  // **FIX: Implement Network First, then Cache strategy for API calls**
+  // This ensures the freshest data is always served when online.
   try {
-    const response = await fetch(request)
-    
-    if (response.ok && canCacheRequest(request)) {
-      // Clone response to add cache timestamp
-      const responseToCache = response.clone()
-      const headers = new Headers(responseToCache.headers)
-      headers.append('sw-cache-time', new Date().toISOString())
+    const response = await fetch(request);
+
+    // If the request is successful, update the cache
+    if (response.ok) {
+      const responseToCache = response.clone();
+      const headers = new Headers(responseToCache.headers);
+      headers.append('sw-cache-time', new Date().toISOString());
       
       const cachedResponse = new Response(responseToCache.body, {
         status: responseToCache.status,
         statusText: responseToCache.statusText,
         headers: headers
-      })
+      });
 
-      // Store in cache
-      cache.put(request, cachedResponse)
-      
-      // Clean up old entries if cache is too large
-      cleanupCache(cache, MAX_CACHE_SIZE)
+      cache.put(request, cachedResponse);
+      log('Serving server API from network and updating cache:', request.url);
     }
     
-    return response
+    return response;
   } catch (error) {
-    log('Server API fetch failed, trying cache:', error)
-    // Return cached response if available, even if expired
-    const fallbackResponse = await cache.match(request)
-    if (fallbackResponse) {
-      log('Serving stale server API data from cache')
-      return fallbackResponse
+    // If the network fails, fall back to the cache
+    log('Server API fetch failed, falling back to cache:', request.url, error);
+    const cachedResponse = await cache.match(request);
+    if (cachedResponse) {
+      log('Serving server API from cache (offline fallback):', request.url);
+      return cachedResponse;
     }
-    throw error
+    // If network and cache both fail, throw the error
+    throw error;
   }
 }
 

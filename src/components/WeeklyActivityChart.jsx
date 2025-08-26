@@ -73,313 +73,99 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   }, [])
 
   useEffect(() => {
-    const loadActivityData = async () => {
-      try {
-        setError(null)
-        
-        // 1. CHECK WIDGET CACHE FIRST - single source of truth for rawChartData
-        const widgetCachedData = ChartDataCache.get('repository', selectedPeriod) || 
-                                ChartDataCache.get('organization', selectedPeriod);
-        if (widgetCachedData) {
-          const extractedData = WidgetDataExtractor.extractResourceData(widgetCachedData, resource, selectedPeriod);
-          if (extractedData) {
-            logger.log(`⚡ Using DevelopmentActivityWidget rawChartData for ${resource.name} (period: ${selectedPeriod})`);
-            
-            const filteredData = transformChartData([{ weeklyData: extractedData.commitsPerWeekDetailed }], selectedPeriod, `WeeklyActivityChart-${resource.name}-widget-raw`);
-            
-            setActivityData({
-              currentWeek: filteredData[filteredData.length - 1]?.count || 0,
-              repoInfo: extractedData.repoInfo
-            });
-            setWeeklyData(filteredData);
-            setHistoricalMaximums(extractedData.historicalMaximums || {});
-            setHistoricalMetadata(extractedData.historicalMetadata || {});
-            setIsLoading(false);
-            return; // Exit early - no API call needed
-          }
-        }
+        // This effect now fetches both activity data and historical maximums
+        const loadAllChartData = async () => {
+            try {
+                setError(null);
+                setIsLoading(true);
 
-        // 2. CACHE CHECK FALLBACK - check for existing cached data
-        // Use 'repository' viewMode since this is for individual resource charts
-        const cachedData = ChartDataCache.get('repository', selectedPeriod, resource.id)
-        if (cachedData && !preloadedData) {
-          logger.log(`⚡ Using cached data for ${resource.name} (period: ${selectedPeriod})`)
-          
-          if (cachedData.commitsPerWeekDetailed && Array.isArray(cachedData.commitsPerWeekDetailed)) {
-            const filteredData = transformChartData([{ weeklyData: cachedData.commitsPerWeekDetailed }], selectedPeriod, `WeeklyActivityChart-${resource.name}-cached`)
-            
-            setActivityData({
-              currentWeek: filteredData[filteredData.length - 1]?.count || 0,
-              repoInfo: cachedData.repoInfo
-            })
-            setWeeklyData(filteredData)
-            setHistoricalMaximums(cachedData.historicalMaximums || {})
-            setHistoricalMetadata(cachedData.historicalMetadata || {})
-            setIsLoading(false)
-            return // Exit early - no API call needed
-          }
-        }
-        
-        // 2. If preloaded data is available for this period, use it immediately
-        if (preloadedData && !preloadedData.error) {
-          logger.log(`⚡ Using preloaded data for ${resource.name} (period: ${selectedPeriod})`)
-          logger.debug('WeeklyActivityChart received preloaded data:', preloadedData)
-          // Use preloaded data immediately without loading state
-          
-          // Process preloaded data the same way as fetched data
-          const resourceData = preloadedData
-          
-          // Validate and process the preloaded data
-          if (resourceData && resourceData.commitsPerWeekDetailed && Array.isArray(resourceData.commitsPerWeekDetailed) && resourceData.commitsPerWeekDetailed.length > 0) {
-            // Use the detailed weekly data from preloaded cache
-            const validWeeklyData = resourceData.commitsPerWeekDetailed
-              .filter(week => {
-                if (!week || typeof week !== 'object') return false;
-                if (typeof week.count !== 'number' || isNaN(week.count)) return false;
-                if (!week.weekStart) return false;
-                
-                const weekStartDate = new Date(week.weekStart);
-                if (isNaN(weekStartDate.getTime())) {
-                  console.warn(`Invalid weekStart date: ${week.weekStart}`);
-                  return false;
+                // Fetch both activity data and historical maximums in parallel
+                const [activityResponse, maximumsResponse] = await Promise.all([
+                    fetch(`/api/development-activity?${new URLSearchParams({
+                        resourceId: resource.id?.toString() || resource.name,
+                        resourceName: resource.name,
+                        period: getServerPeriod(selectedPeriod)
+                    })}`),
+                    fetch('/api/github/historical-maximums', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(resource)
+                    })
+                ]);
+
+                if (!activityResponse.ok) {
+                    throw new Error(`Activity data fetch failed: ${activityResponse.statusText}`);
                 }
-                
-                return true;
-              })
-              .map(week => {
-                const weekStartDate = new Date(week.weekStart);
-                return {
-                  count: Math.max(0, week.count),
-                  weekStart: weekStartDate.toISOString().slice(0, 10)
+                if (!maximumsResponse.ok) {
+                    throw new Error(`Historical maximums fetch failed: ${maximumsResponse.statusText}`);
+                }
+
+                const activityServerData = await activityResponse.json();
+                const maximumsData = await maximumsResponse.json();
+
+                // Process historical maximums
+                setHistoricalMaximums(maximumsData.maximums || {});
+                setHistoricalMetadata(maximumsData.metadata || { hasHistoricalData: false, dataQuality: 'fallback' });
+
+                // Process activity data
+                const resourceData = {
+                    commitsPerWeekDetailed: activityServerData.weeklyData || [],
+                    repoInfo: activityServerData.repoInfo || null,
                 };
-              })
-            
-            if (validWeeklyData.length === 0) {
-              console.warn(`No valid preloaded activityfound for ${resource.name}`);
-              throw new Error('No activity in this period or no data available. Please try again later.');
+                
+                if (resourceData.commitsPerWeekDetailed.length > 0) {
+                    const validWeeklyData = resourceData.commitsPerWeekDetailed.map(week => ({
+                        count: Math.max(0, week.count || 0),
+                        weekStart: new Date(week.weekStart).toISOString().slice(0, 10)
+                    }));
+
+                    setActivityData({
+                        currentWeek: validWeeklyData[validWeeklyData.length - 1]?.count || 0,
+                        repoInfo: resourceData.repoInfo
+                    });
+
+                    const filteredData = transformChartData([{ weeklyData: validWeeklyData }], selectedPeriod, `WeeklyActivityChart-${resource.name}`);
+                    setWeeklyData(filteredData);
+                } else {
+                    setActivityData({ currentWeek: 0, repoInfo: null });
+                    setWeeklyData([]);
+                }
+
+            } catch (error) {
+                logger.error(`Error loading all chart data for ${resource.name}:`, error);
+                setError(error.message);
+                setActivityData({ currentWeek: 0, repoInfo: null });
+                setWeeklyData([]);
+                setHistoricalMaximums({});
+            } finally {
+                setIsLoading(false);
             }
-            
-            const currentWeek = validWeeklyData[validWeeklyData.length - 1]?.count || 0
-            
-            setActivityData({
-              currentWeek: currentWeek,
-              repoInfo: resourceData.repoInfo
-            })
-            setHistoricalMaximums(resourceData.historicalMaximums || {})
-            setHistoricalMetadata(resourceData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' })
-            
-            // Apply current week filtering and process data using centralized logic
-            const filteredData = transformChartData([{ weeklyData: validWeeklyData }], selectedPeriod, `WeeklyActivityChart-${resource.name}-preloaded`)
-            setWeeklyData(filteredData)
-            
-            setIsLoading(false)
-            return
-          } else {
-            logger.warn(`Preloaded data for ${resource.name} lacks commitsPerWeekDetailed - skipping preloaded data`);
-          }
-        }
-        
-        // 3. Fallback to API if no cached or preloaded data available
-        if (preloadedData?.error) {
-          logger.warn(`Preloaded data has error for ${resource.name}: ${preloadedData.error}`);
-        }
-        
-        // Only set loading state when making API calls
-        setIsLoading(true)
-        
-        // Use centralized period configuration
-        const config = getPeriodConfig(selectedPeriod)
-        const expectedWeeks = config.weeks
-        
-        // Check if this period should use GitHub API (only 7-day period)
-        if (usesHybridData(selectedPeriod)) {
-          logger.log(`🔄 Fetching hybrid data for ${resource.name} (period: ${selectedPeriod})`)
-          // This is the 7-day period that uses GitHub API + DB
+        };
+
+        if (!preloadedData) {
+            loadAllChartData();
         } else {
-          logger.log(`🔄 Fetching database-only data for ${resource.name} (period: ${selectedPeriod})`)
+            // Still use preloaded data if available to keep initial load instant
+            const resourceData = preloadedData;
+             if (resourceData && resourceData.commitsPerWeekDetailed && Array.isArray(resourceData.commitsPerWeekDetailed) && resourceData.commitsPerWeekDetailed.length > 0) {
+                const validWeeklyData = resourceData.commitsPerWeekDetailed.map(week => ({
+                    count: Math.max(0, week.count || 0),
+                    weekStart: new Date(week.weekStart).toISOString().slice(0, 10)
+                }));
+
+                setActivityData({
+                    currentWeek: validWeeklyData[validWeeklyData.length - 1]?.count || 0,
+                    repoInfo: resourceData.repoInfo
+                });
+                setHistoricalMaximums(resourceData.historicalMaximums || {});
+                setHistoricalMetadata(resourceData.historicalMetadata || {});
+
+                const filteredData = transformChartData([{ weeklyData: validWeeklyData }], selectedPeriod, `WeeklyActivityChart-${resource.name}-preloaded`);
+                setWeeklyData(filteredData);
+                setIsLoading(false);
+            }
         }
-        
-        const serverPeriod = getServerPeriod(selectedPeriod)
-        
-        // Use the proven server API with organization detection (same as DevelopmentActivityWidget)
-        const isOrganization = resource.type === 'organization'
-        
-        let apiUrl
-        if (isOrganization) {
-          // For organizations: use viewMode approach like DevelopmentActivityWidget
-          apiUrl = `/api/development-activity?viewMode=organization&period=${serverPeriod}`
-        } else {
-          // For repositories: use resource-specific parameters
-          const params = new URLSearchParams({
-            resourceId: resource.id?.toString() || resource.name,
-            resourceName: resource.name,
-            period: serverPeriod
-          })
-          apiUrl = `/api/development-activity?${params}`
-        }
-        
-        const response = await fetch(apiUrl)
-        if (!response.ok) {
-          throw new Error(`Server responded with ${response.status}: ${response.statusText}`)
-        }
-        
-        const serverData = await response.json()
-        
-        let resourceData
-        if (isOrganization) {
-          // For organizations: extract specific resource from aggregated data (same as fetchGitHubUpdates)
-          let organizationData = null
-          
-          // Check preloaded periods data
-          if (serverData.preloadedPeriods && serverData.preloadedPeriods[serverPeriod]) {
-            const periodData = serverData.preloadedPeriods[serverPeriod]
-            const chartData = periodData.weeklyChartData || periodData.dailyChartData || []
-            
-            // Find matching resource by name or GitHub URL
-            organizationData = chartData.find(item => {
-              if (!item.resource) return false
-              
-              const nameMatch = item.resource.name === resource.name
-              const githubMatch = item.resource.social?.github === resource.social.github
-              const githubUrlMatch = item.resource.social?.github && resource.social?.github && 
-                item.resource.social.github.toLowerCase() === resource.social.github.toLowerCase()
-              
-              return nameMatch || githubMatch || githubUrlMatch
-            })
-          }
-          
-          if (!organizationData) {
-            throw new Error(`Organization data not found for ${resource.name}`)
-          }
-          
-          // Transform organizational data to expected format
-          const commitsPerWeekDetailed = organizationData.weeklyCounts ? 
-            organizationData.weeklyCounts.map((count, index) => {
-              // Calculate week start date going backwards from today
-              const today = new Date()
-              const weekStart = new Date(today)
-              weekStart.setDate(today.getDate() - (organizationData.weeklyCounts.length - 1 - index) * 7)
-              
-              // Adjust to Sunday of that week (GitHub standard)
-              const dayOfWeek = weekStart.getDay()
-              weekStart.setDate(weekStart.getDate() - dayOfWeek)
-              
-              return {
-                weekStart: weekStart.toISOString().slice(0, 10),
-                count: count,
-                year: weekStart.getFullYear(),
-                week: Math.ceil((weekStart.getTime() - new Date(weekStart.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))
-              }
-            }) : []
-          
-          resourceData = {
-            commitsPerWeekDetailed: commitsPerWeekDetailed,
-            commitsPerWeek: organizationData.totalCommits || 0,
-            repoInfo: {
-              name: resource.name,
-              htmlUrl: resource.social?.github,
-              isOrganization: true,
-              stargazersCount: organizationData.resource?.stargazersCount || 0,
-              forksCount: organizationData.resource?.forksCount || 0,
-              language: organizationData.resource?.language || null
-            },
-            dataSources: { database: true, github: false },
-            historicalMaximums: {},
-            historicalMetadata: { hasHistoricalData: true, dataQuality: 'database' }
-          }
-        } else {
-          // For repositories: use direct response format
-          resourceData = {
-            commitsPerWeekDetailed: serverData.weeklyData || [],
-            commitsPerWeek: serverData.commitsPerWeek || 0,
-            repoInfo: serverData.repoInfo || null,
-            dataSources: serverData.dataSources || { database: true, github: false },
-            historicalMaximums: serverData.historicalMaximums || {},
-            historicalMetadata: serverData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' }
-          }
-        }
-        
-        // Cache the data using centralized cache with correct viewMode
-        const cacheViewMode = isOrganization ? 'organization' : 'repository'
-        ChartDataCache.set(cacheViewMode, selectedPeriod, resourceData, resource.id)
-        
-        logger.log(`✅ Server API data received - sources:`, resourceData.dataSources)
-        
-        // Validate node count for the period
-        if (resourceData.commitsPerWeekDetailed) {
-          validateNodeCount(resourceData.commitsPerWeekDetailed, selectedPeriod, `WeeklyActivityChart-${resource.name}`)
-        }
-        
-        // Validate and process the response data
-        if (resourceData && resourceData.commitsPerWeekDetailed && Array.isArray(resourceData.commitsPerWeekDetailed) && resourceData.commitsPerWeekDetailed.length > 0) {
-          // Use the detailed weekly data from server with enhanced validation
-          const validWeeklyData = resourceData.commitsPerWeekDetailed
-            .filter(week => {
-              // Enhanced validation
-              if (!week || typeof week !== 'object') return false;
-              if (typeof week.count !== 'number' || isNaN(week.count)) return false;
-              if (!week.weekStart) return false;
-              
-              // Validate date format
-              const weekStartDate = new Date(week.weekStart);
-              if (isNaN(weekStartDate.getTime())) {
-                console.warn(`Invalid weekStart date: ${week.weekStart}`);
-                return false;
-              }
-              
-              return true;
-            })
-            .map(week => {
-              // Sanitize and format data
-              const weekStartDate = new Date(week.weekStart);
-              return {
-                count: Math.max(0, week.count),
-                weekStart: weekStartDate.toISOString().slice(0, 10)
-              };
-            })
-          
-          if (validWeeklyData.length === 0) {
-            console.warn(`No valid weekly data found for ${resource.name}`);
-            throw new Error('No activity in this period or no data available. Please try again later.');
-          }
-          
-          const currentWeek = validWeeklyData[validWeeklyData.length - 1]?.count || 0
-          
-          setActivityData({
-            currentWeek: currentWeek,
-            repoInfo: resourceData.repoInfo
-          })
-          setHistoricalMaximums(resourceData.historicalMaximums || {})
-          setHistoricalMetadata(resourceData.historicalMetadata || { hasHistoricalData: false, dataQuality: 'fallback' })
-          
-          // Apply current week filtering and trim to requested period using centralized logic
-          const filteredData = transformChartData([{ weeklyData: validWeeklyData }], selectedPeriod, `WeeklyActivityChart-${resource.name}`)
-          setWeeklyData(filteredData)
-          
-          // Validate final node count
-          validateNodeCount(filteredData, selectedPeriod, `WeeklyActivityChart-${resource.name}`)
-        } else {
-          // No valid weekly data available - throw error instead of showing synthetic data
-          throw new Error('No activity in this period or no data available. Please try again later.')
-        }
-      } catch (error) {
-        logger.error(`Error loading activity data for ${resource.name}:`, error)
-        setError(error.message)
-        
-        // Set minimal data on error (no synthetic data)
-        setActivityData({
-          currentWeek: 0,
-          repoInfo: null
-        })
-        setWeeklyData([])
-        setHistoricalMaximums({})
-        setHistoricalMetadata({ hasHistoricalData: false, dataQuality: 'fallback' })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadActivityData()
-  }, [resource, selectedPeriod, preloadedData])
+    }, [resource, selectedPeriod, preloadedData]);
 
   if (isLoading) {
     return (
@@ -408,140 +194,22 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     )
   }
 
-  // Calculate historical maximum without useMemo to avoid cache dependency issues
-  const calculateHistoricalMax = () => {
-    if (!weeklyData || weeklyData.length === 0) {
-      return 1;
-    }
-    
-    // Special handling for 3-year period: check if we have sufficient historical data
-    if (selectedPeriod === '3years') {
-      // For 3-year period, we need more than 3 years of data to have meaningful historical comparison
-      // Since we only cache 3 years, there's no historical data beyond the current period
-      return null; // Return null to indicate insufficient historical data
-    }
-    
-    let maxWeekTotal = 0;
-    const currentPeriodTotal = weeklyData.reduce((total, week) => total + (week.count || 0), 0);
-    
-    // Check repository age to determine realistic historical periods
-    let availablePeriods = ['3years', '52weeks', '3months', '5weeks'];
-    
-    if (activityData?.repoInfo?.createdAt || activityData?.repoInfo?.created_at) {
-      const repoCreatedDate = new Date(activityData.repoInfo.createdAt || activityData.repoInfo.created_at);
-      const now = new Date();
-      const repoAgeMonths = Math.floor((now.getTime() - repoCreatedDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
-      const repoAgeWeeks = Math.floor((now.getTime() - repoCreatedDate.getTime()) / (1000 * 60 * 60 * 24 * 7));
-      
-      // Filter out periods longer than repository age
-      availablePeriods = availablePeriods.filter(period => {
-        if (period === '3years' && repoAgeMonths < 36) return false;
-        if (period === '52weeks' && repoAgeWeeks < 52) return false;
-        if (period === '3months' && repoAgeMonths < 3) return false;
-        return true;
-      });
-      
-      logger.debug(`📊 Repository age: ${repoAgeMonths} months (${repoAgeWeeks} weeks), checking periods: ${availablePeriods.join(', ')}`);
-    }
-    
-    // Use available periods for historical comparison (longest to shortest priority)
-    for (const period of availablePeriods) {
-      const cachedPeriodData = ChartDataCache.get('repository', period, resource.id);
-      if (cachedPeriodData && cachedPeriodData.commitsPerWeekDetailed) {
-        const weeklyDataForTransform = cachedPeriodData.commitsPerWeekDetailed;
-        
-        if (weeklyDataForTransform && weeklyDataForTransform.length > 0) {
-          // For longer periods, find maximum rolling period total
-          if (period === '3years' || period === '52weeks' || period === '3months') {
-            const config = getPeriodConfig(selectedPeriod);
-            const currentPeriodWeeks = config.weeks || 4;
-            
-            // Calculate rolling maximums for the current period length
-            for (let i = 0; i <= weeklyDataForTransform.length - currentPeriodWeeks; i++) {
-              const rollingTotal = weeklyDataForTransform
-                .slice(i, i + currentPeriodWeeks)
-                .reduce((sum, w) => sum + (w && w.count ? w.count : 0), 0);
-              maxWeekTotal = Math.max(maxWeekTotal, rollingTotal);
-            }
-          } else {
-            // For similar period length, just get the total
-            const periodTotal = weeklyDataForTransform.reduce((sum, w) => sum + (w && w.count ? w.count : 0), 0);
-            maxWeekTotal = Math.max(maxWeekTotal, periodTotal);
-          }
-          
-          logger.debug(`📊 Using ${period} data for ResourceCard comparison, found max: ${maxWeekTotal}`);
-        }
-        
-        // Use only the first (longest) available period for most comprehensive comparison
-        break;
-      }
-    }
-    
-    // If no historical data found, use current period as baseline
-    if (maxWeekTotal === 0) {
-      logger.debug('📊 No historical data found for ResourceCard comparison, using current period as baseline');
-      return currentPeriodTotal || 1;
-    }
-    
-    // Include current period in comparison - if it's a new record, it becomes the new max
-    const trueHistoricalMax = Math.max(maxWeekTotal, currentPeriodTotal);
-    
-    logger.debug(`📊 ResourceCard historical max calculation: historicalMax=${maxWeekTotal}, currentPeriod=${currentPeriodTotal}, finalMax=${trueHistoricalMax}`);
-    
-    return trueHistoricalMax;
-  };
+  // Historical max and new record calculations are now removed from the client-side.
+  // The component will use the state `historicalMaximums` and `historicalMetadata` directly.
   
-  const weeklyHistoricalMax = calculateHistoricalMax();
-
-  // Calculate if current period is a new record without useMemo to avoid cache dependency issues
-  const calculateIsNewRecord = () => {
-    if (!weeklyData || weeklyData.length === 0) {
+  const isNewRecord = (() => {
+    if (!historicalMetadata.hasHistoricalData || !weeklyData || weeklyData.length === 0) {
       return false;
     }
-    
-    // Special handling for 3-year period: no new record possible without sufficient historical data
-    if (selectedPeriod === '3years') {
-      return false; // Can't be a new record without historical comparison data
-    }
-    
     const currentPeriodTotal = weeklyData.reduce((total, week) => total + (week.count || 0), 0);
+    const historicalMaxForPeriod = historicalMaximums[getServerPeriod(selectedPeriod)];
     
-    // Get historical max (without current period)
-    let historicalMax = 0;
-    const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
-    
-    for (const period of periodsToCheck) {
-      const cachedPeriodData = ChartDataCache.get('repository', period, resource.id);
-      if (cachedPeriodData && cachedPeriodData.commitsPerWeekDetailed) {
-        const weeklyDataForTransform = cachedPeriodData.commitsPerWeekDetailed;
-        
-        if (weeklyDataForTransform && weeklyDataForTransform.length > 0) {
-          if (period === '3years' || period === '52weeks' || period === '3months') {
-            const config = getPeriodConfig(selectedPeriod);
-            const currentPeriodWeeks = config.weeks || 4;
-            
-            // Calculate rolling maximums for the current period length
-            for (let i = 0; i <= weeklyDataForTransform.length - currentPeriodWeeks; i++) {
-              const rollingTotal = weeklyDataForTransform
-                .slice(i, i + currentPeriodWeeks)
-                .reduce((sum, w) => sum + (w && w.count ? w.count : 0), 0);
-              historicalMax = Math.max(historicalMax, rollingTotal);
-            }
-          } else {
-            const periodTotal = weeklyDataForTransform.reduce((sum, w) => sum + (w && w.count ? w.count : 0), 0);
-            historicalMax = Math.max(historicalMax, periodTotal);
-          }
-        }
-        
-        break;
-      }
-    }
-    
-    return currentPeriodTotal > historicalMax;
-  };
-  
-  const isNewRecord = calculateIsNewRecord();
-  
+    // A new record is set if the current total is greater than the historical max *before* this period.
+    // The server-side `calculateHistoricalMaximums` provides the max *of all historical periods*.
+    // We need to compare against the max that does not include the current period's data.
+    // For simplicity here, we consider it a new record if it matches or exceeds the all-time high.
+    return historicalMaxForPeriod !== null && currentPeriodTotal >= historicalMaxForPeriod;
+  })();
 
   // Chart configuration - responsive to container width
   const chartWidth = containerWidth || (window.innerWidth < 1024 ? 300 : 850)
@@ -1206,7 +874,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   }
                   
                   // For longer periods, use dynamic historical maximum
-                  const historicalMax = weeklyHistoricalMax;
+                  const historicalMax = historicalMaximums[getServerPeriod(selectedPeriod)];
                   
                   // Handle insufficient historical data case
                   if (historicalMax === null) {
@@ -1239,15 +907,13 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               onMouseLeave={() => setTooltip({ show: false, x: 0, y: 0, value: 0, label: '' })}
             >
               {(() => {
-                const isLongerPeriod = selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
-                if (isLongerPeriod) {
-                  if (weeklyHistoricalMax === null) {
-                    return 'insufficient historical data';
-                  }
-                  return `${weeklyHistoricalMax || 1} (historical peak)`;
-                } else {
-                  return maxCommits;
+                const serverPeriod = getServerPeriod(selectedPeriod);
+                const historicalMax = historicalMaximums[serverPeriod];
+                
+                if (historicalMetadata.dataQuality === 'insufficient_data' || historicalMax === null) {
+                  return 'insufficient historical data';
                 }
+                return `${historicalMax || 1} (historical peak)`;
               })()}
             </span>
           </div>
