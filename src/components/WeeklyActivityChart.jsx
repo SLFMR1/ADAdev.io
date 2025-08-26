@@ -215,7 +215,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const chartWidth = containerWidth || (window.innerWidth < 1024 ? 300 : 850)
   const chartHeight = Math.max(175, Math.min(400, chartWidth * 0.4)) // Responsive height based on width - reduced by 5px for label space
   const chartPadding = window.innerWidth < 1024 ? 15 : 25
-  const bottomPadding = window.innerWidth < 1024 ? 40 : 50
+  const bottomPadding = window.innerWidth < 1024 ? 25 : 30
   
   // Validate and sanitize weekly data with enhanced error handling
   const validWeeklyData = weeklyData

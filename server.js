@@ -4268,6 +4268,16 @@ const startServer = async () => {
           console.log('╚══════════════════════════════════════════════════════════════╝')
           console.log('✅ Step 1/4: Database data processing completed')
           
+          // **NEW STEP**: Preload historical maximums for faster chart rendering
+          console.log('')
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║               🎯 PRELOADING HISTORICAL MAXIMUMS                ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
+          await preloadHistoricalMaximums();
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║              ✅ HISTORICAL MAXIMUMS PRELOADED                ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
+          
           // Step 2: Preload cache with existing database data
           console.log('')
           console.log('╔══════════════════════════════════════════════════════════════╗')
@@ -4389,3 +4399,29 @@ app.post('/api/github/historical-maximums', async (req, res) => {
     });
   }
 });
+
+// Preload historical maximums for all resources at startup for instant chart loads
+const preloadHistoricalMaximums = async () => {
+  logger.debug('🚀 Preloading historical maximums for all resources...');
+  const resources = await loadResources();
+  const resourcesWithGitHub = resources.filter(r => r.social?.github);
+  let successCount = 0;
+  let errorCount = 0;
+
+  // Process in batches to avoid overwhelming the database
+  const batchSize = 10;
+  for (let i = 0; i < resourcesWithGitHub.length; i += batchSize) {
+    const batch = resourcesWithGitHub.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (resource) => {
+      try {
+        await calculateHistoricalMaximums(resource);
+        successCount++;
+      } catch (error) {
+        logger.warn(`⚠️ Failed to preload historical maximums for ${resource.name}: ${error.message}`);
+        errorCount++;
+      }
+    }));
+  }
+  
+  logger.debug(`✅ Preloading of historical maximums complete. Success: ${successCount}, Errors: ${errorCount}`);
+};

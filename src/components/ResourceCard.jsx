@@ -407,7 +407,10 @@ const ResourceCard = ({ resource, onViewResource }) => {
     // Only expand if not already expanded
     if (!isExpanded) {
       setIsExpanded(true)
-      // No auto-scroll for regular expansion - only for activity tab
+      // Scroll to center the expanded card, especially important for activity tab
+      if (activeTab === 'activity') {
+        setTimeout(() => scrollToCard(), 400);
+      }
     }
     // Do nothing if already expanded (let outside click handler handle collapse)
   }
@@ -569,7 +572,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       }`}
       style={{
         height: isExpanded ? 'auto' : '6rem',
-        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '28rem' : '32rem') : (screenshotMode ? '42rem' : '46rem')) : 
+        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '31rem' : '35rem') : (screenshotMode ? '47rem' : '51rem')) : 
                    isExpanded && activeTab === 'video' ? '35rem' : 
                    isExpanded ? (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) : undefined,
         transform: isExpanded ? (screenshotMode ? 'scale(1)' : (window.innerWidth < 1024 ? 'scale(1)' : 'scale(1.03)')) : 'scale(1)',
@@ -602,7 +605,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       <div className={`absolute top-0 left-0 w-full p-4 transition-all duration-300 ease-out ${
         isExpanded ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
       }`} style={{ 
-        minHeight: activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '27rem' : '31rem') : (screenshotMode ? '41rem' : '45rem')) : 
+        minHeight: activeTab === 'activity' ? (window.innerWidth < 1024 ? (screenshotMode ? '30rem' : '34rem') : (screenshotMode ? '46rem' : '50rem')) : 
                    activeTab === 'video' ? '34rem' : 
                    (window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')),
         overflow: 'visible'
@@ -800,7 +803,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
               </div>
             )}
             {activeTab === 'activity' && resource.social?.github && (
-              <div ref={chartContainerRef} style={{ minHeight: '300px' }}>
+              <div ref={chartContainerRef} style={{ minHeight: '400px' }}>
                 {isLoadingActivityChart ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
