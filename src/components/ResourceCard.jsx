@@ -325,6 +325,8 @@ const ResourceCard = ({ resource, onViewResource }) => {
           // Ensure scroll freedom is restored when card is closed
           document.body.style.overflow = ''
           logger.debug('🔓 Resource card closed - scroll freedom restored')
+          // Scroll back to the collapsed card position to maintain user orientation
+          setTimeout(() => scrollToCard(), 200);
         }, 100)
       }
     }
