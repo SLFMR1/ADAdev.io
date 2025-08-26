@@ -709,7 +709,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                     src={getYouTubeEmbedUrl(resource.video)}
                     title={`${resource.name} video`}
                     className="absolute top-0 left-0 w-full h-full rounded border border-gray-700"
-                    frameBorder="0"
+                    style={{ border: 0 }}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
                   />
