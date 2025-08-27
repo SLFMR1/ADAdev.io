@@ -1267,6 +1267,7 @@ const calculateHistoricalMaximums = async (resource) => {
 
     // Calculate rolling maximums for each period
     const periods = {
+      'current': 1,   // 1 week period for 7-day view (current week vs historical weeks)
       '5weeks': 5,    // 4 weeks period uses 5 weeks of data (minus current week)
       '3months': 13,  // 3 months = ~13 weeks
       '52weeks': 52,  // 12 months = ~52 weeks  
@@ -1275,6 +1276,7 @@ const calculateHistoricalMaximums = async (resource) => {
     
     // Minimum data requirements for meaningful comparison (Period + 1 logic)
     const minimumWeeksForComparison = {
+      'current': 1,   // Need 1 week minimum - current week vs any historical week
       '5weeks': 5,    // Need 5 weeks minimum for 4-week comparison (can compare 2 sequences)
       '3months': 17,  // Need ~4 months (17 weeks) for 3-month comparison  
       '52weeks': 65,  // Need ~13 months (65 weeks) for 12-month comparison
@@ -1295,36 +1297,42 @@ const calculateHistoricalMaximums = async (resource) => {
       
       if (weeklyCommits.length >= minimumWeeks) {
         // Sufficient data: calculate proper rolling maximum
-        let maxTotal = 0
-        let windowTotals = [] // Debug: track all window totals
-        const possibleWindows = weeklyCommits.length - weekCount + 1
-        
+        let maxTotal = 0;
+        let maxStartDate = null;
+        let maxEndDate = null;
+        let windowTotals = [];
+
         for (let i = 0; i <= weeklyCommits.length - weekCount; i++) {
-          const windowTotal = weeklyCommits
-            .slice(i, i + weekCount)
-            .reduce((sum, week) => sum + week.count, 0)
+          const window = weeklyCommits.slice(i, i + weekCount);
+          const windowTotal = window.reduce((sum, week) => sum + week.count, 0);
           
-          windowTotals.push(windowTotal)
+          windowTotals.push(windowTotal);
           if (windowTotal > maxTotal) {
-            maxTotal = windowTotal
+            maxTotal = windowTotal;
+            maxStartDate = window[0].weekStart;
+            maxEndDate = new Date(new Date(window[window.length - 1].weekStart).getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
           }
         }
         
-        // Debug logging
-        logger.debug(`📊 ${resource.name} ${periodKey} (${weekCount} weeks): ${possibleWindows} windows, max=${maxTotal}, all=[${windowTotals.slice(0, 5).join(',')}${windowTotals.length > 5 ? '...' : ''}]`)
+        logger.debug(`📊 ${resource.name} ${periodKey} (${weekCount} weeks): max=${maxTotal} from ${maxStartDate}`);
         
-        result.maximums[periodKey] = maxTotal // Use actual calculated maximum
+        result.maximums[periodKey] = {
+          value: maxTotal,
+          startDate: maxStartDate,
+          endDate: maxEndDate,
+        };
       } else if (weeklyCommits.length > 0) {
-        // Insufficient data: return null for intelligent frontend handling
-        logger.debug(`Insufficient data for ${periodKey}: need ${minimumWeeks} weeks, have ${weeklyCommits.length} weeks`)
-        result.maximums[periodKey] = null // Let frontend handle insufficient data case
-        result.metadata.dataQuality = 'insufficient_data'
-        result.metadata.minimumWeeksNeeded = minimumWeeks
-        result.metadata.availableWeeks = weeklyCommits.length
+        // Insufficient data for this specific period
+        logger.debug(`Insufficient data for ${periodKey}: need ${minimumWeeks} weeks, have ${weeklyCommits.length} weeks`);
+        result.maximums[periodKey] = null; // Let frontend handle this
+        // **FIX:** Do not set a global 'insufficient_data' flag. Assess per-period.
+        // result.metadata.dataQuality = 'insufficient_data'; 
+        result.metadata.minimumWeeksNeeded = result.metadata.minimumWeeksNeeded 
+          ? Math.max(result.metadata.minimumWeeksNeeded, minimumWeeks) 
+          : minimumWeeks;
+        result.metadata.availableWeeks = weeklyCommits.length;
       } else {
-        // Insufficient historical data: use current period as maximum
-        result.maximums[periodKey] = null // Let frontend use current period as max
-        result.metadata.dataQuality = 'insufficient_data'
+        result.maximums[periodKey] = null;
       }
     })
 
@@ -1840,6 +1848,9 @@ app.get('/api/github/org-activity/:orgName', async (req, res) => {
 const VIEW_MODE_CACHE = new Map();
 const VIEW_MODE_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days (immutable data)
 
+// **NEW**: Cache for pre-calculated single organization data
+const ORGANIZATION_DATA_CACHE = new Map();
+
 // Cache for historical maximums - 90 day TTL since they change even less frequently
 const HISTORICAL_MAXIMUMS_CACHE = new Map();
 const HISTORICAL_MAXIMUMS_TTL = 90 * 24 * 60 * 60 * 1000; // 90 days
@@ -1911,17 +1922,30 @@ app.get('/api/development-activity', async (req, res) => {
         let activityData;
         let totalCommits;
         
-        // Clean direct call to core data functions (bulk cache optimization moved to getHistoricalActivity)
-        if (period === 'current') {
-          // For 7-day period, use getRecentActivity with daily processing
-          const recentData = await getRecentActivity(targetResource, true, 'current');
-          activityData = recentData.weeklyData;
-          totalCommits = recentData.commitsPerWeek;
-        } else {
-          // For historical periods, use getHistoricalActivity (with internal bulk cache optimization)
-          activityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
-          totalCommits = Array.isArray(activityData) ? 
-            activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
+        // **PERFORMANCE OPTIMIZATION**: Check for pre-calculated organization data first
+        if (targetResource.type === 'organization') {
+          const orgCacheKey = `${targetResource.id || targetResource.name}_${period}`;
+          const cachedOrgData = ORGANIZATION_DATA_CACHE.get(orgCacheKey);
+          if (cachedOrgData) {
+            logger.debug(`⚡ Using pre-calculated organization cache for ${targetResource.name} (${period})`);
+            activityData = cachedOrgData.weeklyData;
+            totalCommits = cachedOrgData.totalCommits;
+          }
+        }
+
+        // If not found in org cache, proceed with normal fetching logic
+        if (typeof activityData === 'undefined') {
+          if (period === 'current') {
+            // For 7-day period, use getRecentActivity with daily processing
+            const recentData = await getRecentActivity(targetResource, true, 'current');
+            activityData = recentData.weeklyData;
+            totalCommits = recentData.commitsPerWeek;
+          } else {
+            // For historical periods, use getHistoricalActivity (with internal bulk cache optimization)
+            activityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
+            totalCommits = Array.isArray(activityData) ? 
+              activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
+          }
         }
         
         // Get repo info for organizations
@@ -4363,6 +4387,89 @@ const startServer = async () => {
           console.log('📊 Background processes will continue updating data...')
           console.log('')
           
+          // **NEW**: Preload single organization data
+          console.log('')
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║               🎯 PRELOADING ORGANIZATION DATA                  ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
+          await preloadOrganizationData();
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║              ✅ ORGANIZATION DATA PRELOADED                  ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
+          
+          // Step 5: Start background data fetching and backfilling (non-blocking)
+          console.log('')
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    🎯 MILESTONE 5 STARTING                   ║')
+          console.log('║              BACKGROUND DATA FETCHING                         ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
+          console.log('🔄 Step 5/5: Starting background data fetching and backfilling...')
+          // Run background fetching after a short delay to ensure UI is fully ready
+          setTimeout(() => {
+            backgroundDataFetching().then(() => {
+              console.log('')
+              console.log('╔══════════════════════════════════════════════════════════════╗')
+              console.log('║                    ✅ MILESTONE 5 COMPLETED                  ║')
+              console.log('║              BACKGROUND DATA FETCHING                         ║')
+              console.log('╚══════════════════════════════════════════════════════════════╝')
+              console.log('🎉 FINAL COMPLETION: All background processes finished!')
+              console.log('='.repeat(50))
+              console.log('✅ All milestones completed successfully!')
+              console.log('🚀 Server is fully operational with complete data!')
+              console.log('')
+            }).catch(error => {
+              console.error('❌ Background data fetching failed:', error.message)
+            })
+          }, 1000) // 1 second delay to ensure UI is fully loaded
+          
+          console.log('✅ Step 5/5: Background data fetching started (non-blocking)')
+          
+          // Step 6: Set up recurring cache refresh schedules
+          console.log('')
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    🎯 MILESTONE 6 STARTING                   ║')
+          console.log('║                CACHE REFRESH SCHEDULES                        ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
+          console.log('🔄 Step 6/6: Setting up recurring cache refresh schedules...')
+          
+          // Set up recurring cache refresh schedules
+          console.log('📅 Setting up smart cache refresh schedule:')
+          console.log('   • Active projects: Every 30 minutes (current data only)')
+          console.log('   • All projects: Every 24 hours (immutable data)')
+          
+          // High priority: All projects every 30 minutes (current data updates)
+          setInterval(() => {
+            console.log('⚡ Running high-priority updates cache refresh...')
+            populateUpdatesCache('all')
+          }, 30 * 60 * 1000) // 30 minutes
+          
+          // Standard priority: All projects every 24 hours (immutable data)
+          setInterval(() => {
+            console.log('🔄 Running full updates cache refresh...')
+            populateUpdatesCache('all')
+          }, 24 * 60 * 60 * 1000) // 24 hours
+          
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    ✅ MILESTONE 6 COMPLETED                  ║')
+          console.log('║                CACHE REFRESH SCHEDULES                        ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
+          console.log('✅ Step 6/6: Cache refresh schedules configured')
+          console.log('🎉 All startup processes completed successfully!')
+          console.log('')
+          console.log('╔══════════════════════════════════════════════════════════════╗')
+          console.log('║                    🚀 SERVER STARTUP SUMMARY                  ║')
+          console.log('╚══════════════════════════════════════════════════════════════╝')
+          console.log('✅ Milestone 1: Database data processing - COMPLETED')
+          console.log('✅ Milestone 2: Cache preloading - COMPLETED')
+          console.log('🔄 Milestone 3: Background data fetching - RUNNING')
+          console.log('✅ Milestone 4: Cache refresh schedules - COMPLETED')
+          console.log('🔄 Milestone 5: Background data fetching - RUNNING')
+          console.log('✅ Milestone 6: Cache refresh schedules - COMPLETED')
+          console.log('')
+          console.log('🎯 UI is ready for immediate use!')
+          console.log('📊 Background processes will continue updating data...')
+          console.log('')
+          
         } catch (error) {
           console.error('❌ Error in sequential startup process:', error.message)
         }
@@ -4424,4 +4531,49 @@ const preloadHistoricalMaximums = async () => {
   }
   
   logger.debug(`✅ Preloading of historical maximums complete. Success: ${successCount}, Errors: ${errorCount}`);
+};
+
+// **NEW**: Preload all data for single organizations at startup
+const preloadOrganizationData = async () => {
+  logger.debug('🚀 Preloading data for all organization resources...');
+  const resources = await loadResources();
+  const organizationResources = resources.filter(r => r.type === 'organization' && r.social?.github);
+  let successCount = 0;
+  let errorCount = 0;
+
+  const now = new Date();
+  const periodConfigs = {
+    current: { since: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString() },
+    '4weeks': { since: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000).toISOString() },
+    '3months': { since: new Date(now.getTime() - 13 * 7 * 24 * 60 * 60 * 1000).toISOString() },
+    '52weeks': { since: new Date(now.getTime() - 52 * 7 * 24 * 60 * 60 * 1000).toISOString() },
+    '3years': { since: new Date(now.getTime() - 156 * 7 * 24 * 60 * 60 * 1000).toISOString() }
+  };
+
+  for (const org of organizationResources) {
+    try {
+      logger.debug(`📦 Preloading organization: ${org.name}`);
+      for (const [period, config] of Object.entries(periodConfigs)) {
+        let activityData;
+        if (period === 'current') {
+          const recentData = await getRecentActivity(org, true, 'current');
+          activityData = recentData.weeklyData;
+        } else {
+          activityData = await getHistoricalActivity(org, config.since, new Date().toISOString());
+        }
+        
+        const totalCommits = Array.isArray(activityData) ? 
+          activityData.reduce((sum, week) => sum + (week?.count || 0), 0) : 0;
+
+        const cacheKey = `${org.id || org.name}_${period}`;
+        ORGANIZATION_DATA_CACHE.set(cacheKey, { weeklyData: activityData, totalCommits });
+      }
+      successCount++;
+    } catch (error) {
+      logger.warn(`⚠️ Failed to preload data for organization ${org.name}: ${error.message}`);
+      errorCount++;
+    }
+  }
+  
+  logger.debug(`✅ Preloading of organization data complete. Success: ${successCount}, Errors: ${errorCount}`);
 };

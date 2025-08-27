@@ -250,7 +250,6 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   const xAxisLabels = generateChartXAxisLabels(validWeeklyData, selectedPeriod === '4weeks' ? '5weeks' : selectedPeriod);
   
   const maxCommits = Math.max(...validWeeklyData.map(w => w.count), 1)
-  const minCommits = Math.min(...validWeeklyData.map(w => w.count), 0)
 
   // Get expected period configuration for proper temporal positioning
   const config = getPeriodConfig(selectedPeriod)
@@ -862,27 +861,29 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               className="h-2 rounded-full transition-all duration-500 ease-out"
               style={{ 
                 width: (() => {
-                  const isLongerPeriod = selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years';
-                  const currentValue = isLongerPeriod ? 
-                    validWeeklyData.reduce((total, week) => total + (week.count || 0), 0) : 
-                    validWeeklyData[validWeeklyData.length - 1]?.count || 0;
+                  const isLongerPeriod = selectedPeriod !== 'current';
+                  let currentValue;
+                  let historicalMaxToUse;
                   
-                  if (!isLongerPeriod) {
-                    // For single week, use max-min range (unchanged)
-                    const maximum = maxCommits - minCommits || 1;
-                    return `${Math.min(100, Math.max(0, ((currentValue - minCommits) / maximum) * 100))}%`;
+                  if (isLongerPeriod) {
+                    // For longer periods, use total sum
+                    currentValue = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
+                    // Use period-total historical maximum
+                    const historicalMaxData = historicalMaximums[getServerPeriod(selectedPeriod)];
+                    historicalMaxToUse = historicalMaxData?.value;
+                  } else {
+                    // For 'current' period (7-day view), use total sum across all 7 days
+                    currentValue = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
+                    // Use server-provided historical maximum for 7-day period totals
+                    const historicalMaxData = historicalMaximums[getServerPeriod(selectedPeriod)];
+                    historicalMaxToUse = historicalMaxData?.value;
                   }
                   
-                  // For longer periods, use dynamic historical maximum
-                  const historicalMax = historicalMaximums[getServerPeriod(selectedPeriod)];
-                  
-                  // Handle insufficient historical data case
-                  if (historicalMax === null) {
-                    return '100%'; // Show full bar when historical comparison isn't available
+                  if (!historicalMaxToUse || historicalMaxToUse <= 0) {
+                    return '100%';
                   }
                   
-                  // Calculate percentage with bounds checking
-                  const percentage = (currentValue / (historicalMax || 1)) * 100;
+                  const percentage = (currentValue / historicalMaxToUse) * 100;
                   return `${Math.min(100, Math.max(0, Math.round(percentage)))}%`;
                 })(),
                 background: `linear-gradient(to right, ${accentColor.hex}, ${accentColor.hex}dd)`,
@@ -907,13 +908,61 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               onMouseLeave={() => setTooltip({ show: false, x: 0, y: 0, value: 0, label: '' })}
             >
               {(() => {
-                const serverPeriod = getServerPeriod(selectedPeriod);
-                const historicalMax = historicalMaximums[serverPeriod];
+                const isLongerPeriod = selectedPeriod !== 'current';
                 
-                if (historicalMetadata.dataQuality === 'insufficient_data' || historicalMax === null) {
-                  return 'insufficient historical data';
+                if (isLongerPeriod) {
+                  // For longer periods, show period-total historical maximum with dates
+                  const serverPeriod = getServerPeriod(selectedPeriod);
+                  const historicalMaxData = historicalMaximums[serverPeriod];
+                  
+                  if (!historicalMaxData || historicalMaxData.value === null) {
+                    return 'insufficient historical data';
+                  }
+
+                  const formatDate = (dateString) => {
+                    if (!dateString) return '';
+                    const date = new Date(dateString);
+                    // Add timezone offset to prevent off-by-one day errors
+                    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                  };
+
+                  const startDate = formatDate(historicalMaxData.startDate);
+                  const endDate = formatDate(historicalMaxData.endDate);
+                  const tooltipText = `Historical Peak from ${startDate} - ${endDate}`;
+                  
+                  return (
+                    <span title={tooltipText}>
+                      {`historical peak ${historicalMaxData.value || 1} (${startDate}-${endDate})`}
+                    </span>
+                  );
+                } else {
+                  // For 'current' period (7-day view), show server-provided historical maximum with dates
+                  const serverPeriod = getServerPeriod(selectedPeriod);
+                  const historicalMaxData = historicalMaximums[serverPeriod];
+                  
+                  if (!historicalMaxData || historicalMaxData.value === null) {
+                    return 'insufficient historical data';
+                  }
+
+                  const formatDate = (dateString) => {
+                    if (!dateString) return '';
+                    const date = new Date(dateString);
+                    // Add timezone offset to prevent off-by-one day errors
+                    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+                    return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                  };
+
+                  const startDate = formatDate(historicalMaxData.startDate);
+                  const endDate = formatDate(historicalMaxData.endDate);
+                  const tooltipText = `Historical Peak from ${startDate} - ${endDate}`;
+                  
+                  return (
+                    <span title={tooltipText}>
+                      {`historical peak ${historicalMaxData.value || 1} (${startDate}-${endDate})`}
+                    </span>
+                  );
                 }
-                return `${historicalMax || 1} (historical peak)`;
               })()}
             </span>
           </div>
