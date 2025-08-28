@@ -63,6 +63,8 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 const RATE_LIMIT = GITHUB_TOKEN ? 5000 : 60
 const REQUEST_INTERVAL = 500 // ms between requests (increased from 200ms)
 
+
+
 // Rate limit tracking
 let isRateLimited = false
 let rateLimitResetTime = null
@@ -158,6 +160,13 @@ const rateLimitedFetch = async (url, options = {}) => {
   requestCount++
   
   try {
+      // Simple timeout - 2 minutes for large datasets, 30 seconds for everything else
+      const timeout = (url.includes('/commits') || url.includes('/releases') || url.includes('/activity')) ? 120000 : 30000
+      
+      // Add timeout and retry logic for network resilience
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), timeout)
+    
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/vnd.github.v3+json',
@@ -165,8 +174,11 @@ const rateLimitedFetch = async (url, options = {}) => {
         ...(GITHUB_TOKEN && { 'Authorization': `token ${GITHUB_TOKEN}` }),
         ...options.headers
       },
+      signal: controller.signal,
       ...options
     })
+    
+    clearTimeout(timeoutId)
     
     if (response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0') {
       const resetTime = response.headers.get('x-ratelimit-reset')
@@ -213,6 +225,26 @@ const rateLimitedFetch = async (url, options = {}) => {
     return response
   } catch (error) {
     consecutiveFailures++
+    
+    // Enhanced error handling for network issues
+    if (error.name === 'AbortError') {
+      const networkError = new Error(`Request timeout for ${url} (operation may be too large)`)
+      trackApiError(networkError, null, 'network_timeout', 408)
+      
+      // For timeout errors, log additional context
+      if (url.includes('/commits') || url.includes('/releases') || url.includes('/activity')) {
+        logger.warn(`⚠️ Large dataset timeout for ${url}. Consider implementing pagination or reducing data scope.`)
+      }
+      
+      throw networkError
+    }
+    
+    if (error.message.includes('fetch failed') || error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+      const networkError = new Error(`Network connectivity issue: ${error.message}`)
+      trackApiError(networkError, null, 'network_connectivity', 0)
+      throw networkError
+    }
+    
     throw error
   }
 }
@@ -640,7 +672,8 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
     // Use repoPath as the resource identifier to match storage patterns
     const resourceIdentifier = repoPath
     
-    const { data, error } = await supabase
+    // Add timeout and retry logic for large datasets
+    const queryPromise = supabase
       .from('github_activity')
       .select('*')
       .eq('resource_id', resourceIdentifier)
@@ -649,13 +682,20 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
       .lte('week_start', endDate)
       .order('week_start')
     
+    const { data, error } = await queryPromise
+    
     if (error) throw error
     return data || []
   } catch (error) {
     console.error(`Error fetching weekly activity for ${resource.name}:`, error)
+    
+
+    
     return []
   }
 }
+
+
 
 // Data processing functions
 const processCommitsToWeekly = (commits) => {
@@ -2958,8 +2998,8 @@ async function maintainReleasesCache(resourceId, releases) {
 }
 
 /**
- * Populate updates cache for resources based on priority
- * @param {string} priority - 'active', 'all', or undefined (defaults to 'all')
+ * Populate updates cache for ALL resources (no priority filtering)
+ * @param {string} priority - Kept for backward compatibility, but always processes all resources
  */
 async function populateUpdatesCache(priority = 'all') {
   if (!supabase) {
@@ -2969,26 +3009,16 @@ async function populateUpdatesCache(priority = 'all') {
   
   // Set background refresh flag to prioritize cache for user requests
   backgroundRefreshInProgress = true
-  logger.debug(`🔄 Populating updates cache (priority: ${priority})... [Background mode enabled]`)
+  logger.debug(`🔄 Populating updates cache for ALL resources... [Background mode enabled]`)
   
   try {
     const resources = await loadResources()
     const resourcesWithGitHub = resources.filter(r => r.social?.github)
     
-    // Define active projects (can be based on activity, popularity, etc.)
-    const activeResourceNames = [
-      'Aiken', 'MeshJS', 'Lucid', 'PyCardano', 'Koios', 'Blockfrost API', 
-      'NMKR API', 'Lace Wallet', 'Cardano Node', 'Hydra', 'Marlowe'
-    ]
+    // Always process ALL resources (no priority filtering)
+    const resourcesToProcess = resourcesWithGitHub
     
-    let resourcesToProcess = resourcesWithGitHub
-    if (priority === 'active') {
-      resourcesToProcess = resourcesWithGitHub.filter(r => 
-        activeResourceNames.includes(r.name)
-      )
-    }
-    
-    logger.debug(`📦 Processing ${resourcesToProcess.length} resources (${priority} priority)`)
+    logger.debug(`📦 Processing ${resourcesToProcess.length} resources (ALL resources)`)
     
     let successCount = 0
     let errorCount = 0
@@ -3068,7 +3098,7 @@ async function populateUpdatesCache(priority = 'all') {
       }
     }
     
-    logger.debug(`✅ Updates cache population completed (${priority}):`)
+    logger.debug(`✅ Updates cache population completed (ALL resources):`)
     logger.debug(`   📊 Processed: ${successCount + errorCount} resources`)
     logger.debug(`   ✅ Successful: ${successCount}`)
     logger.debug(`   ❌ Errors: ${errorCount}`)
@@ -3433,39 +3463,7 @@ const ensureHistoricalDataCompleteness = async () => {
   }
 }
 
-// Preload cache for both view modes on startup for instant first load
-// Process all existing database data first (fast, no API calls)
-const processDatabaseData = async () => {
-  console.log('')
-  console.log('🎯 MILESTONE 1: DATABASE DATA PROCESSING')
-  console.log('='.repeat(50))
-  console.log('🔄 Processing existing database data for instant UI...')
-  
-  try {
-    const resources = await loadResources()
-    console.log(`📊 Loaded ${resources.length} resources from database`)
-    
-    // Process repository view data from database
-    console.log('📦 Processing repository view data from database...')
-    const repoResponse = await fetch(`http://localhost:${PORT}/api/development-activity?viewMode=repository&period=current`)
-    if (repoResponse.ok) {
-      console.log('✅ Repository view data processed from database')
-    }
-    
-    // Process organization view data from database
-    console.log('📦 Processing organization view data from database...')
-    const orgResponse = await fetch(`http://localhost:${PORT}/api/development-activity?viewMode=organization&period=current`)
-    if (orgResponse.ok) {
-      console.log('✅ Organization view data processed from database')
-    }
-    
-    console.log('🎉 MILESTONE 1 COMPLETED: Database data processing finished!')
-    console.log('🚀 UI ready for instant load!')
-    console.log('')
-  } catch (error) {
-    console.warn('⚠️ Database data processing failed (not critical):', error.message)
-  }
-}
+// ✅ REMOVED: processDatabaseData - No longer needed with non-blocking startup
 
 // Background data fetching and backfilling
 const backgroundDataFetching = async () => {
@@ -3494,33 +3492,7 @@ const backgroundDataFetching = async () => {
   }
 }
 
-const preloadStartupCache = async () => {
-  console.log('🎯 MILESTONE 2: CACHE PRELOADING')
-  console.log('='.repeat(50))
-  console.log('🔄 Preloading server cache for instant first load...')
-  
-  try {
-    // Preload repository view first (7-day priority)
-    console.log('📦 Preloading repository view (7-day data prioritized)...')
-    const repoResponse = await fetch(`http://localhost:${PORT}/api/development-activity?viewMode=repository&period=current`)
-    if (repoResponse.ok) {
-      console.log('✅ Repository view cache preloaded')
-      
-      // Immediately start organization view preload (no delay)
-      console.log('📦 Preloading organization view (7-day data prioritized)...')
-      const orgResponse = await fetch(`http://localhost:${PORT}/api/development-activity?viewMode=organization&period=current`)
-      if (orgResponse.ok) {
-        console.log('✅ Organization view cache preloaded')
-      }
-    }
-    
-    console.log('🎉 MILESTONE 2 COMPLETED: Cache preloading finished!')
-    console.log('🚀 Both views ready for instant load!')
-    console.log('')
-  } catch (error) {
-    console.warn('⚠️ Startup cache preloading failed (not critical):', error.message)
-  }
-}
+// ✅ REMOVED: preloadStartupCache - No longer needed with non-blocking startup
 
 // =============================================================================
 // DATA QUALITY MANAGEMENT API ENDPOINTS
@@ -4275,213 +4247,170 @@ const startServer = async () => {
       logger.info(`🔐 GitHub Token: ${GITHUB_TOKEN ? '✅ Available' : '❌ Not configured'}`)
       logger.info(`💾 Supabase: ${supabase ? '✅ Connected' : '❌ Not configured'}`)
       
-      // Sequential startup process to avoid race conditions
-      const runSequentialStartup = async () => {
-        try {
-          // Step 1: Process all existing database data first (fast, no API calls)
-          console.log('')
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    🎯 MILESTONE 1 STARTING                   ║')
-          console.log('║                 DATABASE DATA PROCESSING                      ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('🔄 Step 1/4: Processing existing database data for instant UI...')
-          await processDatabaseData()
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    ✅ MILESTONE 1 COMPLETED                  ║')
-          console.log('║                 DATABASE DATA PROCESSING                      ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('✅ Step 1/4: Database data processing completed')
-          
-          // **NEW STEP**: Preload historical maximums for faster chart rendering
-          console.log('')
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║               🎯 PRELOADING HISTORICAL MAXIMUMS                ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          await preloadHistoricalMaximums();
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║              ✅ HISTORICAL MAXIMUMS PRELOADED                ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          
-          // Step 2: Preload cache with existing database data
-          console.log('')
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    🎯 MILESTONE 2 STARTING                   ║')
-          console.log('║                   CACHE PRELOADING                            ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('🔄 Step 2/4: Preloading cache with existing database data...')
-          await preloadStartupCache()
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    ✅ MILESTONE 2 COMPLETED                  ║')
-          console.log('║                   CACHE PRELOADING                            ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('✅ Step 2/4: Cache preloading completed')
-          
-          // Step 3: Start background data fetching and backfilling (non-blocking)
-          console.log('')
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    🎯 MILESTONE 3 STARTING                   ║')
-          console.log('║              BACKGROUND DATA FETCHING                         ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('🔄 Step 3/4: Starting background data fetching and backfilling...')
-          // Run background fetching after a short delay to ensure UI is fully ready
-          setTimeout(() => {
-            backgroundDataFetching().then(() => {
-              console.log('')
-              console.log('╔══════════════════════════════════════════════════════════════╗')
-              console.log('║                    ✅ MILESTONE 3 COMPLETED                  ║')
-              console.log('║              BACKGROUND DATA FETCHING                         ║')
-              console.log('╚══════════════════════════════════════════════════════════════╝')
-              console.log('🎉 FINAL COMPLETION: All background processes finished!')
-              console.log('='.repeat(50))
-              console.log('✅ All milestones completed successfully!')
-              console.log('🚀 Server is fully operational with complete data!')
-              console.log('')
-            }).catch(error => {
-              console.error('❌ Background data fetching failed:', error.message)
-            })
-          }, 1000) // 1 second delay to ensure UI is fully loaded
-          
-          console.log('✅ Step 3/4: Background data fetching started (non-blocking)')
-          
-          // Step 4: Set up recurring cache refresh schedules
-          console.log('')
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    🎯 MILESTONE 4 STARTING                   ║')
-          console.log('║                CACHE REFRESH SCHEDULES                        ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('🔄 Step 4/4: Setting up recurring cache refresh schedules...')
-          
-          // Set up recurring cache refresh schedules
-          console.log('📅 Setting up smart cache refresh schedule:')
-          console.log('   • Active projects: Every 30 minutes (current data only)')
-          console.log('   • All projects: Every 24 hours (immutable data)')
-          
-          // High priority: All projects every 30 minutes (current data updates)
-          setInterval(() => {
-            console.log('⚡ Running high-priority updates cache refresh...')
-            populateUpdatesCache('all')
-          }, 30 * 60 * 1000) // 30 minutes
-          
-          // Standard priority: All projects every 24 hours (immutable data)
-          setInterval(() => {
-            console.log('🔄 Running full updates cache refresh...')
-            populateUpdatesCache('all')
-          }, 24 * 60 * 60 * 1000) // 24 hours
-          
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    ✅ MILESTONE 4 COMPLETED                  ║')
-          console.log('║                CACHE REFRESH SCHEDULES                        ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('✅ Step 4/4: Cache refresh schedules configured')
-          console.log('🎉 All startup processes completed successfully!')
-          console.log('')
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    🚀 SERVER STARTUP SUMMARY                  ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('✅ Milestone 1: Database data processing - COMPLETED')
-          console.log('✅ Milestone 2: Cache preloading - COMPLETED')
-          console.log('🔄 Milestone 3: Background data fetching - RUNNING')
-          console.log('✅ Milestone 4: Cache refresh schedules - COMPLETED')
-          console.log('')
-          console.log('🎯 UI is ready for immediate use!')
-          console.log('📊 Background processes will continue updating data...')
-          console.log('')
-          
-          // **NEW**: Preload single organization data
-          console.log('')
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║               🎯 PRELOADING ORGANIZATION DATA                  ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          await preloadOrganizationData();
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║              ✅ ORGANIZATION DATA PRELOADED                  ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          
-          // Step 5: Start background data fetching and backfilling (non-blocking)
-          console.log('')
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    🎯 MILESTONE 5 STARTING                   ║')
-          console.log('║              BACKGROUND DATA FETCHING                         ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('🔄 Step 5/5: Starting background data fetching and backfilling...')
-          // Run background fetching after a short delay to ensure UI is fully ready
-          setTimeout(() => {
-            backgroundDataFetching().then(() => {
-              console.log('')
-              console.log('╔══════════════════════════════════════════════════════════════╗')
-              console.log('║                    ✅ MILESTONE 5 COMPLETED                  ║')
-              console.log('║              BACKGROUND DATA FETCHING                         ║')
-              console.log('╚══════════════════════════════════════════════════════════════╝')
-              console.log('🎉 FINAL COMPLETION: All background processes finished!')
-              console.log('='.repeat(50))
-              console.log('✅ All milestones completed successfully!')
-              console.log('🚀 Server is fully operational with complete data!')
-              console.log('')
-            }).catch(error => {
-              console.error('❌ Background data fetching failed:', error.message)
-            })
-          }, 1000) // 1 second delay to ensure UI is fully loaded
-          
-          console.log('✅ Step 5/5: Background data fetching started (non-blocking)')
-          
-          // Step 6: Set up recurring cache refresh schedules
-          console.log('')
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    🎯 MILESTONE 6 STARTING                   ║')
-          console.log('║                CACHE REFRESH SCHEDULES                        ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('🔄 Step 6/6: Setting up recurring cache refresh schedules...')
-          
-          // Set up recurring cache refresh schedules
-          console.log('📅 Setting up smart cache refresh schedule:')
-          console.log('   • Active projects: Every 30 minutes (current data only)')
-          console.log('   • All projects: Every 24 hours (immutable data)')
-          
-          // High priority: All projects every 30 minutes (current data updates)
-          setInterval(() => {
-            console.log('⚡ Running high-priority updates cache refresh...')
-            populateUpdatesCache('all')
-          }, 30 * 60 * 1000) // 30 minutes
-          
-          // Standard priority: All projects every 24 hours (immutable data)
-          setInterval(() => {
-            console.log('🔄 Running full updates cache refresh...')
-            populateUpdatesCache('all')
-          }, 24 * 60 * 60 * 1000) // 24 hours
-          
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    ✅ MILESTONE 6 COMPLETED                  ║')
-          console.log('║                CACHE REFRESH SCHEDULES                        ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('✅ Step 6/6: Cache refresh schedules configured')
-          console.log('🎉 All startup processes completed successfully!')
-          console.log('')
-          console.log('╔══════════════════════════════════════════════════════════════╗')
-          console.log('║                    🚀 SERVER STARTUP SUMMARY                  ║')
-          console.log('╚══════════════════════════════════════════════════════════════╝')
-          console.log('✅ Milestone 1: Database data processing - COMPLETED')
-          console.log('✅ Milestone 2: Cache preloading - COMPLETED')
-          console.log('🔄 Milestone 3: Background data fetching - RUNNING')
-          console.log('✅ Milestone 4: Cache refresh schedules - COMPLETED')
-          console.log('🔄 Milestone 5: Background data fetching - RUNNING')
-          console.log('✅ Milestone 6: Cache refresh schedules - COMPLETED')
-          console.log('')
-          console.log('🎯 UI is ready for immediate use!')
-          console.log('📊 Background processes will continue updating data...')
-          console.log('')
-          
-        } catch (error) {
-          console.error('❌ Error in sequential startup process:', error.message)
-        }
-      }
-      
-      // Start sequential process after letting server fully initialize
-      setTimeout(runSequentialStartup, 2000) // 2 second delay to let server fully start
+      // ✅ NON-BLOCKING: Start background processes immediately
+      startBackgroundProcesses()
     })
   } catch (error) {
     console.error('Failed to start server:', error)
     process.exit(1)
   }
+}
+
+
+
+// ✅ NEW: Network connectivity check
+const checkNetworkConnectivity = async () => {
+  try {
+    console.log('🌐 Checking network connectivity...')
+    
+    // Test basic internet connectivity
+    const testResponse = await fetch('https://httpbin.org/get', {
+      method: 'GET',
+      timeout: 10000
+    }).catch(() => null)
+    
+    if (!testResponse || !testResponse.ok) {
+      console.warn('⚠️ Basic internet connectivity check failed')
+      return false
+    }
+    
+    // Test GitHub API connectivity
+    const githubResponse = await fetch('https://api.github.com/rate_limit', {
+      method: 'GET',
+      timeout: 10000
+    }).catch(() => null)
+    
+    if (!githubResponse || !githubResponse.ok) {
+      console.warn('⚠️ GitHub API connectivity check failed')
+      return false
+    }
+    
+    console.log('✅ Network connectivity confirmed')
+    return true
+  } catch (error) {
+    console.warn('⚠️ Network connectivity check failed:', error.message)
+    return false
+  }
+}
+
+// ✅ NEW: Non-blocking background process manager with network resilience
+const startBackgroundProcesses = () => {
+  console.log('🔄 Starting background processes (non-blocking)...')
+  
+  // Phase 1: Essential startup (fast, minimal blocking)
+  setTimeout(async () => {
+    try {
+      console.log('📦 Phase 1: Loading essential resources...')
+      await loadResources() // Just load the resource list
+      console.log('✅ Phase 1: Essential resources loaded')
+    } catch (error) {
+      console.error('❌ Phase 1 failed:', error.message)
+    }
+  }, 100) // 100ms delay
+  
+  // Phase 2: Network connectivity check and database cache warmup
+  setTimeout(async () => {
+    try {
+      console.log('📦 Phase 2: Checking network connectivity...')
+      const isNetworkAvailable = await checkNetworkConnectivity()
+      
+      if (isNetworkAvailable) {
+        console.log('📦 Phase 2: Warming database cache...')
+        await warmDatabaseCache()
+        console.log('✅ Phase 2: Database cache warmed')
+      } else {
+        console.log('⚠️ Phase 2: Network unavailable, skipping external operations')
+      }
+    } catch (error) {
+      console.error('❌ Phase 2 failed:', error.message)
+    }
+  }, 2000) // 2 second delay
+  
+  // Phase 3: Comprehensive background preloading (low priority, runs in background)
+  setTimeout(async () => {
+    try {
+      console.log('📦 Phase 3: Starting comprehensive background preloading...')
+      comprehensiveBackgroundPreloading().catch(error => {
+        console.error('❌ Comprehensive background preloading failed:', error.message)
+      })
+    } catch (error) {
+      console.error('❌ Phase 3 failed:', error.message)
+    }
+  }, 5000) // 5 second delay
+  
+  // Phase 4: Cache refresh schedules (lowest priority)
+          setTimeout(() => {
+    console.log('📦 Phase 4: Setting up cache refresh schedules...')
+    setupCacheRefreshSchedules()
+    console.log('✅ Phase 4: Cache refresh schedules configured')
+  }, 10000) // 10 second delay
+}
+
+// ✅ NEW: Fast database cache warmup (check all resources exist)
+const warmDatabaseCache = async () => {
+  try {
+    const resources = await loadResources()
+    const resourcesWithGitHub = resources.filter(r => r.social?.github)
+    
+    console.log(`📦 Checking data availability for ${resourcesWithGitHub.length} resources...`)
+    
+    // Quick check if data exists for all resources (fast operation)
+    for (const resource of resourcesWithGitHub) {
+      try {
+        const cacheKey = `warmup_${resource.name}`
+        const hasData = await checkResourceDataExists(resource)
+        
+        if (hasData) {
+          CACHE.data.set(cacheKey, { status: 'ready', timestamp: Date.now() })
+        } else {
+          CACHE.data.set(cacheKey, { status: 'needs_backfill', timestamp: Date.now() })
+        }
+      } catch (error) {
+        console.warn(`⚠️ Cache check failed for ${resource.name}:`, error.message)
+      }
+    }
+  } catch (error) {
+    console.error('❌ Database cache warmup failed:', error.message)
+  }
+}
+
+// ✅ NEW: Check if resource data exists (fast)
+const checkResourceDataExists = async (resource) => {
+  if (!supabase) return false
+  
+  try {
+    const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
+    if (!repoPath) return false
+    
+    const { count } = await supabase
+      .from('github_activity')
+      .select('*', { count: 'exact', head: true })
+      .eq('resource_id', repoPath)
+      .limit(1)
+    
+    return (count || 0) > 0
+        } catch (error) {
+    return false
+  }
+}
+
+// ✅ NEW: Setup cache refresh schedules (non-blocking)
+const setupCacheRefreshSchedules = () => {
+  // High priority: All projects every 30 minutes (current data updates)
+  setInterval(() => {
+    console.log('⚡ Running high-priority cache refresh...')
+    populateUpdatesCache('all').catch(error => {
+      console.error('❌ High-priority cache refresh failed:', error.message)
+    })
+  }, 30 * 60 * 1000) // 30 minutes
+  
+  // Standard priority: All projects every 24 hours (immutable data)
+  setInterval(() => {
+    console.log('🔄 Running full cache refresh...')
+    populateUpdatesCache('all').catch(error => {
+      console.error('❌ Full cache refresh failed:', error.message)
+    })
+  }, 24 * 60 * 60 * 1000) // 24 hours
 }
 
 startServer()
@@ -4507,73 +4436,148 @@ app.post('/api/github/historical-maximums', async (req, res) => {
   }
 });
 
-// Preload historical maximums for all resources at startup for instant chart loads
-const preloadHistoricalMaximums = async () => {
-  logger.debug('🚀 Preloading historical maximums for all resources...');
-  const resources = await loadResources();
-  const resourcesWithGitHub = resources.filter(r => r.social?.github);
-  let successCount = 0;
-  let errorCount = 0;
+// ✅ NEW: Comprehensive background preloading (loads ALL data intelligently)
+const comprehensiveBackgroundPreloading = async () => {
+  console.log('🎯 COMPREHENSIVE BACKGROUND PRELOADING')
+  console.log('='.repeat(50))
+  console.log('🔄 Starting comprehensive background preloading for ALL resources...')
+  
+  try {
+    // Check network connectivity before starting heavy operations
+    const isNetworkAvailable = await checkNetworkConnectivity()
+    if (!isNetworkAvailable) {
+      console.log('⚠️ Network unavailable, skipping comprehensive preloading')
+      return
+    }
+    
+    // Step 1: Historical data completeness check and backfilling
+    if (supabase && GITHUB_TOKEN) {
+      try {
+        console.log('📦 Background: Historical data completeness check...')
+        await ensureHistoricalDataCompleteness()
+        console.log('✅ Background: Historical data check completed')
+      } catch (error) {
+        console.error('❌ Historical data completeness check failed:', error.message)
+      }
+    }
+    
+    // Step 2: Preload historical maximums for all resources
+    try {
+      console.log('📦 Background: Preloading historical maximums for all resources...')
+      await preloadHistoricalMaximumsForAll()
+      console.log('✅ Background: Historical maximums preloaded')
+    } catch (error) {
+      console.error('❌ Historical maximums preloading failed:', error.message)
+    }
+    
+    // Step 3: Preload organization data for all organizations
+    try {
+      console.log('📦 Background: Preloading organization data...')
+      await preloadOrganizationDataForAll()
+      console.log('✅ Background: Organization data preloaded')
+    } catch (error) {
+      console.error('❌ Organization data preloading failed:', error.message)
+    }
+    
+    // Step 4: Updates cache population (commits & releases)
+    try {
+      console.log('📦 Background: Populating updates cache...')
+      await populateUpdatesCache('all')
+      console.log('✅ Background: Updates cache population completed')
+    } catch (error) {
+      console.error('❌ Updates cache population failed:', error.message)
+    }
+    
+    console.log('🎉 COMPREHENSIVE BACKGROUND PRELOADING COMPLETED!')
+    console.log('🚀 All data preloaded and ready for instant access!')
+    console.log('')
+  } catch (error) {
+    console.error('❌ Comprehensive background preloading failed:', error.message)
+  }
+}
+
+// ✅ NEW: Preload historical maximums for all resources (background)
+const preloadHistoricalMaximumsForAll = async () => {
+  logger.debug('🚀 Preloading historical maximums for ALL resources...')
+  
+  try {
+    const resources = await loadResources()
+    const resourcesWithGitHub = resources.filter(r => r.social?.github)
+    let successCount = 0
+    let errorCount = 0
 
   // Process in batches to avoid overwhelming the database
-  const batchSize = 10;
+    const batchSize = 5 // Reduced batch size for better error handling
   for (let i = 0; i < resourcesWithGitHub.length; i += batchSize) {
-    const batch = resourcesWithGitHub.slice(i, i + batchSize);
-    await Promise.all(batch.map(async (resource) => {
+      const batch = resourcesWithGitHub.slice(i, i + batchSize)
+      
+      const batchPromises = batch.map(async (resource) => {
       try {
-        await calculateHistoricalMaximums(resource);
-        successCount++;
+          await calculateHistoricalMaximums(resource)
+          successCount++
       } catch (error) {
-        logger.warn(`⚠️ Failed to preload historical maximums for ${resource.name}: ${error.message}`);
-        errorCount++;
+          logger.warn(`⚠️ Failed to preload historical maximums for ${resource.name}: ${error.message}`)
+          errorCount++
+        }
+      })
+      
+      // Use Promise.allSettled to handle individual failures gracefully
+      await Promise.allSettled(batchPromises)
+      
+      // Small delay between batches
+      if (i + batchSize < resourcesWithGitHub.length) {
+        await new Promise(resolve => setTimeout(resolve, 2000)) // Increased delay
       }
-    }));
+    }
+    
+    logger.debug(`✅ Preloading of historical maximums complete. Success: ${successCount}, Errors: ${errorCount}`)
+  } catch (error) {
+    logger.error('❌ Historical maximums preloading failed:', error.message)
+    throw error
   }
-  
-  logger.debug(`✅ Preloading of historical maximums complete. Success: ${successCount}, Errors: ${errorCount}`);
-};
+}
 
-// **NEW**: Preload all data for single organizations at startup
-const preloadOrganizationData = async () => {
-  logger.debug('🚀 Preloading data for all organization resources...');
-  const resources = await loadResources();
-  const organizationResources = resources.filter(r => r.type === 'organization' && r.social?.github);
-  let successCount = 0;
-  let errorCount = 0;
+// ✅ NEW: Preload organization data for all organizations (background)
+const preloadOrganizationDataForAll = async () => {
+  logger.debug('🚀 Preloading data for ALL organization resources...')
+  const resources = await loadResources()
+  const organizationResources = resources.filter(r => r.type === 'organization' && r.social?.github)
+  let successCount = 0
+  let errorCount = 0
 
-  const now = new Date();
+  const now = new Date()
   const periodConfigs = {
     current: { since: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString() },
     '4weeks': { since: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000).toISOString() },
     '3months': { since: new Date(now.getTime() - 13 * 7 * 24 * 60 * 60 * 1000).toISOString() },
     '52weeks': { since: new Date(now.getTime() - 52 * 7 * 24 * 60 * 60 * 1000).toISOString() },
     '3years': { since: new Date(now.getTime() - 156 * 7 * 24 * 60 * 60 * 1000).toISOString() }
-  };
+  }
 
   for (const org of organizationResources) {
     try {
-      logger.debug(`📦 Preloading organization: ${org.name}`);
+      logger.debug(`📦 Preloading organization: ${org.name}`)
       for (const [period, config] of Object.entries(periodConfigs)) {
-        let activityData;
+        let activityData
         if (period === 'current') {
-          const recentData = await getRecentActivity(org, true, 'current');
-          activityData = recentData.weeklyData;
+          const recentData = await getRecentActivity(org, true, 'current')
+          activityData = recentData.weeklyData
         } else {
-          activityData = await getHistoricalActivity(org, config.since, new Date().toISOString());
+          activityData = await getHistoricalActivity(org, config.since, new Date().toISOString())
         }
         
         const totalCommits = Array.isArray(activityData) ? 
-          activityData.reduce((sum, week) => sum + (week?.count || 0), 0) : 0;
+          activityData.reduce((sum, week) => sum + (week?.count || 0), 0) : 0
 
-        const cacheKey = `${org.id || org.name}_${period}`;
-        ORGANIZATION_DATA_CACHE.set(cacheKey, { weeklyData: activityData, totalCommits });
+        const cacheKey = `${org.id || org.name}_${period}`
+        ORGANIZATION_DATA_CACHE.set(cacheKey, { weeklyData: activityData, totalCommits })
       }
-      successCount++;
+      successCount++
     } catch (error) {
-      logger.warn(`⚠️ Failed to preload data for organization ${org.name}: ${error.message}`);
-      errorCount++;
+      logger.warn(`⚠️ Failed to preload data for organization ${org.name}: ${error.message}`)
+      errorCount++
     }
   }
   
-  logger.debug(`✅ Preloading of organization data complete. Success: ${successCount}, Errors: ${errorCount}`);
-};
+  logger.debug(`✅ Preloading of organization data complete. Success: ${successCount}, Errors: ${errorCount}`)
+}
