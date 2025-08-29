@@ -40,6 +40,12 @@ const OpenAI = require('openai')
 const { createClient } = require('@supabase/supabase-js')
 const { getISOWeekNumber, getWeekStart, getCurrentWeekStart, isCurrentWeek } = require('./utils/weekCalculation.js')
 const supabaseService = require('./src/services/supabase.js')
+const { 
+  fetchOrgDataGraphQL, 
+  fetchRepoDataGraphQL, 
+  transformOrgDataToRestFormat, 
+  transformRepoDataToRestFormat 
+} = require('./src/services/githubGraphQL.js')
 // Removed hybridDataFetcher imports - using unified server API approach
 
 // Use existing data quality functions defined later in the file
@@ -62,6 +68,9 @@ const GITHUB_API_BASE = 'https://api.github.com'
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 const RATE_LIMIT = GITHUB_TOKEN ? 5000 : 60
 const REQUEST_INTERVAL = 500 // ms between requests (increased from 200ms)
+
+// GraphQL feature flag
+const USE_GITHUB_GRAPHQL = process.env.USE_GITHUB_GRAPHQL === 'true' || false
 
 
 
@@ -586,6 +595,57 @@ const fetchOrgCommits = async (orgName, since) => {
   }
 }
 
+// GraphQL-enabled organization data fetching with REST fallback
+const fetchOrgDataWithGraphQL = async (orgName, since) => {
+  // Try GraphQL first if enabled
+  if (USE_GITHUB_GRAPHQL && GITHUB_TOKEN) {
+    try {
+      logger.debug(`🚀 Attempting GraphQL fetch for organization: ${orgName}`)
+      const graphqlData = await fetchOrgDataGraphQL(orgName, since)
+      const restFormatData = transformOrgDataToRestFormat(graphqlData)
+      
+      logger.info(`✅ GraphQL success for ${orgName}: ${restFormatData.commits.length} commits from ${restFormatData.repositories.length} repos`)
+      return restFormatData.commits // Return commits in REST format
+      
+    } catch (error) {
+      logger.warn(`❌ GraphQL failed for ${orgName}, falling back to REST: ${error.message}`)
+      // Fall through to REST implementation below
+    }
+  }
+  
+  // Fallback to original REST implementation
+  logger.debug(`🔄 Using REST API for organization: ${orgName}`)
+  return await fetchOrgCommits(orgName, since)
+}
+
+// GraphQL-enabled repository data fetching with REST fallback
+const fetchRepoDataWithGraphQL = async (repoPath, since) => {
+  // Try GraphQL first if enabled
+  if (USE_GITHUB_GRAPHQL && GITHUB_TOKEN) {
+    try {
+      const [owner, name] = repoPath.split('/')
+      if (!owner || !name) {
+        throw new Error(`Invalid repository path: ${repoPath}`)
+      }
+      
+      logger.debug(`🚀 Attempting GraphQL fetch for repository: ${repoPath}`)
+      const graphqlData = await fetchRepoDataGraphQL(owner, name, since)
+      const restFormatData = transformRepoDataToRestFormat(graphqlData)
+      
+      logger.info(`✅ GraphQL success for ${repoPath}: ${restFormatData.commits.length} commits`)
+      return restFormatData.commits // Return commits in REST format
+      
+    } catch (error) {
+      logger.warn(`❌ GraphQL failed for ${repoPath}, falling back to REST: ${error.message}`)
+      // Fall through to REST implementation below
+    }
+  }
+  
+  // Fallback to original REST implementation
+  logger.debug(`🔄 Using REST API for repository: ${repoPath}`)
+  return await fetchRepoCommits(repoPath, since)
+}
+
 // Database functions
 const createTables = async () => {
   if (!supabase) return
@@ -956,12 +1016,12 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
         console.warn(`⚠️ No organization name found for ${resource.name}`);
         commits = [];
       } else {
-        commits = await fetchOrgCommits(orgName, since);
+        commits = await fetchOrgDataWithGraphQL(orgName, since);
       }
     } else if (resource.type === 'repository' || resource.social?.github) {
       // For repositories or unknown resources with GitHub URLs
       const repoPath = resource.social.github.replace('https://github.com/', '')
-      commits = await fetchRepoCommits(repoPath, since) // Use time-based filtering
+      commits = await fetchRepoDataWithGraphQL(repoPath, since) // Use GraphQL with REST fallback
       
       // Only fetch repo info if not cached
       const repoInfoCacheKey = generateCacheKey('repo_info', repoPath)
@@ -3351,10 +3411,10 @@ const ensureHistoricalDataCompleteness = async () => {
           let commits = []
           if (resource.type === 'organization') {
             const orgName = resource.social.github.replace('https://github.com/', '');
-            commits = await fetchOrgCommits(orgName, since);
+            commits = await fetchOrgDataWithGraphQL(orgName, since);
           } else {
             const repoPath = resource.social.github.replace('https://github.com/', '')
-            commits = await fetchRepoCommits(repoPath, since)
+            commits = await fetchRepoDataWithGraphQL(repoPath, since)
           }
 
           const historicalData = processCommitsToWeekly(commits)
