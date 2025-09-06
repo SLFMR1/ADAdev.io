@@ -1158,7 +1158,7 @@ export const cardanoResources = {
         "sōkosumi": "https://www.sokosumi.com/",
         "Kōdosumi": "https://www.kodosumi.io/",
         "discord": "https://discord.com/invite/aj4QfnTS92",
-        "x": "https://x.com/masumi_network",
+        "x": "https://x.com/@MasumiNetwork",
         "telegram": "https://t.me/masumi_network"
       },
       "docs": "https://docs.masumi.network/",
