@@ -665,57 +665,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     return opt?.label || viewMode;
   }, [viewMode]);
 
-  // Memoized calculation for 7-day period historical maximum (performance optimized)
-  const weeklyHistoricalMax = useMemo(() => {
-    if (selectedPeriod !== 'current' || !chartData) {
-      return null;
-    }
-    
-    let maxWeekTotal = 0;
-    // For 7-day view, chartData contains daily data points, so sum them to get current week total
-    // For consistency with historical data which represents weekly totals
-    const currentWeekTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
-    
-    
-    // Use only the longest available period for consistent comparison
-    // Priority: 3years > 52weeks > 3months > 5weeks
-    const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
-    
-    for (const period of periodsToCheck) {
-      const cachedPeriodData = ChartDataCache.get(viewMode, period);
-      if (cachedPeriodData && cachedPeriodData.weeklyChartData) {
-        // Use the already-aggregated weekly data, not the raw resource data
-        const transformedData = transformChartData(cachedPeriodData.weeklyChartData, period, 'PerformanceIndicator');
-        
-        if (transformedData && transformedData.length > 0) {
-          // Find maximum from the aggregated weekly totals (same as what the chart shows)
-          const periodMaxCommits = Math.max(...transformedData.map(w => w.count || 0));
-          maxWeekTotal = Math.max(maxWeekTotal, periodMaxCommits);
-          
-          console.log(`📊 Using ${period} data for 7-day comparison (${transformedData.length} weeks), found max: ${periodMaxCommits}`);
-        }
-        
-        // Use only the first (longest) available period
-        break;
-      }
-    }
-    
-    // If no historical data found, use current week as baseline (will show 100%)
-    if (maxWeekTotal === 0) {
-      console.log('📊 No historical weekly data found for 7-day comparison, using current week as baseline');
-      return currentWeekTotal || 1;
-    }
-    
-    // Include current week in comparison - if it's a new record, it becomes the new max
-    const trueHistoricalMax = Math.max(maxWeekTotal, currentWeekTotal);
-    
-    console.log(`📊 7-day historical max calculation: historicalMax=${maxWeekTotal}, currentWeek=${currentWeekTotal}, finalMax=${trueHistoricalMax}`);
-    
-    return trueHistoricalMax;
-  }, [selectedPeriod, chartData, viewMode]);
 
 
-  // Helper function to calculate sequential period maximum for longer periods
+  // Helper function to calculate sequential period maximum for longer periods with date metadata
   const calculateLongerPeriodHistoricalMax = useCallback((currentTotal) => {
     if (!chartData) return null; // insufficient data
     
@@ -731,6 +683,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     if (!weeksInPeriod) return null; // unknown period
     
     let maxSequentialTotal = 0;
+    let peakPeriodStartDate = null;
+    let peakPeriodEndDate = null;
     const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
     
     for (const period of periodsToCheck) {
@@ -741,13 +695,28 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         if (transformedData && transformedData.length > weeksInPeriod) {
           // Calculate rolling sums for sequential periods
           for (let i = 0; i <= transformedData.length - weeksInPeriod; i++) {
-            const sequentialSum = transformedData
-              .slice(i, i + weeksInPeriod)
-              .reduce((sum, week) => sum + (week.count || 0), 0);
-            maxSequentialTotal = Math.max(maxSequentialTotal, sequentialSum);
+            const periodSlice = transformedData.slice(i, i + weeksInPeriod);
+            const sequentialSum = periodSlice.reduce((sum, week) => sum + (week.count || 0), 0);
+            
+            if (sequentialSum > maxSequentialTotal) {
+              maxSequentialTotal = sequentialSum;
+              // Extract start and end dates from the period slice
+              peakPeriodStartDate = periodSlice[0]?.weekStart || null;
+              peakPeriodEndDate = periodSlice[periodSlice.length - 1]?.weekStart || null;
+              
+              // For end date, add 6 days to get the end of the week
+              if (peakPeriodEndDate) {
+                const endDate = new Date(peakPeriodEndDate);
+                endDate.setDate(endDate.getDate() + 6);
+                peakPeriodEndDate = endDate.toISOString().split('T')[0];
+              }
+            }
           }
           
           console.log(`📊 Using ${period} data for ${selectedPeriod} comparison (${transformedData.length} weeks), found max sequential ${weeksInPeriod}-week period: ${maxSequentialTotal}`);
+          if (peakPeriodStartDate && peakPeriodEndDate) {
+            console.log(`📅 Peak period: ${peakPeriodStartDate} to ${peakPeriodEndDate}`);
+          }
         }
         
         // Use only the first (longest) available period
@@ -771,36 +740,138 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       maxSequentialTotal,
       finalResult: trueHistoricalMax,
       usedHistoricalData: maxSequentialTotal > 0,
-      fallbackUsed: maxSequentialTotal === 0
+      fallbackUsed: maxSequentialTotal === 0,
+      peakPeriodDates: { start: peakPeriodStartDate, end: peakPeriodEndDate }
     });
     
-    return trueHistoricalMax;
+    return {
+      value: trueHistoricalMax,
+      peakStartDate: peakPeriodStartDate,
+      peakEndDate: peakPeriodEndDate,
+      peakValue: maxSequentialTotal
+    };
   }, [chartData, viewMode, selectedPeriod]);
 
-  // Check if current week is a new record
-  const isNewRecord = useMemo(() => {
-    if (selectedPeriod !== 'current' || !chartData || !weeklyHistoricalMax) {
-      return false;
+  // Date formatting utility for period ranges
+  const formatPeriodDateRange = (startDate, endDate, periodType) => {
+    if (!startDate || !endDate) return null;
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Format options
+    const monthOptions = { month: 'short' };
+    
+    const startMonth = start.toLocaleDateString('en-US', monthOptions);
+    const endMonth = end.toLocaleDateString('en-US', monthOptions);
+    const startYear = start.getFullYear();
+    const endYear = end.getFullYear();
+    
+    // Different formatting based on period type and date span
+    if (periodType === 'current') {
+      // For 7-day periods, show specific dates
+      return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    } else if (startYear === endYear) {
+      // Same year: "Jan - Mar 2024"
+      if (startMonth === endMonth) {
+        // Same month: "Jan 2024"
+        return `${startMonth} ${startYear}`;
+      } else {
+        return `${startMonth} - ${endMonth} ${startYear}`;
+      }
+    } else {
+      // Different years: "Dec 2023 - Feb 2024"
+      return `${startMonth} ${startYear} - ${endMonth} ${endYear}`;
     }
+  };
+
+  // Enhanced 7-day historical maximum with date metadata
+  const weeklyHistoricalMaxWithDates = useMemo(() => {
+    if (selectedPeriod !== 'current' || !chartData) {
+      return null;
+    }
+    
+    let maxWeekTotal = 0;
+    let peakWeekStartDate = null;
+    let peakWeekEndDate = null;
+    
+    // For 7-day view, chartData contains daily data points, so sum them to get current week total
     const currentWeekTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
     
-    // Get historical max (without current week)
-    let historicalMax = 0;
+    // Use only the longest available period for consistent comparison
     const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
     
     for (const period of periodsToCheck) {
       const cachedPeriodData = ChartDataCache.get(viewMode, period);
       if (cachedPeriodData && cachedPeriodData.weeklyChartData) {
-        const transformedData = transformChartData(cachedPeriodData.weeklyChartData, period, 'RecordCheck');
+        const transformedData = transformChartData(cachedPeriodData.weeklyChartData, period, 'WeeklyHistoricalMax');
+        
         if (transformedData && transformedData.length > 0) {
-          historicalMax = Math.max(...transformedData.map(w => w.count || 0));
-          break;
+          // Find maximum from the aggregated weekly totals
+          transformedData.forEach(week => {
+            const weekCommits = week.count || 0;
+            if (weekCommits > maxWeekTotal) {
+              maxWeekTotal = weekCommits;
+              peakWeekStartDate = week.weekStart;
+              
+              // Calculate end date (6 days after start)
+              if (peakWeekStartDate) {
+                const endDate = new Date(peakWeekStartDate);
+                endDate.setDate(endDate.getDate() + 6);
+                peakWeekEndDate = endDate.toISOString().split('T')[0];
+              }
+            }
+          });
+          
+          console.log(`📊 Using ${period} data for 7-day comparison (${transformedData.length} weeks), found max week: ${maxWeekTotal}`);
+          if (peakWeekStartDate && peakWeekEndDate) {
+            console.log(`📅 Peak week: ${peakWeekStartDate} to ${peakWeekEndDate}`);
+          }
         }
+        
+        // Use only the first (longest) available period
+        break;
       }
     }
     
-    return currentWeekTotal > historicalMax;
-  }, [selectedPeriod, chartData, viewMode, weeklyHistoricalMax]);
+    // If no historical data found, use current week as baseline
+    if (maxWeekTotal === 0) {
+      console.log('📊 No historical weekly data found for 7-day comparison, using current week as baseline');
+      return {
+        value: currentWeekTotal || 1,
+        peakStartDate: null,
+        peakEndDate: null,
+        peakValue: 0
+      };
+    }
+    
+    // Include current week in comparison
+    const trueHistoricalMax = Math.max(maxWeekTotal, currentWeekTotal);
+    
+    console.log(`📊 7-day historical max calculation: historicalMax=${maxWeekTotal}, currentWeek=${currentWeekTotal}, finalMax=${trueHistoricalMax}`);
+    
+    return {
+      value: trueHistoricalMax,
+      peakStartDate: peakWeekStartDate,
+      peakEndDate: peakWeekEndDate,
+      peakValue: maxWeekTotal
+    };
+  }, [selectedPeriod, chartData, viewMode]);
+
+  // Check if current week is a new record
+  const isNewRecord = useMemo(() => {
+    if (selectedPeriod !== 'current' || !chartData || !weeklyHistoricalMaxWithDates) {
+      return false;
+    }
+    const currentWeekTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
+    
+    // Use the enhanced weekly historical data
+    const historicalMaxData = weeklyHistoricalMaxWithDates;
+    if (!historicalMaxData) return false;
+    
+    // Check if current week exceeds the historical peak value (not including current week in the peak calculation)
+    return currentWeekTotal > (historicalMaxData.peakValue || 0);
+  }, [selectedPeriod, chartData, weeklyHistoricalMaxWithDates]);
 
   // Current accent color
   const currentAccentColor = accentColors[accentColorIndex];
@@ -1338,7 +1409,10 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           className="text-gray-400 text-xs"
                           title={(() => {
                             if (selectedPeriod === 'current') {
-                              return 'Current 7-day period performance vs. best historical 7-day period. Includes today\'s incomplete data.';
+                              const historicalMaxData = weeklyHistoricalMaxWithDates;
+                              const dateRange = historicalMaxData?.peakStartDate ? 
+                                formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, 'current') : null;
+                              return `Current 7-day period performance vs. best historical 7-day period${dateRange ? ` (${dateRange})` : ''}. Includes today's incomplete data.`;
                             } else if (selectedPeriod === '5weeks') {
                               return 'Current 4-week period performance vs. best historical sequential 4-week period. Excludes current incomplete week.';
                             } else if (selectedPeriod === '3months') {
@@ -1370,22 +1444,27 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           <span 
                             className="text-gray-500 text-xs mt-0.5"
                             title={(() => {
-                              const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(chartData?.reduce((total, item) => total + (item.count || 0), 0) || 0);
-                              if (historicalMax === null) {
+                              const currentTotal = chartData?.reduce((total, item) => total + (item.count || 0), 0) || 0;
+                              const historicalMaxData = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                              if (!historicalMaxData || historicalMaxData === null) {
                                 return 'Current period performance (no historical data for comparison)';
                               }
-                              return `Comparison against the best performing sequential ${selectedPeriod === '5weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period found in historical data`;
+                              const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
+                              return `Comparison against the best performing sequential ${selectedPeriod === '5weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period${dateRange ? ` (${dateRange})` : ''} found in historical data`;
                             })()}
                           >
                             {(() => {
-                              const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(chartData?.reduce((total, item) => total + (item.count || 0), 0) || 0);
-                              if (historicalMax === null) {
+                              const currentTotal = chartData?.reduce((total, item) => total + (item.count || 0), 0) || 0;
+                              const historicalMaxData = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                              if (!historicalMaxData || historicalMaxData === null) {
                                 return 'current maximum';
                               }
-                              return `vs. best ${selectedPeriod === '5weeks' ? '4-week' : 
-                                                 selectedPeriod === '3months' ? '3-month' : 
-                                                 selectedPeriod === '52weeks' ? '12-month' : 
-                                                 selectedPeriod === '3years' ? '3-year' : ''} period`;
+                              const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
+                              const periodLabel = selectedPeriod === '5weeks' ? '4-week' : 
+                                                selectedPeriod === '3months' ? '3-month' : 
+                                                selectedPeriod === '52weeks' ? '12-month' : 
+                                                selectedPeriod === '3years' ? '3-year' : '';
+                              return `vs. best ${periodLabel} period${dateRange ? ` (${dateRange})` : ''}`;
                             })()}
                           </span>
                         )}
@@ -1431,18 +1510,20 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           style={{ 
                             width: (() => {
                               if (selectedPeriod === 'current') {
-                                // For 7-day period (1 week), use memoized historical maximum
+                                // For 7-day period (1 week), use enhanced historical maximum with dates
                                 const currentValue = chartData.reduce((total, item) => total + (item.count || 0), 0);
-                                const historicalMax = weeklyHistoricalMax || 1;
+                                const historicalMaxData = weeklyHistoricalMaxWithDates;
+                                const historicalMax = historicalMaxData?.value || 1;
                                 return `${Math.min(100, Math.max(0, (currentValue / historicalMax) * 100))}%`;
                               }
                               
                               const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
-                              const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
-                              if (historicalMax === null) {
+                              const historicalMaxData = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                              if (!historicalMaxData || historicalMaxData === null) {
                                 return '100%'; // Current period is the maximum for young repos
                               }
-                              const percentage = (currentTotal / historicalMax) * 100;
+                              const historicalMaxValue = historicalMaxData.value || historicalMaxData;
+                              const percentage = (currentTotal / historicalMaxValue) * 100;
                               return `${Math.min(100, Math.max(0, Math.round(percentage)))}%`;
                             })(),
                             background: `linear-gradient(to right, ${currentAccentColor.hex}, ${currentAccentColor.hex}dd)`,
@@ -1455,15 +1536,22 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                         <span>
                           {(() => {
                             if (selectedPeriod === 'current') {
-                              // For 7-day period, use memoized historical maximum
-                              return `${weeklyHistoricalMax || 1} (historical peak)`;
+                              // For 7-day period, use enhanced historical maximum with dates
+                              const historicalMaxData = weeklyHistoricalMaxWithDates;
+                              if (!historicalMaxData || !historicalMaxData.peakStartDate) {
+                                return `${historicalMaxData?.value || 1} (historical peak)`;
+                              }
+                              const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, 'current');
+                              return `${historicalMaxData.value} (peak: ${dateRange})`;
                             }
                             const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
-                            const historicalMax = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
-                            if (historicalMax === null) {
+                            const historicalMaxData = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                            if (!historicalMaxData || historicalMaxData === null) {
                               return 'Insufficient historical data for meaningful comparison';
                             }
-                            return `${Math.round(historicalMax)} (historical peak)`;
+                            const historicalMaxValue = historicalMaxData.value || historicalMaxData;
+                            const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
+                            return `${Math.round(historicalMaxValue)} (peak${dateRange ? `: ${dateRange}` : ''})`;
                           })()}
                         </span>
                       </div>
