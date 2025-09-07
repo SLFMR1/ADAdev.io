@@ -2882,7 +2882,17 @@ Respond with valid JSON in this exact format:
  * Maintain rolling cache of latest commits for a resource (30 max)
  */
 async function maintainCommitsCache(resourceId, commits) {
-  if (!supabase || !commits || commits.length === 0) return
+  logger.debug(`🔄 maintainCommitsCache called for ${resourceId} with ${commits?.length || 0} commits`)
+  
+  if (!supabase) {
+    logger.warn(`❌ ${resourceId}: Supabase not available for commits cache`)
+    return
+  }
+  
+  if (!commits || commits.length === 0) {
+    logger.debug(`ℹ️ ${resourceId}: No commits to cache (${commits ? 'empty array' : 'null/undefined'})`)
+    return
+  }
   
   try {
     // Debug logging for commit structure
@@ -2894,7 +2904,8 @@ async function maintainCommitsCache(resourceId, commits) {
         hasCommit: !!sampleCommit.commit,
         hasAuthor: !!sampleCommit.commit?.author,
         hasHtmlUrl: !!sampleCommit.html_url,
-        sha: sampleCommit.sha?.substring(0, 8)
+        sha: sampleCommit.sha?.substring(0, 8),
+        fullSampleCommit: JSON.stringify(sampleCommit, null, 2).substring(0, 500)
       })
     }
     
@@ -2958,19 +2969,30 @@ async function maintainCommitsCache(resourceId, commits) {
     }).filter(record => record !== null) // Remove invalid commits
     
     // Insert new commits (duplicates will be ignored due to unique constraint)
-    const { error: insertError } = await supabase
+    logger.debug(`📝 ${resourceId}: Attempting to upsert ${commitRecords.length} commit records to database`)
+    logger.debug(`🔍 ${resourceId}: First few commit records:`, commitRecords.slice(0, 2).map(record => ({
+      resource_id: record.resource_id,
+      sha: record.sha?.substring(0, 8),
+      message: record.message?.substring(0, 50),
+      commit_date: record.commit_date,
+      hasAllFields: !!(record.resource_id && record.sha && record.message && record.commit_date)
+    })))
+    
+    const { data: upsertData, error: insertError } = await supabase
       .from('github_commits_cache')
       .upsert(commitRecords, { 
         onConflict: 'resource_id,sha',
         ignoreDuplicates: true 
       })
+      .select()
     
     if (insertError) {
+      logger.error(`❌ ${resourceId}: Database upsert failed:`, insertError)
       console.error(`❌ Error inserting commits for ${resourceId}:`, insertError)
       return
     }
     
-    logger.debug(`✅ ${resourceId}: Successfully cached ${commitRecords.length} commits to database`)
+    logger.debug(`✅ ${resourceId}: Successfully cached ${commitRecords.length} commits to database. Upserted: ${upsertData?.length || 'unknown'} records`)
     
     // Manually maintain rolling cache (keep only latest 30)
     const { error: cleanupError } = await supabase.rpc('cleanup_commits_cache', {
@@ -3092,15 +3114,57 @@ async function populateUpdatesCache(priority = 'all') {
         try {
           logger.debug(`🔍 Processing ${resource.name} (${resource.type})...`)
           
-          // Get fresh data from GitHub for this resource
-          const activityData = await getRecentActivity(resource)
+          // Get fresh commit data directly from GraphQL (not via getRecentActivity cache)
+          const timeWindow = 35 // 5 weeks to match cache alignment
+          const since = new Date(Date.now() - timeWindow * 24 * 60 * 60 * 1000).toISOString()
           
-          // Update commits cache
-          if (activityData.commits && activityData.commits.length > 0) {
-            await maintainCommitsCache(resource.name, activityData.commits)
-            logger.debug(`✅ ${resource.name}: Updated ${activityData.commits.length} commits`)
+          let rawCommits = []
+          try {
+            if (resource.type === 'organization') {
+              // Get org name from resource
+              let orgName;
+              if (resource.repo_path) {
+                orgName = resource.repo_path;
+              } else if (resource.organization) {
+                orgName = resource.organization;
+              } else if (resource.social?.github) {
+                orgName = resource.social.github.replace('https://github.com/', '');
+              }
+              
+              if (orgName) {
+                logger.debug(`🔄 ${resource.name}: Fetching raw commits for organization ${orgName}`)
+                rawCommits = await fetchOrgDataWithGraphQL(orgName, since)
+              }
+            } else if (resource.type === 'repository' || resource.social?.github) {
+              // For repositories or unknown resources with GitHub URLs
+              const repoPath = resource.social.github.replace('https://github.com/', '')
+              logger.debug(`🔄 ${resource.name}: Fetching raw commits for repository ${repoPath}`)
+              rawCommits = await fetchRepoDataWithGraphQL(repoPath, since)
+            }
+          } catch (error) {
+            logger.warn(`⚠️ ${resource.name}: Failed to fetch raw commits: ${error.message}`)
+            rawCommits = []
+          }
+          
+          // Update commits cache with raw commit data
+          logger.debug(`🔍 DEBUG: ${resource.name} rawCommits structure:`, {
+            hasCommits: !!rawCommits,
+            commitsLength: rawCommits?.length || 0,
+            commitsType: Array.isArray(rawCommits) ? 'array' : typeof rawCommits,
+            firstCommitStructure: rawCommits?.[0] ? {
+              hasSha: !!rawCommits[0].sha,
+              hasCommit: !!rawCommits[0].commit,
+              hasRepository: !!rawCommits[0].repository,
+              repositoryFullName: rawCommits[0].repository?.full_name
+            } : null
+          })
+          
+          if (rawCommits && rawCommits.length > 0) {
+            logger.debug(`🔄 ${resource.name}: Calling maintainCommitsCache with ${rawCommits.length} raw commits`)
+            await maintainCommitsCache(resource.name, rawCommits)
+            logger.debug(`✅ ${resource.name}: Updated ${rawCommits.length} commits in database`)
           } else {
-            logger.debug(`ℹ️ ${resource.name}: No recent commits found`)
+            logger.debug(`ℹ️ ${resource.name}: No recent commits found - rawCommits is ${rawCommits ? 'empty array' : 'null/undefined'}`)
           }
           
           // Get and update releases cache
