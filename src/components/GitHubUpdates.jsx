@@ -2,10 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { 
   GitCommit, 
   Tag, 
-  Star, 
-  GitFork, 
   Calendar,
-  ExternalLink,
   AlertCircle,
   Loader2
 } from 'lucide-react'
@@ -98,41 +95,6 @@ const GitHubUpdates = ({ resource }) => {
 
   return (
     <div className="space-y-2">
-      {/* Repository Stats */}
-      {repoInfo && (
-        <div className="flex items-center justify-between pb-1 border-b border-gray-700/50">
-          <div className="flex items-center space-x-2 text-xs text-gray-400">
-            <div className="flex items-center space-x-1">
-              <Star size={10} />
-              <span>{repoInfo.stargazersCount}</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <GitFork size={10} />
-              <span>{repoInfo.forksCount}</span>
-            </div>
-            {commitsPerWeek > 0 && (
-              <div className="flex items-center space-x-1">
-                <GitCommit size={10} />
-                <span>{commitsPerWeek}/week</span>
-              </div>
-            )}
-            {repoInfo.language && (
-              <span className="bg-gray-700 px-1 py-0.5 rounded-full text-xs">
-                {repoInfo.language}
-              </span>
-            )}
-          </div>
-          <a 
-            href={repoInfo.htmlUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-cyan-400 hover:text-cyan-300 transition-colors"
-          >
-            <ExternalLink size={10} />
-          </a>
-        </div>
-      )}
-
       {/* Tabs */}
       <div className="flex space-x-1">
         <TabButton 
@@ -152,7 +114,7 @@ const GitHubUpdates = ({ resource }) => {
       </div>
 
       {/* Tab Content */}
-      <div className="space-y-1 max-h-32 overflow-y-auto scrollbar-hide">
+      <div className="space-y-1 max-h-44 overflow-y-auto scrollbar-hide">
         {activeTab === 'releases' && (
           <>
             {releases.length === 0 ? (
