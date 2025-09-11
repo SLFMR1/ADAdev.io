@@ -44,7 +44,8 @@ const {
   fetchOrgDataGraphQL, 
   fetchRepoDataGraphQL, 
   transformOrgDataToRestFormat, 
-  transformRepoDataToRestFormat 
+  transformRepoDataToRestFormat,
+  injectGraphQLTracking
 } = require('./src/services/githubGraphQL.js')
 // Removed hybridDataFetcher imports - using unified server API approach
 
@@ -332,6 +333,14 @@ const API_STATS = {
   recentErrors: [] // Store last 50 detailed errors
 }
 
+// GraphQL API stats for separate tracking
+const GRAPHQL_STATS = {
+  successfulRequests: 0,
+  failedRequests: 0,
+  lastRateLimitRemaining: null,
+  recentErrors: [] // Store last 50 detailed errors
+}
+
 // Add detailed error tracking with proper classification
 const trackApiError = (error, resource = null, operation = null, statusCode = null) => {
   const errorEntry = {
@@ -347,6 +356,25 @@ const trackApiError = (error, resource = null, operation = null, statusCode = nu
   // Keep only last 50 errors
   if (API_STATS.recentErrors.length > 50) {
     API_STATS.recentErrors = API_STATS.recentErrors.slice(0, 50)
+  }
+}
+
+// GraphQL-specific error tracking
+const trackGraphQLError = (error, resource = null, operation = null, statusCode = null) => {
+  const errorEntry = {
+    timestamp: new Date().toISOString(),
+    error: error.message,
+    resource: resource,
+    operation: operation,
+    statusCode: statusCode,
+    apiType: 'GraphQL',
+    ...classifyError(error, statusCode)
+  }
+  
+  GRAPHQL_STATS.recentErrors.unshift(errorEntry)
+  // Keep only last 50 errors
+  if (GRAPHQL_STATS.recentErrors.length > 50) {
+    GRAPHQL_STATS.recentErrors = GRAPHQL_STATS.recentErrors.slice(0, 50)
   }
 }
 
@@ -387,6 +415,9 @@ const classifyError = (error, statusCode) => {
   // Default for unknown errors
   return { type: 'unknown_error', severity: 'error', shouldRetry: false }
 }
+
+// Inject GraphQL tracking capabilities
+injectGraphQLTracking(GRAPHQL_STATS, trackGraphQLError)
 
 // GitHub API functions
 const fetchRepoCommits = async (repoPath, since = null) => {
@@ -3885,15 +3916,34 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
         totalMisses: CACHE.stats.apiCalls
       },
       apiMetrics: {
-        rateLimitRemaining: API_STATS.lastRateLimitRemaining || 0,
+        // Combined metrics for overall API health
+        rateLimitRemaining: API_STATS.lastRateLimitRemaining || GRAPHQL_STATS.lastRateLimitRemaining || 0,
         isRateLimited: isRateLimited,
         rateLimitResetTime: rateLimitResetTime ? rateLimitResetTime.toISOString() : null,
         rateLimitResetIn: rateLimitResetTime && isRateLimited ? 
           Math.max(0, Math.ceil((rateLimitResetTime.getTime() - Date.now()) / 1000)) : null,
-        errorCount: API_STATS.failedRequests,
-        successRate: API_STATS.successfulRequests + API_STATS.failedRequests > 0 ? 
-          Math.round((API_STATS.successfulRequests / (API_STATS.successfulRequests + API_STATS.failedRequests)) * 100) : 0,
-        recentErrors: API_STATS.recentErrors.slice(0, 25) // Return last 25 errors for dashboard
+        errorCount: API_STATS.failedRequests + GRAPHQL_STATS.failedRequests,
+        successRate: (API_STATS.successfulRequests + GRAPHQL_STATS.successfulRequests + API_STATS.failedRequests + GRAPHQL_STATS.failedRequests) > 0 ? 
+          Math.round(((API_STATS.successfulRequests + GRAPHQL_STATS.successfulRequests) / (API_STATS.successfulRequests + GRAPHQL_STATS.successfulRequests + API_STATS.failedRequests + GRAPHQL_STATS.failedRequests)) * 100) : 0,
+        recentErrors: [...API_STATS.recentErrors, ...GRAPHQL_STATS.recentErrors].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 25),
+        
+        // REST API specific metrics
+        restApi: {
+          successfulRequests: API_STATS.successfulRequests,
+          failedRequests: API_STATS.failedRequests,
+          successRate: API_STATS.successfulRequests + API_STATS.failedRequests > 0 ? 
+            Math.round((API_STATS.successfulRequests / (API_STATS.successfulRequests + API_STATS.failedRequests)) * 100) : 0,
+          recentErrors: API_STATS.recentErrors.slice(0, 10)
+        },
+        
+        // GraphQL API specific metrics  
+        graphqlApi: {
+          successfulRequests: GRAPHQL_STATS.successfulRequests,
+          failedRequests: GRAPHQL_STATS.failedRequests,
+          successRate: GRAPHQL_STATS.successfulRequests + GRAPHQL_STATS.failedRequests > 0 ? 
+            Math.round((GRAPHQL_STATS.successfulRequests / (GRAPHQL_STATS.successfulRequests + GRAPHQL_STATS.failedRequests)) * 100) : 0,
+          recentErrors: GRAPHQL_STATS.recentErrors.slice(0, 10)
+        }
       },
       pipelineIssues: [],
       recentActivity: [],

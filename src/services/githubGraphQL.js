@@ -7,6 +7,16 @@ const logger = {
   error: console.error
 }
 
+// GraphQL stats tracking - will be injected by server.js
+let GRAPHQL_STATS = null
+let trackGraphQLError = null
+
+// Allow server.js to inject tracking dependencies
+const injectGraphQLTracking = (stats, errorTracker) => {
+  GRAPHQL_STATS = stats
+  trackGraphQLError = errorTracker
+}
+
 // GitHub GraphQL endpoint
 const GITHUB_GRAPHQL_ENDPOINT = 'https://api.github.com/graphql'
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
@@ -18,6 +28,38 @@ const graphqlClient = new GraphQLClient(GITHUB_GRAPHQL_ENDPOINT, {
     'User-Agent': 'ADAdev-GraphQL-Client/1.0'
   }
 })
+
+// Tracked GraphQL request wrapper
+const makeTrackedGraphQLRequest = async (query, variables = {}, operation = 'graphql_request') => {
+  try {
+    const response = await graphqlClient.request(query, variables)
+    
+    // Track successful request
+    if (GRAPHQL_STATS) {
+      GRAPHQL_STATS.successfulRequests++
+      
+      // Update rate limit info if available
+      if (response.rateLimit?.remaining !== undefined) {
+        GRAPHQL_STATS.lastRateLimitRemaining = response.rateLimit.remaining
+      }
+    }
+    
+    return response
+  } catch (error) {
+    // Track failed request
+    if (GRAPHQL_STATS) {
+      GRAPHQL_STATS.failedRequests++
+    }
+    
+    // Track detailed error if tracker available
+    if (trackGraphQLError) {
+      const resource = variables.orgLogin || (variables.owner && variables.name) ? `${variables.owner}/${variables.name}` : 'unknown'
+      trackGraphQLError(error, resource, operation)
+    }
+    
+    throw error
+  }
+}
 
 // Core GraphQL query for organization repositories and commits
 const ORG_ACTIVITY_QUERY = gql`
@@ -185,7 +227,7 @@ const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 200) => {
         after: cursor
       }
       
-      const response = await graphqlClient.request(ORG_ACTIVITY_QUERY, variables)
+      const response = await makeTrackedGraphQLRequest(ORG_ACTIVITY_QUERY, variables, 'fetch_org_data')
       
       if (!response.organization) {
         throw new Error(`Organization '${orgLogin}' not found or not accessible`)
@@ -259,7 +301,7 @@ const fetchRepoDataGraphQL = async (owner, name, since = null) => {
       since: sinceDate
     }
     
-    const response = await graphqlClient.request(REPO_ACTIVITY_QUERY, variables)
+    const response = await makeTrackedGraphQLRequest(REPO_ACTIVITY_QUERY, variables, 'fetch_repo_data')
     
     if (!response.repository) {
       throw new Error(`Repository '${owner}/${name}' not found or not accessible`)
@@ -445,6 +487,7 @@ module.exports = {
   fetchRepoDataGraphQL,
   transformOrgDataToRestFormat,
   transformRepoDataToRestFormat,
+  injectGraphQLTracking,
   ORG_ACTIVITY_QUERY,
   REPO_ACTIVITY_QUERY
 }

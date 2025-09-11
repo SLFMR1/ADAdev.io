@@ -550,16 +550,17 @@ const CacheHealthChart = ({ data }) => {
       description: `CACHE + DB HITS (${data.memoryHits || 0}M + ${data.databaseHits || 0}DB)`
     },
     {
-      label: 'API_CALL_RATE',
-      value: data.missRate || 0,
-      icon: Clock,
-      description: `GITHUB_API_CALLS (${data.apiCalls || 0})`
-    },
-    {
       label: 'MEMORY_CACHE',
       value: data.activeCacheSize || data.cacheSize || 0,
       icon: Database,
       description: `${data.utilizationPercentage || 0}% FULL (${data.maxCacheSize || 'UNLIMITED'} MAX)`,
+      isCount: true
+    },
+    {
+      label: 'CACHE_MISSES',
+      value: data.apiCalls || 0,
+      icon: Clock,
+      description: 'REQUIRED_API_CALLS',
       isCount: true
     },
     {
@@ -575,8 +576,8 @@ const CacheHealthChart = ({ data }) => {
     switch (metric) {
       case 'OVERALL_HIT_RATE':
         return value >= 80 ? 'text-green-400' : value >= 60 ? 'text-yellow-400' : 'text-red-400'
-      case 'API_CALL_RATE':
-        return value <= 20 ? 'text-green-400' : value <= 40 ? 'text-yellow-400' : 'text-red-400'
+      case 'CACHE_MISSES':
+        return 'text-blue-400' // Neutral color for cache misses count
       default:
         return 'text-blue-400'
     }
@@ -724,10 +725,10 @@ const ApiHealthPanel = ({ status, apiMetrics, backfillOperations }) => {
     <div className="bg-black border border-green-400/30 rounded-lg p-6 font-mono">
       <h3 className="text-lg font-semibold text-green-400 mb-4 tracking-wide">API.HEALTH.STATUS</h3>
       
-      {/* API Health Metrics */}
+      {/* Combined API Status */}
       <div className="space-y-3 mb-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-green-500 font-mono">GITHUB_API_STATUS</span>
+          <span className="text-sm text-green-500 font-mono">OVERALL_API_STATUS</span>
           <span className={`text-xs px-2 py-1 rounded border font-mono ${
             status.githubApiStatus === 'operational' 
               ? 'bg-green-400/10 text-green-400 border-green-400/30' 
@@ -737,6 +738,32 @@ const ApiHealthPanel = ({ status, apiMetrics, backfillOperations }) => {
           }`}>
             {status.githubApiStatus === 'error' ? 'RATE_LIMITED' : status.githubApiStatus.toUpperCase()}
           </span>
+        </div>
+        
+        {/* REST API Metrics */}
+        <div className="p-3 bg-blue-400/5 border border-blue-400/20 rounded">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-blue-400 font-mono font-semibold">REST_API</span>
+            <span className="text-xs text-blue-400 font-mono">
+              {apiMetrics?.restApi?.successfulRequests || 0}✓ / {apiMetrics?.restApi?.failedRequests || 0}✗
+            </span>
+          </div>
+          <div className="text-xs text-blue-300 font-mono">
+            SUCCESS_RATE: {apiMetrics?.restApi?.successRate || 0}%
+          </div>
+        </div>
+        
+        {/* GraphQL API Metrics */}
+        <div className="p-3 bg-purple-400/5 border border-purple-400/20 rounded">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-purple-400 font-mono font-semibold">GRAPHQL_API</span>
+            <span className="text-xs text-purple-400 font-mono">
+              {apiMetrics?.graphqlApi?.successfulRequests || 0}✓ / {apiMetrics?.graphqlApi?.failedRequests || 0}✗
+            </span>
+          </div>
+          <div className="text-xs text-purple-300 font-mono">
+            SUCCESS_RATE: {apiMetrics?.graphqlApi?.successRate || 0}%
+          </div>
         </div>
         
         {/* Rate Limit Warning */}
@@ -755,26 +782,6 @@ const ApiHealthPanel = ({ status, apiMetrics, backfillOperations }) => {
             </div>
           </div>
         )}
-        
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-green-500 font-mono">RATE_LIMIT_STATUS</span>
-          <span className={`text-xs px-2 py-1 rounded border font-mono ${
-            apiMetrics?.isRateLimited
-              ? 'bg-red-400/10 text-red-400 border-red-400/30'
-              : (apiMetrics?.rateLimitRemaining || 0) > 1000
-              ? 'bg-green-400/10 text-green-400 border-green-400/30'
-              : (apiMetrics?.rateLimitRemaining || 0) > 100
-              ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30'
-              : 'bg-red-400/10 text-red-400 border-red-400/30'
-          }`}>
-            {apiMetrics?.isRateLimited ? 
-              `RESET IN ${formatRemainingTime(apiMetrics?.rateLimitResetIn)}` :
-              apiMetrics?.rateLimitRemaining !== undefined ? 
-                `${apiMetrics.rateLimitRemaining} REMAINING` : 
-                'CHECKING...'
-            }
-          </span>
-        </div>
         
         <div className="flex items-center justify-between">
           <span className="text-sm text-green-500 font-mono">DATABASE_HEALTH</span>
@@ -935,9 +942,20 @@ const ApiErrorsList = ({ errors, onResourceSelect }) => {
               <Icon size={16} className={`${colorClass.split(' ')[0]} mt-0.5 flex-shrink-0`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
-                  <span className={`text-sm font-medium font-mono ${colorClass.split(' ')[0]}`}>
-                    {error.type.toUpperCase().replace('_', ' ')}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className={`text-sm font-medium font-mono ${colorClass.split(' ')[0]}`}>
+                      {error.type.toUpperCase().replace('_', ' ')}
+                    </span>
+                    {error.apiType && (
+                      <span className={`text-xs px-1 py-0.5 rounded font-mono ${
+                        error.apiType === 'GraphQL' 
+                          ? 'bg-purple-400/10 text-purple-400 border border-purple-400/30'
+                          : 'bg-blue-400/10 text-blue-400 border border-blue-400/30'
+                      }`}>
+                        {error.apiType}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-green-600 font-mono">
                     {new Date(error.timestamp).toLocaleTimeString()}
                   </span>
