@@ -510,12 +510,12 @@ const ResourceCard = ({ resource, onViewResource }) => {
       // Draw captured image
       ctx.drawImage(img, padding, padding);
 
-      // Branding (thin + +3pt)
-      ctx.font = '200 31px ui-sans-serif, system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(156, 163, 175, 0.7)';
+      // Branding (larger, more readable)
+      ctx.font = '300 42px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(156, 163, 175, 0.8)';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText('adadev.io', finalWidth / 2, finalHeight - 24);
+      ctx.fillText('adadev.io', finalWidth / 2, finalHeight - 20);
 
       // Convert to blob
       const blob = await new Promise(resolve => {
@@ -614,12 +614,12 @@ const ResourceCard = ({ resource, onViewResource }) => {
       }}>
         <div className="flex flex-col min-h-full">
           {/* Header */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-3">
+          <div className={`flex items-center justify-between ${screenshotMode ? 'mb-6' : 'mb-3'}`}>
+            <div className="flex items-baseline space-x-3">
               <IconComponent size={20} className={`text-red-400 ${screenshotMode ? 'hidden' : ''}`} />
-              <h3 className="text-white font-medium text-base">{resource.name}</h3>
+              <h3 className={`text-white font-medium whitespace-nowrap ${screenshotMode ? 'text-2xl' : 'text-base'}`}>{resource.name}</h3>
               {screenshotMode && activeTab === 'activity' && (
-                <span className="text-sm text-gray-400">Weekly Activity</span>
+                <span className="text-lg text-gray-400 ml-4 whitespace-nowrap">Weekly Activity</span>
               )}
             </div>
             {/* Logo in expanded view */}
@@ -832,6 +832,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                     onPeriodChange={setSelectedPeriod}
                     preloadedData={activityChartData[selectedPeriod]}
                     accentColor={currentAccentColor}
+                    screenshotMode={screenshotMode}
                   />
                 )}
               </div>

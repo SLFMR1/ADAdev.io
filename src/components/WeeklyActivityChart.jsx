@@ -23,7 +23,7 @@ import { WidgetDataExtractor } from '../utils/widgetDataExtractor'
 
 // NOTE: Synthetic data generation functions removed - using only accurate hybrid data
 
-const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false, selectedPeriod = '3months', onPeriodChange, preloadedData = null, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' } }) => {
+const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodSwitches = false, hideActivityLevelInfo = false, selectedPeriod = '3months', onPeriodChange, preloadedData = null, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' }, screenshotMode = false }) => {
   const [activityData, setActivityData] = useState(null)
   const [weeklyData, setWeeklyData] = useState([])
   const [historicalMaximums, setHistoricalMaximums] = useState({})
@@ -379,13 +379,13 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     <div className="w-full" ref={containerRef}>
       {/* Line Chart */}
       <div className="bg-gray-800/50 rounded-lg p-4 sm:p-6" style={{ minHeight: Math.max(280, chartHeight + 100) }}>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-gray-400 text-xs">
+        <div className={`flex items-center justify-between ${screenshotMode ? 'mb-6' : 'mb-3'}`}>
+          <span className={`text-gray-400 ${screenshotMode ? 'text-base' : 'text-xs'}`}>
             {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'} (Historical Complete Weeks)
           </span>
-          <div className="flex items-center space-x-1">
-            <GitCommit size={12} style={{ color: accentColor.hex }} />
-            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>
+          <div className="flex items-center space-x-2">
+            <GitCommit size={screenshotMode ? 18 : 12} style={{ color: accentColor.hex }} />
+            <span className={`font-bold ${screenshotMode ? 'text-3xl' : 'text-lg'}`} style={{ color: accentColor.hex }}>
               {(() => {
                 const total = validWeeklyData.reduce((sum, week) => sum + (week.count || 0), 0)
                 if (selectedPeriod === 'current') {
@@ -395,7 +395,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 }
               })()}
             </span>
-            <span className="text-gray-400 text-xs">
+            <span className={`text-gray-400 ${screenshotMode ? 'text-base' : 'text-xs'}`}>
               {selectedPeriod === 'current' ? 'avg per day' : 'avg per week'}
             </span>
           </div>
@@ -522,15 +522,24 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               
               if (!shouldShowGrid) return null;
               
-              // Use temporal positioning (same as X-axis labels) for proper alignment
-              const labelDate = new Date(w.weekStart);
-              const timeDiff = labelDate.getTime() - new Date(validWeeklyData[0].weekStart).getTime();
-              const totalTimeSpan = new Date(validWeeklyData[validWeeklyData.length - 1].weekStart).getTime() - new Date(validWeeklyData[0].weekStart).getTime();
-              const ratio = totalTimeSpan > 0 ? timeDiff / totalTimeSpan : 0;
-              const x = chartPadding + ratio * (chartWidth - chartPadding * 2);
+              // Use linear positioning (same as nodes and labels) for proper alignment
+              let effectivePadding = chartPadding;
+              let effectiveRightPadding = chartPadding;
+              
+              if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
+                effectivePadding = Math.max(10, chartPadding * 0.4);
+                effectiveRightPadding = Math.max(8, chartPadding * 0.4);
+              } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
+                effectivePadding = chartPadding * 0.8;
+                effectiveRightPadding = chartPadding * 0.8;
+              }
+              
+              const availableWidth = chartWidth - effectivePadding - effectiveRightPadding;
+              const stepX = validWeeklyData.length > 1 ? availableWidth / (validWeeklyData.length - 1) : 0;
+              const x = effectivePadding + i * stepX;
               
               // Validate coordinates
-              const safeX = isNaN(x) || !isFinite(x) ? chartPadding : Math.max(chartPadding, Math.min(x, chartWidth - chartPadding));
+              const safeX = isNaN(x) || !isFinite(x) ? effectivePadding : Math.max(effectivePadding, Math.min(x, chartWidth - effectiveRightPadding));
               
               return (
                 <line
@@ -701,7 +710,10 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             {/* Smart month/year labels with collision avoidance */}
             {(() => {
               const labelsToRender = [];
-              const minLabelSpacing = selectedPeriod === '4weeks' || selectedPeriod === 'current'
+              // For 7-day view, show all labels; for others, use collision avoidance
+              const minLabelSpacing = selectedPeriod === 'current'
+                ? 0  // No spacing limit for 7-day view - show all labels
+                : selectedPeriod === '4weeks'
                 ? 40
                 : 40;
               let lastLabelX = -minLabelSpacing;
@@ -709,12 +721,21 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               const sortedLabels = xAxisLabels.sort((a, b) => b.priority - a.priority);
 
               sortedLabels.forEach(label => {
-                // Correctly calculate x based on temporal position
-                const labelDate = new Date(validWeeklyData[label.index].weekStart);
-                const timeDiff = labelDate.getTime() - new Date(validWeeklyData[0].weekStart).getTime();
-                const totalTimeSpan = new Date(validWeeklyData[validWeeklyData.length - 1].weekStart).getTime() - new Date(validWeeklyData[0].weekStart).getTime();
-                const ratio = totalTimeSpan > 0 ? timeDiff / totalTimeSpan : 0;
-                const x = chartPadding + ratio * (chartWidth - chartPadding * 2);
+                // Use linear positioning to match nodes (fixed position based on array index)
+                let effectivePadding = chartPadding;
+                let effectiveRightPadding = chartPadding;
+                
+                if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
+                  effectivePadding = Math.max(10, chartPadding * 0.4);
+                  effectiveRightPadding = Math.max(8, chartPadding * 0.4);
+                } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
+                  effectivePadding = chartPadding * 0.8;
+                  effectiveRightPadding = chartPadding * 0.8;
+                }
+                
+                const availableWidth = chartWidth - effectivePadding - effectiveRightPadding;
+                const stepX = validWeeklyData.length > 1 ? availableWidth / (validWeeklyData.length - 1) : 0;
+                const x = effectivePadding + label.index * stepX;
 
                 if (x - lastLabelX >= minLabelSpacing) {
                   labelsToRender.push(
@@ -722,7 +743,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                       key={`label-${label.index}`}
                       x={x}
                       y={chartHeight - bottomPadding + 55}
-                      fontSize={label.priority > 1 ? "14" : "12"}
+                      fontSize={screenshotMode ? (label.priority > 1 ? "20" : "18") : (label.priority > 1 ? "14" : "12")}
                       fill={accentColor.hex}
                       textAnchor="middle"
                       fontWeight="300"
@@ -759,7 +780,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                       key={`y-label-${i}`}
                       x={yAxisLabelPadding - 12} 
                       y={y + 4} 
-                      fontSize="12" 
+                      fontSize={screenshotMode ? "18" : "12"} 
                       fill={accentColor.hex} 
                       textAnchor="end"
                       fontWeight="300"
@@ -822,7 +843,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
              selectedPeriod === '3years' ? 'Current 3-Year Total' : 'Last Complete Week'}
             </span>
                           {(selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && (
-              <span className="text-gray-500 text-xs mt-0.5">
+              <span className="text-gray-500 text-xs mt-0.5 whitespace-nowrap">
                 vs. best {selectedPeriod === 'current' ? '7-day' :
                               selectedPeriod === '4weeks' ? '4-week' : 
                               selectedPeriod === '3months' ? '3-month' : 
@@ -830,7 +851,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               </span>
             )}
           </div>
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-2">
             {(selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && isNewRecord && (
               <span 
                 className="text-xs font-medium px-2 py-0.5 rounded mr-1"
@@ -932,7 +953,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   const tooltipText = `Historical Peak from ${startDate} - ${endDate}`;
                   
                   return (
-                    <span title={tooltipText}>
+                    <span title={tooltipText} className="whitespace-nowrap">
                       {`historical peak ${historicalMaxData.value || 1} (${startDate}-${endDate})`}
                     </span>
                   );
@@ -958,7 +979,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   const tooltipText = `Historical Peak from ${startDate} - ${endDate}`;
                   
                   return (
-                    <span title={tooltipText}>
+                    <span title={tooltipText} className="whitespace-nowrap">
                       {`historical peak ${historicalMaxData.value || 1} (${startDate}-${endDate})`}
                     </span>
                   );
