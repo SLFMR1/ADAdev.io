@@ -644,7 +644,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       const result = await shareToX(blob, tweetText, handles);
       
       if (result.success) {
-        showShareSuccess(`Copied! Paste anywhere you like,<br>or <a href="https://x.com/intent/tweet" target="_blank" rel="noopener noreferrer" style="color: ${currentAccentColor.hex}; text-decoration: underline;">open X</a>`);
+        showShareSuccess(`Copied! Paste anywhere you like,<br>or <a href="https://x.com/intent/tweet" target="_blank" rel="noopener noreferrer" style="color: #FFFFFF; text-decoration: underline;">open X</a>`);
       } else {
         showShareError(result.message);
       }
@@ -1111,7 +1111,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     {shareMessage && (
                       <div className={`text-sm font-medium transition-all duration-300 max-w-64 ${
                         shareMessageType === 'success' 
-                          ? 'bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent' 
+                          ? 'bg-gradient-to-r from-[#C8F560] to-[#C8F560] bg-clip-text text-transparent' 
                           : 'bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent'
                       }`} dangerouslySetInnerHTML={{ __html: shareMessage }}>
                       </div>
