@@ -1206,6 +1206,27 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                       <div ref={chartInnerRef} className={`rounded-lg chart-container-padding ${screenshotMode ? '' : 'h-full'} ${
                         screenshotMode ? 'border border-gray-700/30 overflow-visible' : 'bg-gray-800/50 overflow-hidden'
                       }`}>
+                          {/* Header for Chart Screenshot Mode */}
+                          {screenshotMode && (
+                            <div className="mb-4 pb-3 border-b border-gray-700/30">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-2" style={{ marginTop: '-6px' }}>
+                                  <Activity size={20} className="text-[#C8F560] flex-shrink-0" />
+                                  <h3 className="text-white font-semibold text-lg">Development Activity</h3>
+                                </div>
+                                <div className="flex flex-col gap-1 text-sm text-right">
+                                  <div className="flex items-end justify-end gap-1">
+                                    <span className="text-gray-500">View:</span>
+                                    <span className="text-gray-300 font-medium">{viewModeLabel}</span>
+                                  </div>
+                                  <div className="text-gray-300 font-medium">
+                                    {selectedPeriodLabel}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
                           {isLoading ? (
                           <div className="flex items-center justify-center h-full">
                             <div className="flex items-center space-x-3 text-white">
@@ -1275,7 +1296,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                       {screenshotMode && (
                         <div className="mb-4 pb-3 border-b border-gray-700/30">
                           <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2" style={{ marginTop: '-6px' }}>
                               <Activity size={20} className="text-[#C8F560] flex-shrink-0" />
                               <h3 className="text-white font-semibold text-lg">Development Activity</h3>
                             </div>

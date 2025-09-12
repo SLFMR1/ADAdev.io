@@ -129,8 +129,8 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
   
   // Dynamic padding based on max number width + screenshot mode
   const maxLabelWidth = Math.max(...uniqueLabels.map(label => label.toString().length)) * 8; // ~8px per digit
-  const basePadding = screenshotMode ? 50 : 30; // Reduced base padding
-  const effectivePadding = Math.max(basePadding, maxLabelWidth + 15); // Reduced margin
+  const basePadding = screenshotMode ? 50 : 35; // Slightly increased base padding
+  const effectivePadding = Math.max(basePadding, maxLabelWidth + 18); // Slightly increased margin
   const effectiveRightPadding = 15; // Reduced to match tighter spacing
   // Use actual chart height - labels are positioned within chart area
   const svgHeight = height;
