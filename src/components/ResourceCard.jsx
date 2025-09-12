@@ -3,7 +3,7 @@ import {
   ExternalLink, Github, MessageCircle,
   TerminalSquare, Database, Wallet, Image as ImageIcon, Users,
   ShieldCheck, Zap, BarChart2, Bot, Moon, HardDrive, Building2,
-  BookOpen, UserCheck, Eye, Cpu, Heart, Server, GitBranch, Share2, Loader2, TrendingUp
+  BookOpen, UserCheck, Eye, Cpu, Heart, Server, GitBranch, Share2, Loader2, TrendingUp, ClipboardCheck
 } from 'lucide-react'
 import GitHubUpdates from './GitHubUpdates'
 import WeeklyCommitCount from './WeeklyCommitCount'
@@ -24,6 +24,7 @@ import {
   getServerPeriod
 } from '../utils/chartDataUtils'
 import { ChartDataCache } from '../utils/cacheUtils'
+import Portal from './Portal'
 
 // No direct Supabase client - using server APIs for single source of truth
 
@@ -603,14 +604,21 @@ const ResourceCard = ({ resource, onViewResource }) => {
   };
 
   return (
-    <div 
-      ref={cardRef}
-      onClick={handleCardClick}
-      data-resource-id={resource.id}
-      data-resource-name={resource.name}
-      className={`relative bg-card-bg/50 backdrop-blur-md border border-gray-800 rounded-xl p-4 transition-all duration-300 ease-out transform-gpu shadow-lg hover:shadow-2xl cursor-pointer ${
-        !isExpanded ? 'hover:scale-[1.07]' : ''
-      } ${
+    <>
+      {isSharing && (
+        <Portal>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[10000] flex flex-col items-center justify-center text-white">
+            <ClipboardCheck size={48} className="text-[#C8F560]" />
+            <p className="mt-4 text-lg font-medium text-[#C8F560]">Copied to clipboard</p>
+          </div>
+        </Portal>
+      )}
+      <div 
+        ref={cardRef}
+        onClick={handleCardClick}
+        data-resource-id={resource.id}
+        data-resource-name={resource.name}
+        className={`relative bg-card-bg/50 backdrop-blur-md border border-gray-800 rounded-xl p-4 transition-all duration-300 ease-out transform-gpu shadow-lg hover:shadow-2xl cursor-pointer ${
         isExpanded && (activeTab === 'activity' || activeTab === 'video') ? (screenshotMode ? '' : 'col-span-2') : ''
       }`}
       style={{
@@ -885,6 +893,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
         </div>
       </div>
     </div>
+    </>
   )
 }
 

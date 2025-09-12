@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Activity, Share2, Loader2, GitCommit } from 'lucide-react';
+import { Activity, Share2, Loader2, GitCommit, ClipboardCheck } from 'lucide-react';
 import { cardanoResources } from '../data/resources';
 import logger from '../utils/logger-frontend';
 import * as htmlToImage from 'html-to-image';
@@ -653,7 +653,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       showShareError('Failed to generate image. Please try again.');
     } finally {
       setScreenshotMode(false);
-      setIsSharing(false);
+      setTimeout(() => {
+        setIsSharing(false);
+      }, 1000);
     }
   };
 
@@ -924,6 +926,12 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         </div>
       ) : (
         <Portal>
+          {isSharing && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[10000] flex flex-col items-center justify-center text-white">
+              <ClipboardCheck size={48} className="text-[#C8F560]" />
+              <p className="mt-4 text-lg font-medium text-[#C8F560]">Copied to clipboard</p>
+            </div>
+          )}
           <div
             ref={widgetRef}
             className={`dev-activity-widget ${screenshotMode ? 'absolute top-0 left-0 w-[1400px]' : 'fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[95vh] min-w-[900px] min-h-[700px]'} ${screenshotMode ? 'bg-card-bg/90' : 'bg-card-bg/40'} border border-gray-800 rounded-xl shadow-lg ${screenshotMode ? 'overflow-visible' : 'overflow-hidden'} widget-crossfade-enter-active`}
