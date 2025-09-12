@@ -17,6 +17,7 @@ import { preloadCache, initializeRateLimit } from './services/github';
 import cacheManager from './services/cacheManager';
 import { Activity, Menu, X, Brain, Bot, TrendingUp, Plus, Users, Database } from 'lucide-react';
 import { useCommitData } from './contexts/CommitDataContext';
+import { Routes, Route, useLocation } from 'react-router-dom';
 
 // Unified Background Overlay Component
 const WidgetOverlay = ({ isOpen, onClose, children }) => {
@@ -257,20 +258,6 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
                   </div>
                 </div>
               </button>
-              <button
-                onClick={() => handleWidgetClick('quality')}
-                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                    <Database size={16} className="text-gray-400 group-hover:text-orange-400" />
-                  </div>
-                  <div>
-                    <div className="text-white font-medium">Data Quality</div>
-                    <div className="text-gray-400 text-sm">Monitor system health</div>
-                  </div>
-                </div>
-              </button>
             </div>
 
             <div className="pt-4 border-t border-gray-800">
@@ -311,6 +298,7 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
 };
 
 function App() {
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('category');
@@ -329,6 +317,8 @@ function App() {
   
   // Access commit data from context for sorting
   const { getCommitCount } = useCommitData();
+
+  const isDataQualityPage = location.pathname === '/data-quality';
 
   const categories = ['All', ...Object.keys(cardanoResources).sort()];
 
@@ -578,8 +568,6 @@ function App() {
           return <AddResourceWidget {...widgetProps} />;
         case 'find':
           return <FindDeveloperWidget {...widgetProps} />;
-        case 'quality':
-          return <DataQualityDashboard isVisible={true} onClose={widgetProps.onCollapse} />;
         default:
           return null;
       }
@@ -604,14 +592,12 @@ function App() {
                   </svg>
                 )}
                 {expanded === 'find' && <Users className="h-6 w-6 text-blue-400" />}
-                {expanded === 'quality' && <Database className="h-6 w-6 text-orange-400" />}
                 <h2 className="text-lg sm:text-xl font-bold text-white">
                   {expanded === 'dev' && 'Development Activity'}
                   {expanded === 'github' && 'GitHub Updates'}
                   {expanded === 'ai' && 'AI Development Plan'}
                   {expanded === 'add' && 'Add Resource'}
                   {expanded === 'find' && 'Find a Developer'}
-                  {expanded === 'quality' && 'Data Quality Monitor'}
                 </h2>
               </div>
               <button
@@ -757,208 +743,195 @@ function App() {
   }, [filteredResources, sortBy]);
 
   return (
-    <div className="min-h-screen bg-custom-bg z-0">
-      {/* Widget Overlay for Expanded Widgets (Mobile) */}
-      <WidgetOverlay isOpen={expanded && window.innerWidth < 1024} onClose={() => setExpanded(null)}>
-        <ExpandedWidgetRenderer expanded={expanded} setExpanded={setExpanded} isMobile={true} />
-      </WidgetOverlay>
+    <Routes>
+      <Route path="/data-quality" element={<DataQualityDashboard />} />
+      <Route path="/" element={
+        <div className="min-h-screen bg-custom-bg z-0">
+          {/* Widget Overlay for Expanded Widgets (Mobile) */}
+          <WidgetOverlay isOpen={expanded && window.innerWidth < 1024} onClose={() => setExpanded(null)}>
+            <ExpandedWidgetRenderer expanded={expanded} setExpanded={setExpanded} isMobile={true} />
+          </WidgetOverlay>
 
-      {/* Mobile Navigation */}
-      <MobileNavigation
-        isOpen={mobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)}
-        expanded={expanded}
-        setExpanded={setExpanded}
-        handleWidgetExpand={handleWidgetExpand}
-      />
+          {/* Mobile Navigation */}
+          <MobileNavigation
+            isOpen={mobileMenuOpen}
+            onClose={() => setMobileMenuOpen(false)}
+            expanded={expanded}
+            setExpanded={setExpanded}
+            handleWidgetExpand={handleWidgetExpand}
+          />
 
-      {/* Sidebar Widgets (Desktop) */}
-      <div className="relative z-50">
-        <SidebarWidgetsContainer expanded={expanded} setExpanded={setExpanded} handleWidgetExpand={handleWidgetExpand} isResourcesSectionActive={isResourcesSectionActive} />
-      </div>
+          {/* Sidebar Widgets (Desktop) */}
+          <div className="relative z-50">
+            <SidebarWidgetsContainer expanded={expanded} setExpanded={setExpanded} handleWidgetExpand={handleWidgetExpand} isResourcesSectionActive={isResourcesSectionActive} />
+          </div>
 
-      {/* Hidden Data Quality Button - Bottom Left */}
-      <div className="fixed bottom-0 left-0 z-50 hidden lg:block">
-        <div 
-          className="group relative cursor-pointer transition-all duration-300 hover:translate-x-1"
-          onClick={() => handleWidgetExpand('quality')}
-        >
-          {/* Small visible part */}
-          <div className="w-2 h-8 bg-gray-400/10 border border-gray-400/20 rounded-r-lg shadow-lg transition-all duration-300 group-hover:bg-gray-400/30 group-hover:border-gray-400/40 group-hover:shadow-gray-400/20"></div>
-          
-          {/* Full button that appears on hover */}
-          <div className="absolute left-0 bottom-0 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-0 -translate-x-2">
-            <div className="flex items-center justify-center h-12 w-12 cursor-pointer bg-card-bg/95 rounded-r-xl shadow-2xl transition-all duration-300 group-hover:shadow-[0_0_15px_rgba(156,163,175,0.3),0_0_30px_rgba(156,163,175,0.15)]">
-              <Database size={20} className="text-gray-400 transition-all duration-300 group-hover:text-gray-300 group-hover:drop-shadow-[0_0_8px_rgba(156,163,175,0.8)]" />
+          {/* Desktop Logos - always visible and static */}
+          <div className="hidden lg:block fixed top-6 left-0 z-[9998]">
+            <div className="flex flex-col items-center gap-2">
+              {/* Main ADAdev logo - clipped on left side */}
+              <a href="#top" tabIndex={-1} aria-label="ADAdev Home" className="group">
+                <div className="flex items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 hover:border-white/30 hover:shadow-[0_0_15px_rgba(255,255,255,0.3),0_0_30px_rgba(255,255,255,0.15)]">
+                  <img 
+                    src="/ADAdev_logo.svg" 
+                    alt="ADAdev Cardano Developer Resources Logo" 
+                    className="h-10 w-auto object-contain transition-all duration-300 group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]"
+                    width="40" height="40"
+                    loading="eager"
+                  />
+                </div>
+              </a>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Desktop Logos - always visible and static */}
-      <div className="hidden lg:block fixed top-6 left-0 z-[9998]">
-        <div className="flex flex-col items-center gap-2">
-          {/* Main ADAdev logo - clipped on left side */}
-          <a href="#top" tabIndex={-1} aria-label="ADAdev Home" className="group">
-            <div className="flex items-center justify-center h-16 w-16 cursor-pointer bg-card-bg/95 border border-gray-700 rounded-r-xl shadow-2xl transition-all duration-300 hover:border-white/30 hover:shadow-[0_0_15px_rgba(255,255,255,0.3),0_0_30px_rgba(255,255,255,0.15)]">
+          
+          {/* Cardano logo in top right - always visible and static */}
+          <div className="hidden lg:block fixed top-6 right-6 z-[9998]">
+            <a 
+              href="https://cardano.org/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              aria-label="Visit Cardano Official Website"
+              className="group"
+            >
               <img 
-                src="/ADAdev_logo.svg" 
-                alt="ADAdev Cardano Developer Resources Logo" 
-                className="h-10 w-auto object-contain transition-all duration-300 group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]"
-                width="40" height="40"
+                src="https://developers.cardano.org/img/cardano-black.svg" 
+                alt="Cardano Logo" 
+                className="h-9 w-auto object-contain opacity-70 filter brightness-0 invert transition-all duration-300 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
+                width="36" height="36"
                 loading="eager"
               />
-            </div>
-          </a>
-        </div>
-      </div>
-      
-      {/* Cardano logo in top right - always visible and static */}
-      <div className="hidden lg:block fixed top-6 right-6 z-[9998]">
-        <a 
-          href="https://cardano.org/" 
-          target="_blank" 
-          rel="noopener noreferrer" 
-          aria-label="Visit Cardano Official Website"
-          className="group"
-        >
-          <img 
-            src="https://developers.cardano.org/img/cardano-black.svg" 
-            alt="Cardano Logo" 
-            className="h-9 w-auto object-contain opacity-70 filter brightness-0 invert transition-all duration-300 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
-            width="36" height="36"
-            loading="eager"
-          />
-        </a>
-      </div>
-
-      {/* Expanded Widgets (Desktop) */}
-      <div className="hidden lg:block z-45">
-        <ExpandedWidgetRenderer expanded={expanded} setExpanded={setExpanded} />
-      </div>
-
-      {/* Main Content */}
-      <div
-        className={`relative z-10 transition-all duration-500 ease-in-out ${
-          expanded ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
-        }`}
-      >
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div className="lg:hidden fixed top-0 left-0 right-0 z-[9998] bg-card-bg/95 backdrop-blur-md border-b border-gray-800">
-            <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => setMobileMenuOpen(true)}
-                  className="p-2 rounded-lg hover:bg-gray-800/50 transition-colors"
-                >
-                  <Menu size={20} className="text-gray-400" />
-                </button>
-                <img src="/ADAdev_logo.svg" alt="ADAdev" className="h-8 w-auto object-contain" />
-              </div>
-            </div>
+            </a>
           </div>
 
-          <Header />
-          {/* <BetaBanner /> */}
-          <Hero 
-            onRevert={handleRevert}
-            showRevertButton={expanded !== null || viewingResourceCard}
-            navigationSource={navigationSource}
-          />
+          {/* Expanded Widgets (Desktop) */}
+          <div className="hidden lg:block z-45">
+            <ExpandedWidgetRenderer expanded={expanded} setExpanded={setExpanded} />
+          </div>
 
-          <section className="lg:hidden bg-card-bg/50 border border-gray-800 rounded-xl mx-4 my-8 p-6 mt-20">
-            <div className="flex items-center space-x-3 mb-4">
-              <Activity size={24} className="text-amber-400" />
-              <h3 className="text-white font-bold text-xl">Development Activity</h3>
-            </div>
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="text-center p-3 bg-gray-800/50 rounded-lg">
-                <div className="text-white font-bold text-2xl" id="mobile-active-repos">-</div>
-                <div className="text-gray-400 text-sm">Active Repos</div>
-              </div>
-              <div className="text-center p-3 bg-gray-800/50 rounded-lg">
-                <div className="text-white font-bold text-2xl" id="mobile-avg-commits">-</div>
-                <div className="text-gray-400 text-sm">Avg/Week</div>
-              </div>
-              <div className="text-center p-3 bg-gray-800/50 rounded-lg">
-                <div className="text-white font-bold text-2xl" id="mobile-total-commits">-</div>
-                <div className="text-gray-400 text-sm">Total/Week</div>
-              </div>
-            </div>
-            <div className="text-center">
-              <p className="text-gray-400 text-sm">View detailed activity on desktop</p>
-            </div>
-          </section>
-
-          {aiResults && (
-            <section id="ai-results">
-              <AIResults aiResults={aiResults} onOpenWidget={() => setShowAIWidget(true)} />
-            </section>
-          )}
-
-          <main>
-            <section id="resources" className="min-h-screen py-20 lg:py-20 pt-8 lg:pt-20">
-              <div className="max-w-6xl mx-auto px-4">
-                <div className="max-w-4xl mx-auto text-center mb-16">
-                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-normal text-white mb-6 leading-tight">
-                    Developer Resources
-                  </h2>
-                  <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed mb-12">
-                    A comprehensive collection of tools, APIs, and libraries for building on Cardano
-                  </p>
-                  <div className="max-w-3xl mx-auto mb-16">
-                    <SearchBar
-                      searchTerm={searchTerm}
-                      setSearchTerm={setSearchTerm}
-                      selectedCategory={selectedCategory}
-                      setSelectedCategory={setSelectedCategory}
-                      categories={categories}
-                      sortBy={sortBy}
-                      setSortBy={setSortBy}
-                      filterBy={filterBy}
-                      setFilterBy={setFilterBy}
-                    />
+          {/* Main Content */}
+          <div
+            className={`relative z-10 transition-all duration-500 ease-in-out ${
+              expanded ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
+            }`}
+          >
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div className="lg:hidden fixed top-0 left-0 right-0 z-[9998] bg-card-bg/95 backdrop-blur-md border-b border-gray-800">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={() => setMobileMenuOpen(true)}
+                      className="p-2 rounded-lg hover:bg-gray-800/50 transition-colors"
+                    >
+                      <Menu size={20} className="text-gray-400" />
+                    </button>
+                    <img src="/ADAdev_logo.svg" alt="ADAdev" className="h-8 w-auto object-contain" />
                   </div>
                 </div>
-
-                {Object.keys(sortedAndGroupedResources).length === 0 ? (
-                  <div className="text-center py-20">
-                    <div className="text-gray-400 text-6xl mb-6">🔍</div>
-                    <h3 className="text-2xl font-bold text-white mb-4">No resources found</h3>
-                    <p className="text-lg text-gray-400">Try adjusting your search terms or category filter.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-20">
-                    {Object.entries(sortedAndGroupedResources)
-                      .sort(([categoryA], [categoryB]) => categoryA.localeCompare(categoryB))
-                      .map(([category, resources]) => (
-                        <div key={category}>
-                          <div className="text-center mb-12">
-                            <h3 className="text-xl md:text-2xl lg:text-3xl font-medium text-white mb-4">{category}</h3>
-                          </div>
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-5xl mx-auto auto-rows-min">
-                            {resources.map((resource) => (
-                              <ResourceCard 
-                                key={resource.id} 
-                                resource={resource} 
-                                onViewResource={() => navigateToResourceCard(resource.id, resource.name)}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
               </div>
-            </section>
-          </main>
 
-          {showAIWidget && aiResults && <AIModal aiResults={aiResults} onClose={() => setShowAIWidget(false)} />}
+              <Header />
+              {/* <BetaBanner /> */}
+              <Hero 
+                onRevert={handleRevert}
+                showRevertButton={expanded !== null || viewingResourceCard}
+                navigationSource={navigationSource}
+              />
 
-          <Footer />
+              <section className="lg:hidden bg-card-bg/50 border border-gray-800 rounded-xl mx-4 my-8 p-6 mt-20">
+                <div className="flex items-center space-x-3 mb-4">
+                  <Activity size={24} className="text-amber-400" />
+                  <h3 className="text-white font-bold text-xl">Development Activity</h3>
+                </div>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="text-center p-3 bg-gray-800/50 rounded-lg">
+                    <div className="text-white font-bold text-2xl" id="mobile-active-repos">-</div>
+                    <div className="text-gray-400 text-sm">Active Repos</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-800/50 rounded-lg">
+                    <div className="text-white font-bold text-2xl" id="mobile-avg-commits">-</div>
+                    <div className="text-gray-400 text-sm">Avg/Week</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-800/50 rounded-lg">
+                    <div className="text-white font-bold text-2xl" id="mobile-total-commits">-</div>
+                    <div className="text-gray-400 text-sm">Total/Week</div>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-gray-400 text-sm">View detailed activity on desktop</p>
+                </div>
+              </section>
+
+              {aiResults && (
+                <section id="ai-results">
+                  <AIResults aiResults={aiResults} onOpenWidget={() => setShowAIWidget(true)} />
+                </section>
+              )}
+
+              <main>
+                <section id="resources" className="min-h-screen py-20 lg:py-20 pt-8 lg:pt-20">
+                  <div className="max-w-6xl mx-auto px-4">
+                    <div className="max-w-4xl mx-auto text-center mb-16">
+                      <h2 className="text-3xl md:text-4xl lg:text-5xl font-normal text-white mb-6 leading-tight">
+                        Developer Resources
+                      </h2>
+                      <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed mb-12">
+                        A comprehensive collection of tools, APIs, and libraries for building on Cardano
+                      </p>
+                      <div className="max-w-3xl mx-auto mb-16">
+                        <SearchBar
+                          searchTerm={searchTerm}
+                          setSearchTerm={setSearchTerm}
+                          selectedCategory={selectedCategory}
+                          setSelectedCategory={setSelectedCategory}
+                          categories={categories}
+                          sortBy={sortBy}
+                          setSortBy={setSortBy}
+                          filterBy={filterBy}
+                          setFilterBy={setFilterBy}
+                        />
+                      </div>
+                    </div>
+
+                    {Object.keys(sortedAndGroupedResources).length === 0 ? (
+                      <div className="text-center py-20">
+                        <div className="text-gray-400 text-6xl mb-6">🔍</div>
+                        <h3 className="text-2xl font-bold text-white mb-4">No resources found</h3>
+                        <p className="text-lg text-gray-400">Try adjusting your search terms or category filter.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-20">
+                        {Object.entries(sortedAndGroupedResources)
+                          .sort(([categoryA], [categoryB]) => categoryA.localeCompare(categoryB))
+                          .map(([category, resources]) => (
+                            <div key={category}>
+                              <div className="text-center mb-12">
+                                <h3 className="text-xl md:text-2xl lg:text-3xl font-medium text-white mb-4">{category}</h3>
+                              </div>
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-5xl mx-auto auto-rows-min">
+                                {resources.map((resource) => (
+                                  <ResourceCard 
+                                    key={resource.id} 
+                                    resource={resource} 
+                                    onViewResource={() => navigateToResourceCard(resource.id, resource.name)}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </main>
+
+              {showAIWidget && aiResults && <AIModal aiResults={aiResults} onClose={() => setShowAIWidget(false)} />}
+
+              <Footer />
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      } />
+    </Routes>
   );
 }
 

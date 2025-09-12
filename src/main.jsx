@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import './index.css'
 import logger from './utils/logger-frontend'
@@ -20,8 +21,10 @@ if ('serviceWorker' in navigator) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <CommitDataProvider>
-      <App />
-    </CommitDataProvider>
+    <BrowserRouter>
+      <CommitDataProvider>
+        <App />
+      </CommitDataProvider>
+    </BrowserRouter>
   </React.StrictMode>,
 ) 

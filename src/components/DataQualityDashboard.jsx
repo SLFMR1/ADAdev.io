@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { Link } from 'react-router-dom';
 import { AlertTriangle, AlertCircle, CheckCircle, Clock, Database, FileText, GitCommit, RefreshCw, Search, TrendingUp, TrendingDown, Activity, Wifi, Zap } from 'lucide-react'
 import { cardanoResources } from '../data/resources';
 
@@ -81,7 +82,7 @@ const formatRemainingTime = (seconds) => {
 /**
  * Main Data Quality Dashboard Component
  */
-const DataQualityDashboard = ({ isVisible = true, onClose }) => {
+const DataQualityDashboard = () => {
   const [dashboardData, setDashboardData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -182,14 +183,12 @@ const DataQualityDashboard = ({ isVisible = true, onClose }) => {
    * Initialize dashboard
    */
   useEffect(() => {
-    if (isVisible) {
-      fetchDashboardData()
-      
-      // Set up auto-refresh every 5 minutes
-      const interval = setInterval(fetchDashboardData, 5 * 60 * 1000)
-      return () => clearInterval(interval)
-    }
-  }, [isVisible, fetchDashboardData])
+    fetchDashboardData()
+    
+    // Set up auto-refresh every 5 minutes
+    const interval = setInterval(fetchDashboardData, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [fetchDashboardData])
 
 
   /**
@@ -223,16 +222,13 @@ const DataQualityDashboard = ({ isVisible = true, onClose }) => {
     }
   }, [dashboardData])
 
-  if (!isVisible) return null
-
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4"
-      onClick={onClose}
+      className="min-h-screen bg-black text-green-400 font-mono p-4 sm:p-6 lg:p-8"
       style={{ overscrollBehavior: 'auto' }}
     >
       <div 
-        className="dashboard-container bg-black border border-green-400 rounded-lg shadow-xl shadow-green-400/20 max-w-6xl w-full max-h-[90vh] min-w-0 sm:min-w-[800px] flex flex-col font-mono overflow-hidden"
+        className="dashboard-container bg-black border border-green-400 rounded-lg shadow-xl shadow-green-400/20 max-w-7xl mx-auto w-full flex flex-col font-mono overflow-hidden"
         onClick={e => e.stopPropagation()}
         style={{ overscrollBehavior: 'auto' }}
       >
@@ -262,12 +258,9 @@ const DataQualityDashboard = ({ isVisible = true, onClose }) => {
             >
               <RefreshCw size={16} className={loading || refreshing ? 'animate-spin' : ''} />
             </button>
-            <button
-              onClick={onClose}
-              className="p-2 text-green-400 hover:text-green-300 hover:bg-red-400/10 rounded border border-green-400/30 transition-colors font-mono text-lg"
-            >
+            <Link to="/" className="p-2 text-green-400 hover:text-green-300 hover:bg-red-400/10 rounded border border-green-400/30 transition-colors font-mono text-lg">
               ×
-            </button>
+            </Link>
           </div>
         </div>
 
