@@ -6,6 +6,7 @@ import * as htmlToImage from 'html-to-image';
 import AggregatedActivityChart from './AggregatedActivityChart';
 import Portal from './Portal';
 import PeriodDropdown from './PeriodDropdown';
+import brandingLogo from '/adadev_io.svg';
 import { 
   svgToPngBlob, 
   createIsolatedScreenshot, 
@@ -152,6 +153,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   const leaderboardRef = useRef(null);
   const chartSvgRef = useRef(null);
   const chartInnerRef = useRef(null);
+  const captureRef = useRef(null);
 
 
   // Use centralized caching - TTL is now determined per period in chartDataUtils
@@ -532,23 +534,26 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     setScreenshotMode(true);
 
     try {
-        // Wait for screenshot mode to apply
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Wait for screenshot mode to apply and layout to stabilize
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       
       let targetElement = element;
       
-      if (shareType === 'full') {
-        targetElement = widgetRef.current;
-      } else if (shareType === 'leaderboard') {
-        targetElement = leaderboardRef.current;
-      } else if (shareType === 'chart') {
-        targetElement = chartRef.current;
+      if (!targetElement) {
+        if (shareType === 'full') {
+          targetElement = captureRef.current || widgetRef.current;
+        } else if (shareType === 'leaderboard') {
+          targetElement = leaderboardRef.current;
+        } else if (shareType === 'chart') {
+          targetElement = chartRef.current;
+        }
       }
       
       // Capture widget first to get actual image dimensions
       const dataUrl = await htmlToImage.toPng(targetElement, {
         quality: 1.0,
-        pixelRatio: 1,
+        pixelRatio: 2,
         backgroundColor: 'transparent', // Keep transparent to avoid double backgrounds
         skipFonts: false
       });
@@ -562,9 +567,23 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       });
       
       // Use actual image dimensions for canvas sizing
-      const padding = 35;
-      const finalWidth = img.width + (padding * 2);
-      const finalHeight = img.height + (padding * 2) + 80; // Extra for branding
+      const paddingX = 35; // Horizontal padding
+      const paddingTop = 33; // Top padding
+      const paddingBottom = 10; // Bottom padding (above branding area)
+      const finalWidth = img.width + (paddingX * 2);
+      
+      // Prepare branding logo and compute dynamic padding before sizing canvas
+      const logoImg = new Image();
+      logoImg.src = brandingLogo;
+      await new Promise((resolve, reject) => {
+        logoImg.onload = resolve;
+        logoImg.onerror = reject;
+      });
+      const logoAspectRatio = logoImg.width / logoImg.height;
+      const logoTargetWidth = Math.min(420, finalWidth * 0.28);
+      const computedLogoHeight = Math.max(28, Math.round(logoTargetWidth / logoAspectRatio));
+      const brandingPadding = computedLogoHeight + 20; // space for logo + margin
+      const finalHeight = img.height + paddingTop + paddingBottom + brandingPadding;
       
       // Create canvas with proper background matching your page
       const canvas = document.createElement('canvas');
@@ -573,7 +592,6 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       canvas.width = finalWidth;
       canvas.height = finalHeight;
       
-      // Recreate a lighter page background
       // Base gradient - lighter
       const gradient = ctx.createLinearGradient(0, 0, finalWidth, finalHeight);
       gradient.addColorStop(0, '#1E1E1E');
@@ -604,15 +622,16 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       ctx.fillStyle = blueGradient;
       ctx.fillRect(0, 0, finalWidth, finalHeight);
       
-      const centerX = padding; // Since canvas width = img.width + padding*2
-      const centerY = padding;
+      const centerX = paddingX; // Since canvas width = img.width + padding*2
+      const centerY = paddingTop;
       ctx.drawImage(img, centerX, centerY);
       
-      ctx.font = '200 27px ui-sans-serif, system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(156, 163, 175, 0.6)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('adadev.io', finalWidth / 2, finalHeight - 20);
+      // Draw branding logo centered at bottom
+      const logoWidth = Math.round(logoTargetWidth);
+      const logoHeight = computedLogoHeight;
+      const logoX = Math.round((finalWidth - logoWidth) / 2);
+      const logoY = Math.round(finalHeight - logoHeight - 15);
+      ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
       
       // Convert to blob
       const blob = await new Promise(resolve => {
@@ -645,7 +664,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
   const handleShareChartLeaderboard = () => {
     setShareMenuOpen(false);
-    shareToXHandler(widgetRef.current, 'full');
+    shareToXHandler(captureRef.current, 'full');
   };
 
   const handleShareLeaderboard = () => {
@@ -907,7 +926,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
         <Portal>
           <div
             ref={widgetRef}
-            className={`dev-activity-widget ${screenshotMode ? 'absolute top-0 left-0 w-[1400px] h-auto' : 'fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[95vh] min-w-[900px] min-h-[700px]'} ${screenshotMode ? 'bg-card-bg/90' : 'bg-card-bg/40'} border border-gray-800 rounded-xl shadow-lg ${screenshotMode ? 'overflow-visible' : 'overflow-hidden'} widget-crossfade-enter-active`}
+            className={`dev-activity-widget ${screenshotMode ? 'absolute top-0 left-0 w-[1400px]' : 'fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[95vh] min-w-[900px] min-h-[700px]'} ${screenshotMode ? 'bg-card-bg/90' : 'bg-card-bg/40'} border border-gray-800 rounded-xl shadow-lg ${screenshotMode ? 'overflow-visible' : 'overflow-hidden'} widget-crossfade-enter-active`}
             style={{ 
               borderRadius: '32px',
               ...(screenshotMode ? { 
@@ -929,13 +948,13 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
             </button>
             
             {/* Main Content Container */}
-            <div className="w-full h-full flex flex-col overflow-hidden">
+            <div ref={captureRef} className={`w-full flex flex-col ${screenshotMode ? 'h-auto overflow-visible' : 'h-full overflow-hidden'}`}>
               {/* Header Section */}
-              <div className="flex-shrink-0 px-8 pt-8 pb-4 min-h-0">
+              <div className={`flex-shrink-0 px-8 ${screenshotMode ? 'pt-4 pb-2' : 'pt-8 pb-4'} min-h-0`}>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <Activity size={20} className="text-[#C8F560] flex-shrink-0" />
-                    <h3 className="text-white font-semibold text-sm">Development Activity</h3>
+                    <Activity size={screenshotMode ? 24 : 20} className="text-[#C8F560] flex-shrink-0" />
+                    <h3 className={`text-white font-semibold ${screenshotMode ? 'text-lg' : 'text-sm'}`}>Development Activity</h3>
                     {!screenshotMode ? (
                       <>
                         <PeriodDropdown
@@ -1045,7 +1064,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             disabled={isSharing}
                           >
                             <div className="flex items-center justify-between">
-                              <span>Chart + Leaderboard</span>
+                              <span>Complete</span>
                               <span className="text-xs text-gray-400">Copy & Tweet</span>
                             </div>
                           </button>
@@ -1102,7 +1121,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
               </div>
 
               {/* Content Section */}
-              <div className="flex-1 px-8 pb-8 min-h-0">
+              <div className={`${screenshotMode ? '' : 'flex-1 min-h-0'} px-8 ${screenshotMode ? 'pb-4' : 'pb-8'}`}>
                 {error ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
@@ -1117,11 +1136,11 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     </div>
                   </div>
                 ) : (
-                <div className="grid grid-cols-5 gap-8 h-full">
+                <div className={`grid grid-cols-5 gap-8 ${screenshotMode ? '' : 'h-full'}`}>
                   {/* Left Column - Metrics Bar and Chart */}
-                  <div className="col-span-3 flex flex-col space-y-3 h-full min-h-0">
+                  <div className={`col-span-3 flex flex-col space-y-3 ${screenshotMode ? '' : 'h-full'} min-h-0`}>
                       {/* Metrics Bar */}
-                    <div className={`grid grid-cols-3 gap-2 py-2 px-4 rounded-lg items-center flex-shrink-0 ${
+                    <div className={`grid grid-cols-3 gap-2 ${screenshotMode ? 'py-4 px-6' : 'py-2 px-4'} rounded-lg items-center flex-shrink-0 ${
                       screenshotMode ? 'border border-gray-700/30' : 'bg-gray-800/50'
                     }`}>
                         {isLoading ? (
@@ -1134,32 +1153,32 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           <>
                       <div className="text-center">
                               <div 
-                                className="text-white font-bold text-lg"
+                                className={`text-white font-bold ${screenshotMode ? 'text-2xl' : 'text-lg'}`}
                                 title={`Repositories with at least one commit in this ${selectedPeriod === 'current' ? '7-day' : selectedPeriod === '5weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period`}
                               >
                                 {metrics.totalActiveRepos}
                               </div>
-                        <div className="text-gray-400 text-xs">Active Repos</div>
+                        <div className={`text-gray-400 ${screenshotMode ? 'text-sm' : 'text-xs'}`}>Active Repos</div>
                       </div>
                       <div className="text-center">
                               <div 
-                                className="text-white font-bold text-lg"
+                                className={`text-white font-bold ${screenshotMode ? 'text-2xl' : 'text-lg'}`}
                                 title={"Average commits per active repository during this period"}
                               >
                                 {metrics.avgCommitsPerRepo}
                               </div>
-                        <div className="text-gray-400 text-xs">
+                        <div className={`text-gray-400 ${screenshotMode ? 'text-sm' : 'text-xs'}`}>
                                 {'Avg Commits/Repo'}
                         </div>
                       </div>
                       <div className="text-center">
                               <div 
-                                className="text-white font-bold text-lg"
+                                className={`text-white font-bold ${screenshotMode ? 'text-2xl' : 'text-lg'}`}
                                 title={"Total commits across all repositories during this period"}
                               >
                                 {metrics.totalCommits}
                               </div>
-                        <div className="text-gray-400 text-xs">
+                        <div className={`text-gray-400 ${screenshotMode ? 'text-sm' : 'text-xs'}`}>
                                 {'Total Commits'}
                         </div>
                       </div>
@@ -1183,9 +1202,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     </div>
 
                       {/* Chart Container */}
-                    <div ref={chartRef} className="flex-1 overflow-hidden min-h-0">
-                      <div ref={chartInnerRef} className={`rounded-lg chart-container-padding h-full overflow-hidden ${
-                        screenshotMode ? 'border border-gray-700/30' : 'bg-gray-800/50'
+                    <div ref={chartRef} className={`flex-1 ${screenshotMode ? 'overflow-visible' : 'overflow-hidden'} min-h-0`}>
+                      <div ref={chartInnerRef} className={`rounded-lg chart-container-padding ${screenshotMode ? '' : 'h-full'} ${
+                        screenshotMode ? 'border border-gray-700/30 overflow-visible' : 'bg-gray-800/50 overflow-hidden'
                       }`}>
                           {isLoading ? (
                           <div className="flex items-center justify-center h-full">
@@ -1229,8 +1248,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               >
                                 <AggregatedActivityChart
                                   weeklyData={chartData}
-                                  width={800}
-                                  height={400}
+                                  width={screenshotMode ? 850 : 800}
+                                  height={screenshotMode ? 480 : 400}
                                   padding={10}
                                   period={selectedPeriod}
                                   screenshotMode={screenshotMode}
@@ -1344,7 +1363,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     <div 
                       className="overflow-y-auto space-y-1.5 pr-2 relative scrollbar-hide" 
                       style={{ 
-                          height: '325px',
+                          height: screenshotMode ? 'auto' : '325px',
                         transform: 'translateZ(0)', 
                         willChange: 'scroll-position',
                         zIndex: 1
@@ -1361,7 +1380,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             </div>
                           </div>
                       ) : (
-                          leaderboard.slice(3).map((item, index) => {
+                          (screenshotMode ? leaderboard.slice(3, 10) : leaderboard.slice(3)).map((item, index) => {
                           const adjustedIndex = index + 3;
 
                           return (
@@ -1404,9 +1423,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                 {currentPeriodData && chartData && chartData.length > 0 && (
                   <div className="bg-gray-800/50 rounded-lg p-3 mt-4">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex flex-col">
+                      <div className="flex flex-col whitespace-nowrap">
                         <span 
-                          className="text-gray-400 text-xs"
+                          className="text-gray-400 text-xs whitespace-nowrap"
                           title={(() => {
                             if (selectedPeriod === 'current') {
                               const historicalMaxData = weeklyHistoricalMaxWithDates;

@@ -499,20 +499,43 @@ const ResourceCard = ({ resource, onViewResource }) => {
       canvas.width = finalWidth;
       canvas.height = finalHeight;
 
-      // Background gradient
+      // Recreate a darker page background (matching DevelopmentActivityWidget)
+      // Base gradient - darker
       const gradient = ctx.createLinearGradient(0, 0, finalWidth, finalHeight);
       gradient.addColorStop(0, '#1E1E1E');
       gradient.addColorStop(0.5, '#0F0F0F');
       gradient.addColorStop(1, '#1A1A1A');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, finalWidth, finalHeight);
+      
+      // Add subtle color overlays for richer blacks
+      // Purple gradient at 20% 80%
+      const purpleGradient = ctx.createRadialGradient(finalWidth * 0.2, finalHeight * 0.8, 0, finalWidth * 0.2, finalHeight * 0.8, finalWidth * 0.5);
+      purpleGradient.addColorStop(0, 'rgba(120, 119, 198, 0.1)');
+      purpleGradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = purpleGradient;
+      ctx.fillRect(0, 0, finalWidth, finalHeight);
+      
+      // Pink gradient at 80% 20%
+      const pinkGradient = ctx.createRadialGradient(finalWidth * 0.8, finalHeight * 0.2, 0, finalWidth * 0.8, finalHeight * 0.2, finalWidth * 0.5);
+      pinkGradient.addColorStop(0, 'rgba(255, 119, 198, 0.1)');
+      pinkGradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = pinkGradient;
+      ctx.fillRect(0, 0, finalWidth, finalHeight);
+      
+      // Blue gradient at 40% 40%
+      const blueGradient = ctx.createRadialGradient(finalWidth * 0.4, finalHeight * 0.4, 0, finalWidth * 0.4, finalHeight * 0.4, finalWidth * 0.5);
+      blueGradient.addColorStop(0, 'rgba(120, 219, 255, 0.1)');
+      blueGradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = blueGradient;
+      ctx.fillRect(0, 0, finalWidth, finalHeight);
 
       // Draw captured image
       ctx.drawImage(img, padding, padding);
 
-      // Branding (larger, more readable)
-      ctx.font = '300 42px ui-sans-serif, system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(156, 163, 175, 0.8)';
+      // Branding (matching DevelopmentActivityWidget style)
+      ctx.font = '200 27px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = 'rgba(156, 163, 175, 0.6)';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillText('adadev.io', finalWidth / 2, finalHeight - 20);
