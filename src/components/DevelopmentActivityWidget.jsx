@@ -160,8 +160,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
   // View mode options for dropdown
   const viewModeOptions = [
-    { key: 'repository', label: 'Repository View', description: 'Show individual repositories' },
-    { key: 'organization', label: 'Organization View', description: 'Show aggregated data by organization' }
+    { key: 'repository', label: 'Repository', description: 'Show individual repositories' },
+    { key: 'organization', label: 'Organization', description: 'Show aggregated data by organization' }
   ];
 
   // Load activity data with server-side cache optimization
@@ -680,7 +680,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     return opt?.label || currentPeriodData?.periodLabel || selectedPeriod;
   }, [selectedPeriod, currentPeriodData]);
   const viewModeLabel = useMemo(() => {
-    const opt = [{ key: 'repository', label: 'Repository View' }, { key: 'organization', label: 'Organization View' }].find(o => o.key === viewMode);
+    const opt = viewModeOptions.find(o => o.key === viewMode);
     return opt?.label || viewMode;
   }, [viewMode]);
 
@@ -1271,6 +1271,27 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     style={screenshotMode ? { padding: '12px 16px', marginTop: 0 } : { padding: '0 8px 0 8px', marginTop: '-7px' }}
                     data-screenshot-mode={screenshotMode}
                   >
+                      {/* Header for Screenshot Mode */}
+                      {screenshotMode && (
+                        <div className="mb-4 pb-3 border-b border-gray-700/30">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <Activity size={20} className="text-[#C8F560] flex-shrink-0" />
+                              <h3 className="text-white font-semibold text-lg">Development Activity</h3>
+                            </div>
+                            <div className="flex flex-col gap-1 text-sm text-right">
+                              <div className="flex items-end justify-end gap-1">
+                                <span className="text-gray-500">View:</span>
+                                <span className="text-gray-300 font-medium">{viewModeLabel}</span>
+                              </div>
+                              <div className="text-gray-300 font-medium">
+                                {selectedPeriodLabel}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* Top 3 Items */}
                       <div className="flex-shrink-0 mb-1 relative" style={{ zIndex: 10 }}>
                         {isLoading ? (
