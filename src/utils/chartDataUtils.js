@@ -170,6 +170,17 @@ export const transformChartData = (rawData, periodKey, componentName = 'Chart') 
  * @returns {Array} Daily chart data (7 nodes)
  */
 const transformDailyData = (rawData, componentName) => {
+  // Pass through data that is already in the correct daily format.
+  // This is used by WeeklyActivityChart which receives pre-formatted daily data.
+  if (rawData.length === 1 && rawData[0].weeklyData && rawData[0].weeklyData.length === 7) {
+    const preformattedData = rawData[0].weeklyData;
+    const isDaily = preformattedData.every(d => d.weekStart && typeof d.count === 'number');
+    if (isDaily) {
+      logger.log(`${componentName}: Passing through pre-formatted daily data.`);
+      return preformattedData;
+    }
+  }
+
   const aggregatedData = []
   
   // Check if we have dailyCounts (DevelopmentActivityWidget format) or weeklyData (WeeklyActivityChart format)
@@ -398,22 +409,25 @@ export const generateChartXAxisLabels = (data, period) => {
   let lastYear = -1;
 
   data.forEach((d, i) => {
-    const date = new Date(d.weekStart);
-    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
-    const prevDate = i > 0 ? new Date(data[i - 1].weekStart) : null;
-    if(prevDate) {
-      prevDate.setMinutes(prevDate.getMinutes() + prevDate.getTimezoneOffset());
-    }
+    // FIX: Use robust, timezone-safe date parsing to prevent off-by-one errors in labels.
+    // This was the final source of the date display bug.
+    const [year, month, day] = d.weekStart.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
 
-    const month = date.toLocaleString('default', { month: 'short' });
-    const year = date.getFullYear();
+    const prevDate = i > 0 ? (() => {
+      const [py, pm, pd] = data[i - 1].weekStart.split('-').map(Number);
+      return new Date(py, pm - 1, pd);
+    })() : null;
+
+    const monthName = date.toLocaleString('default', { month: 'short' });
+    const fullYear = date.getFullYear();
 
     let label = null;
 
     switch (period) {
       case 'current': // 7 days
         if (i === 0 || date.getDate() === 1) {
-            label = { text: month, priority: 2, type: 'month' };
+            label = { text: monthName, priority: 2, type: 'month' };
         } else {
             label = { text: date.toLocaleString('default', { weekday: 'short' }), priority: 1, type: 'day' };
         }
@@ -424,7 +438,7 @@ export const generateChartXAxisLabels = (data, period) => {
         const weekEndDate = new Date(date);
         weekEndDate.setDate(date.getDate() + 6);
         if (i === 0 || (prevDate && date.getMonth() !== prevDate.getMonth())) {
-          label = { text: month, priority: 2, type: 'month' };
+          label = { text: monthName, priority: 2, type: 'month' };
         } else {
           label = { text: weekEndDate.getDate().toString(), priority: 1, type: 'date' };
         }
@@ -432,7 +446,7 @@ export const generateChartXAxisLabels = (data, period) => {
 
       case '3months':
         if (date.getMonth() !== lastMonth) {
-          label = { text: month, priority: 2, type: 'month' };
+          label = { text: monthName, priority: 2, type: 'month' };
           lastMonth = date.getMonth();
         }
         break;
@@ -449,7 +463,7 @@ export const generateChartXAxisLabels = (data, period) => {
           lastMonth = -1; // Reset month tracking on year change
         }
         if (!label && date.getMonth() !== lastMonth) {
-          label = { text: month, priority: 1, type: 'month' };
+          label = { text: monthName, priority: 1, type: 'month' };
           lastMonth = date.getMonth();
         }
         break;

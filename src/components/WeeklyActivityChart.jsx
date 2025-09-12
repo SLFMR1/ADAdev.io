@@ -116,7 +116,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 if (resourceData.commitsPerWeekDetailed.length > 0) {
                     const validWeeklyData = resourceData.commitsPerWeekDetailed.map(week => ({
                         count: Math.max(0, week.count || 0),
-                        weekStart: new Date(week.weekStart).toISOString().slice(0, 10)
+                        weekStart: week.weekStart // Keep the server-provided YYYY-MM-DD string as is
                     }));
 
                     setActivityData({
@@ -148,9 +148,23 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
             // Still use preloaded data if available to keep initial load instant
             const resourceData = preloadedData;
              if (resourceData && resourceData.commitsPerWeekDetailed && Array.isArray(resourceData.commitsPerWeekDetailed) && resourceData.commitsPerWeekDetailed.length > 0) {
-                const validWeeklyData = resourceData.commitsPerWeekDetailed.map(week => ({
+                let commitsData = resourceData.commitsPerWeekDetailed;
+
+                if (selectedPeriod === 'current' && commitsData.length === 7) {
+                    const today = new Date();
+                    commitsData = commitsData.map((week, index) => {
+                        const date = new Date(today);
+                        date.setDate(today.getDate() - (6 - index));
+                        return {
+                            ...week,
+                            weekStart: date.toISOString().slice(0, 10)
+                        };
+                    });
+                }
+
+                const validWeeklyData = commitsData.map(week => ({
                     count: Math.max(0, week.count || 0),
-                    weekStart: new Date(week.weekStart).toISOString().slice(0, 10)
+                    weekStart: week.weekStart
                 }));
 
                 setActivityData({
@@ -232,12 +246,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       if (!weekStart) {
         weekStart = new Date().toISOString().slice(0, 10);
       } else {
-        const weekStartDate = new Date(weekStart);
-        if (isNaN(weekStartDate.getTime())) {
-          console.warn(`Invalid weekStart date: ${weekStart}, using current date`);
+        // Validate the date string format without performing timezone-unsafe conversions.
+        // The original date string from the server is preserved if the format is valid.
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+          console.warn(`Invalid weekStart date format: ${weekStart}, using current date as fallback.`);
           weekStart = new Date().toISOString().slice(0, 10);
-        } else {
-          weekStart = weekStartDate.toISOString().slice(0, 10);
         }
       }
       
@@ -319,7 +332,10 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         return;
       }
       
-      const weekStartDate = new Date(week.weekStart);
+      // FIX: Parse YYYY-MM-DD string as local date to avoid timezone shifts
+      const [year, month, day] = week.weekStart.split('-').map(Number);
+      const weekStartDate = new Date(year, month - 1, day);
+      
       if (isNaN(weekStartDate.getTime())) {
         console.warn(`Invalid weekStart date for tooltip: ${week.weekStart}`);
         return;
