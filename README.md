@@ -1,22 +1,21 @@
-# ADAdev.io
+ # A D A D E V
 
-A developer hub for Cardano blockchain development. Get AI-powered tool recommendations, browse 50+ curated resources, and track real-time project updates.
+The developer hub for Cardano. Get AI-powered tool recommendations, browse 50+ curated resources, and track development activity.
 
 ## What it does
 
-- **AI Recommendations**: Describe your project in natural language, get personalized tool suggestions and development plan.
-- **Resource Library**: Browse categorized Cardano development tools, libraries, and APIs
-- **Live Updates**: Track latest releases and commits from active Cardano projects
-- **Development Planning**: Generate structured development plans with multiple approaches
+- **AI Recommendations**: Describe your project in natural language; get personalized tool suggestions and a development plan.
+- **Resource Library**: Browse categorized Cardano development tools, libraries, and APIs.
+- **Live Updates**: Track the latest releases and commits from active Cardano projects.
+- **Development Planning**: Generate structured plans with multiple approaches.
 
 ## How it helps
 
-Bridges the gap between Cardano's ecosystem and developers by providing intelligent, context-aware recommendations and comprehensive resource discovery.
+Bridges the gap between the Cardano ecosystem and developers with context-aware recommendations and comprehensive discovery. Tracking repo and org activity makes Cardano development more transparent.
 
 ## Adding Resources
 
-Use the "Add Resource" widget on the website to contribute new Cardano development tools and resources to our database.
+Use the Add Resource widget to contribute new Cardano tools and resources.
 
 ## Visit
-
-[adadev.io](https://adadev.io) 
+[adadev.io](https://adadev.io)
