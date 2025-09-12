@@ -383,7 +383,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           <span className={`text-gray-400 ${screenshotMode ? 'text-base' : 'text-xs'}`}>
             {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'} (Historical Complete Weeks)
           </span>
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-baseline ${screenshotMode ? 'space-x-3' : 'space-x-2'}`}>
             <GitCommit size={screenshotMode ? 18 : 12} style={{ color: accentColor.hex }} />
             <span className={`font-bold ${screenshotMode ? 'text-3xl' : 'text-lg'}`} style={{ color: accentColor.hex }}>
               {(() => {
@@ -395,7 +395,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 }
               })()}
             </span>
-            <span className={`text-gray-400 ${screenshotMode ? 'text-base' : 'text-xs'}`}>
+            <span className={`text-gray-400 whitespace-nowrap ${screenshotMode ? 'text-base ml-1' : 'text-xs'}`}>
               {selectedPeriod === 'current' ? 'avg per day' : 'avg per week'}
             </span>
           </div>

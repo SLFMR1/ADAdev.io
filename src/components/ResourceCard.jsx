@@ -14,6 +14,7 @@ import { createGlobalGradientBackground } from '../utils/logger-frontend.js'
 import { createIsolatedScreenshot, shareToX, generateTweetText } from '../utils/screenshotUtils'
 import { fetchGitHubUpdates } from '../services/github'
 import logger from '../utils/logger-frontend'
+import brandingLogo from '/adadev_io.svg'
 import { 
   RESOURCE_CARD_PERIOD_OPTIONS,
   RESOURCE_CARD_PERIOD_MAPPING,
@@ -477,7 +478,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       // Capture the card with html-to-image
       const dataUrl = await htmlToImage.toPng(cardRef.current, {
         quality: 1.0,
-        pixelRatio: 1,
+        pixelRatio: 2,
         backgroundColor: 'transparent',
         skipFonts: false
       });
@@ -490,10 +491,27 @@ const ResourceCard = ({ resource, onViewResource }) => {
         img.src = dataUrl;
       });
 
-      // Create final canvas with 35px padding each side + branding space
-      const padding = 35;
-      const finalWidth = img.width + (padding * 2);
-      const finalHeight = img.height + (padding * 2) + 80;
+      // Prepare branding logo
+      const logoImg = new Image();
+      logoImg.src = brandingLogo;
+      await new Promise((resolve, reject) => {
+        logoImg.onload = resolve;
+        logoImg.onerror = reject;
+      });
+
+      // Create final canvas with padding and branding space
+      const paddingX = 35;
+      const paddingTop = 10;
+      const paddingBottom = 10;
+      const finalWidth = img.width + (paddingX * 2);
+      
+      // Calculate logo dimensions
+      const logoAspectRatio = logoImg.width / logoImg.height;
+      const logoTargetWidth = Math.min(420, finalWidth * 0.28);
+      const computedLogoHeight = Math.max(28, Math.round(logoTargetWidth / logoAspectRatio));
+      const brandingPadding = computedLogoHeight + 20;
+      const finalHeight = img.height + paddingTop + paddingBottom + brandingPadding;
+      
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       canvas.width = finalWidth;
@@ -531,14 +549,14 @@ const ResourceCard = ({ resource, onViewResource }) => {
       ctx.fillRect(0, 0, finalWidth, finalHeight);
 
       // Draw captured image
-      ctx.drawImage(img, padding, padding);
+      ctx.drawImage(img, paddingX, paddingTop);
 
-      // Branding (matching DevelopmentActivityWidget style)
-      ctx.font = '200 27px ui-sans-serif, system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(156, 163, 175, 0.6)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('adadev.io', finalWidth / 2, finalHeight - 20);
+      // Draw branding logo centered at bottom
+      const logoWidth = Math.round(logoTargetWidth);
+      const logoHeight = computedLogoHeight;
+      const logoX = Math.round((finalWidth - logoWidth) / 2);
+      const logoY = Math.round(finalHeight - logoHeight - 15);
+      ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
 
       // Convert to blob
       const blob = await new Promise(resolve => {
