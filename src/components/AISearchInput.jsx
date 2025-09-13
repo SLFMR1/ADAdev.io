@@ -235,13 +235,13 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto mb-8">
+    <div className="w-full max-w-2xl mx-auto mb-6 sm:mb-8">
       <form onSubmit={handleSubmit} className="relative">
-        <div className={`relative w-full rounded-full border border-gray-700 bg-card-bg/50 backdrop-blur-md pl-10 pr-8 py-4 transition-all duration-300`}>
+        <div className={`relative w-full rounded-full border border-gray-700 bg-card-bg/50 backdrop-blur-md pl-8 sm:pl-10 pr-6 sm:pr-8 py-3 sm:py-4 transition-all duration-300`}>
           {/* Matrix Overlay */}
           {isTyping && (
             <div className="absolute inset-0 flex items-center z-50 pointer-events-none">
-              <span className="text-emerald-400 font-mono text-sm tracking-wide pl-10">
+              <span className="text-emerald-400 font-mono text-xs sm:text-sm tracking-wide pl-8 sm:pl-10">
                 {typedText}
                 <span className="animate-blink">|</span>
               </span>
@@ -257,8 +257,8 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
             </div>
           )}
           {/* Search Icon */}
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
-            <Search className="h-5 w-5 text-gray-400" />
+          <div className="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none z-10">
+            <Search className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
           </div>
           {/* Input Field */}
           <input
@@ -266,7 +266,7 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
             value={isTyping ? '' : inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder={isTyping ? '' : "What are you building?"}
-            className="w-full bg-transparent border-none text-white placeholder-gray-400 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none transition-all duration-200 text-lg relative z-10 pr-10"
+            className="w-full bg-transparent border-none text-white placeholder-gray-400 focus:outline-none focus:ring-0 focus:border-none focus:shadow-none transition-all duration-200 text-sm sm:text-lg relative z-10 pr-8 sm:pr-10"
             disabled={isAnalyzing || isTyping}
             style={{ 
               position: 'relative',
@@ -279,7 +279,7 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
             <button
               type="submit"
               disabled={!inputValue.trim() || isTyping}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-transparent border border-white/50 text-white px-5 py-5 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-custom-bg disabled:opacity-50 disabled:cursor-not-allowed hover:border-white hover:bg-white/10 hover:scale-105 active:scale-95 z-40 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)]"
+              className="absolute right-1 sm:right-2 top-1/2 transform -translate-y-1/2 bg-transparent border border-white/50 text-white px-3 py-3 sm:px-5 sm:py-5 rounded-full font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-custom-bg disabled:opacity-50 disabled:cursor-not-allowed hover:border-white hover:bg-white/10 hover:scale-105 active:scale-95 z-40 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] touch-target"
             >
             </button>
           )}
@@ -287,27 +287,27 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
       </form>
       {/* Error Message */}
       {error && (
-        <div className="mt-3 text-red-400 text-sm text-center">
+        <div className="mt-2 sm:mt-3 text-red-400 text-xs sm:text-sm text-center">
           {error}
         </div>
       )}
       {/* Challenge Modal */}
       {showChallenge && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-card-bg border border-gray-700 rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-white mb-4">Verification Required</h3>
-            <p className="text-gray-300 mb-4">Please answer this question to continue:</p>
-            <div className="mb-4">
-              <p className="text-cyan-400 font-medium">{generateChallenge().question}</p>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card-bg border border-gray-700 rounded-lg p-4 sm:p-6 max-w-md w-full">
+            <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Verification Required</h3>
+            <p className="text-gray-300 text-sm sm:text-base mb-3 sm:mb-4">Please answer this question to continue:</p>
+            <div className="mb-3 sm:mb-4">
+              <p className="text-cyan-400 font-medium text-sm sm:text-base">{generateChallenge().question}</p>
             </div>
             <input
               type="text"
               value={challengeAnswer}
               onChange={(e) => setChallengeAnswer(e.target.value)}
               placeholder="Your answer..."
-              className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-cyan-400"
+              className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-cyan-400 text-sm sm:text-base"
             />
-            <div className="flex gap-3 mt-4">
+            <div className="flex gap-2 sm:gap-3 mt-3 sm:mt-4">
               <button
                 onClick={() => {
                   const challenge = generateChallenge()
@@ -322,7 +322,7 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
                     setError('Incorrect answer. Please try again.')
                   }
                 }}
-                className="flex-1 bg-gradient-to-r from-emerald-400 to-cyan-400 text-black px-4 py-2 rounded font-semibold hover:from-emerald-500 hover:to-cyan-500 transition-all"
+                className="flex-1 bg-gradient-to-r from-emerald-400 to-cyan-400 text-black px-3 py-2 sm:px-4 rounded font-semibold hover:from-emerald-500 hover:to-cyan-500 transition-all text-sm sm:text-base touch-target"
               >
                 Submit
               </button>
@@ -332,7 +332,7 @@ const AISearchInput = ({ onAnalysisComplete, onLoadingChange, isGlowing = false,
                   setChallengeAnswer('')
                   setError('')
                 }}
-                className="flex-1 bg-gray-600 text-white px-4 py-2 rounded font-semibold hover:bg-gray-500 transition-all"
+                className="flex-1 bg-gray-600 text-white px-3 py-2 sm:px-4 rounded font-semibold hover:bg-gray-500 transition-all text-sm sm:text-base touch-target"
               >
                 Cancel
               </button>

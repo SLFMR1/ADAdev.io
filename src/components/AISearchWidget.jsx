@@ -298,29 +298,29 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
       ) : (
         /* Expanded Centered Widget */
         <Portal>
-          <div className="fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[90vw] max-w-[1200px] max-h-[90vh] min-w-[900px] min-h-[600px] border-radius-[32px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden p-0 widget-crossfade-enter-active" style={{ borderRadius: '32px' }}
+          <div className="fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[95vw] sm:w-[90vw] max-w-[1200px] max-h-[95vh] sm:max-h-[90vh] min-w-[320px] sm:min-w-[900px] min-h-[500px] sm:min-h-[600px] border-radius-[32px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden p-0 widget-crossfade-enter-active" style={{ borderRadius: '32px' }}
             data-widget="ai-search">
             <button
-              className="absolute top-6 right-6 z-50 text-gray-400 hover:text-white transition-all duration-200"
+              className="absolute top-3 right-3 sm:top-6 sm:right-6 z-50 text-gray-400 hover:text-white transition-all duration-200 p-2 touch-target"
               onClick={onCollapse}
               aria-label="Close"
             >
-              <span style={{fontSize: 24, fontWeight: 'bold', lineHeight: 1}}>×</span>
+              <span className="text-xl sm:text-2xl font-bold leading-none">×</span>
             </button>
-            <div className="w-full h-full p-8 overflow-auto" style={{ maxHeight: '90vh', minHeight: '600px' }}>
+            <div className="w-full h-full p-4 sm:p-8 overflow-auto" style={{ maxHeight: '95vh', minHeight: '500px' }}>
               {/* Main Heading */}
-              <div className="mb-6 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Bot size={20} className="text-teal-400" />
-                  <h3 className="text-white font-semibold text-sm">AI Development Assistant</h3>
+              <div className="mb-4 sm:mb-6 flex items-center justify-between">
+                <div className="flex items-center space-x-2 sm:space-x-3">
+                  <Bot size={18} className="text-teal-400 sm:w-5 sm:h-5" />
+                  <h3 className="text-white font-semibold text-xs sm:text-sm">AI Development Assistant</h3>
                 </div>
               </div>
 
               {/* Tabs */}
-              <div className="flex space-x-3 mb-6">
+              <div className="flex flex-wrap gap-2 sm:gap-3 mb-4 sm:mb-6">
                 <button
                   onClick={startNewSearch}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
+                  className={`px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 border touch-target ${
                     activeTab === 'search' 
                       ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]' 
                       : 'border-gray-600/50 text-gray-300 hover:border-cyan-500 hover:text-cyan-300 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
@@ -330,7 +330,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                 </button>
                 <button
                   onClick={() => setActiveTab('history')}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
+                  className={`px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 border touch-target ${
                     activeTab === 'history' 
                       ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]' 
                       : 'border-gray-600/50 text-gray-300 hover:border-cyan-500 hover:text-cyan-300 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
@@ -342,7 +342,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                   <>
                     <button
                       onClick={() => setActiveTab('results')}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
+                      className={`px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 border touch-target ${
                         activeTab === 'results' 
                           ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]' 
                           : 'border-gray-600/50 text-gray-300 hover:border-cyan-500 hover:text-cyan-300 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
@@ -352,7 +352,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                     </button>
                     <button
                       onClick={() => setActiveTab('plan')}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 border ${
+                      className={`px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 border touch-target ${
                         activeTab === 'plan' 
                           ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]' 
                           : 'border-gray-600/50 text-gray-300 hover:border-cyan-500 hover:text-cyan-300 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
@@ -368,9 +368,9 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
               <div className="flex-1">
                 {activeTab === 'search' && (
                   <div className="max-w-2xl mx-auto">
-                    <div className="mb-6">
-                      <h2 className="text-white text-lg font-semibold mb-4">What are you building?</h2>
-                      <p className="text-gray-400 mb-6">Describe your project and get AI-powered recommendations for Cardano tools and development approaches.</p>
+                    <div className="mb-4 sm:mb-6">
+                      <h2 className="text-white text-base sm:text-lg font-semibold mb-3 sm:mb-4">What are you building?</h2>
+                      <p className="text-gray-400 text-sm sm:text-base mb-4 sm:mb-6">Describe your project and get AI-powered recommendations for Cardano tools and development approaches.</p>
                     </div>
                     
                     <AISearchInput
@@ -387,47 +387,47 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
 
                 {activeTab === 'history' && (
                   <div className="max-w-4xl mx-auto">
-                    <div className="mb-6">
-                      <h2 className="text-white text-lg font-semibold mb-2">Development Plan History</h2>
-                      <p className="text-gray-400">Previously generated development plans for your projects.</p>
+                    <div className="mb-4 sm:mb-6">
+                      <h2 className="text-white text-base sm:text-lg font-semibold mb-2">Development Plan History</h2>
+                      <p className="text-gray-400 text-sm sm:text-base">Previously generated development plans for your projects.</p>
                     </div>
                     
                     {cachedPlans.length === 0 ? (
-                      <div className="text-center py-12">
-                        <Bot size={48} className="text-gray-600 mx-auto mb-4" />
-                        <p className="text-gray-400 text-lg">No development plans saved yet.</p>
-                        <p className="text-gray-500">Create your first analysis to see it here!</p>
+                      <div className="text-center py-8 sm:py-12">
+                        <Bot size={40} className="text-gray-600 mx-auto mb-3 sm:mb-4 sm:w-12 sm:h-12" />
+                        <p className="text-gray-400 text-base sm:text-lg">No development plans saved yet.</p>
+                        <p className="text-gray-500 text-sm sm:text-base">Create your first analysis to see it here!</p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
+                      <div className="space-y-3 sm:space-y-4">
                         {cachedPlans.map((plan) => (
                           <div 
                             key={plan.id} 
                             onClick={() => loadPlan(plan.id)}
-                            className={`bg-gray-800/50 rounded-lg p-4 border transition-all duration-200 hover:bg-gray-800/70 cursor-pointer ${
+                            className={`bg-gray-800/50 rounded-lg p-3 sm:p-4 border transition-all duration-200 hover:bg-gray-800/70 cursor-pointer touch-target ${
                               selectedPlanId === plan.id ? 'border-cyan-500/50 bg-cyan-500/10' : 'border-gray-700'
                             }`}
                           >
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex-1">
-                                <h4 className="text-white font-medium mb-1">{plan.title}</h4>
-                                <p className="text-gray-300 text-sm mb-2">{plan.query}</p>
-                                <div className="flex items-center space-x-4 text-xs text-gray-400">
+                            <div className="flex items-start justify-between mb-2 sm:mb-3">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-white font-medium mb-1 text-sm sm:text-base truncate">{plan.title}</h4>
+                                <p className="text-gray-300 text-xs sm:text-sm mb-2 line-clamp-2">{plan.query}</p>
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-gray-400">
                                   <span>{new Date(plan.timestamp).toLocaleDateString()}</span>
-                                  <span>{new Date(plan.timestamp).toLocaleTimeString()}</span>
-                                  <span>{plan.results.recommendedResources?.length || 0} tools recommended</span>
+                                  <span className="hidden sm:inline">{new Date(plan.timestamp).toLocaleTimeString()}</span>
+                                  <span>{plan.results.recommendedResources?.length || 0} tools</span>
                                 </div>
                               </div>
-                              <div className="flex items-center space-x-2 ml-4">
+                              <div className="flex items-center space-x-2 ml-2 sm:ml-4 flex-shrink-0">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     deletePlan(plan.id);
                                   }}
-                                  className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                                  className="p-1 text-gray-400 hover:text-red-400 transition-colors touch-target"
                                   title="Delete plan"
                                 >
-                                  <X size={16} />
+                                  <X size={14} className="sm:w-4 sm:h-4" />
                                 </button>
                               </div>
                             </div>
@@ -508,31 +508,31 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                 )}
 
                 {(activeTab === 'plan' || activeTab === 'tools') && aiResults && (
-                  <div className="flex h-[calc(90vh-200px)]">
+                  <div className="flex flex-col lg:flex-row h-[calc(95vh-200px)] sm:h-[calc(90vh-200px)]">
                     {/* Tabs */}
-                    <div className="w-64 border-r border-gray-700">
-                      <div className="p-4">
+                    <div className="w-full lg:w-64 border-b lg:border-b-0 lg:border-r border-gray-700 bg-gray-900/50">
+                      <div className="p-3 sm:p-4 flex lg:flex-col space-x-2 lg:space-x-0 lg:space-y-2">
                         <button
                           onClick={() => setActiveTab('plan')}
-                          className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 border ${
+                          className={`flex-1 lg:w-full text-left px-3 py-2 sm:px-4 sm:py-3 rounded-lg transition-all duration-200 border touch-target ${
                             activeTab === 'plan'
                               ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]'
                               : 'border-gray-600/50 text-gray-400 hover:border-cyan-500 hover:text-cyan-300 hover:bg-cyan-600/10 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
                           }`}
                         >
-                          <FileText size={16} className="inline mr-2" />
-                          Development Plan
+                          <FileText size={14} className="inline mr-2 sm:w-4 sm:h-4" />
+                          <span className="text-xs sm:text-sm">Development Plan</span>
                         </button>
                         <button
                           onClick={() => setActiveTab('tools')}
-                          className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 border mt-2 ${
+                          className={`flex-1 lg:w-full text-left px-3 py-2 sm:px-4 sm:py-3 rounded-lg transition-all duration-200 border touch-target ${
                             activeTab === 'tools'
                               ? 'border-cyan-500/50 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:shadow-[0_0_30px_rgba(6,182,212,0.15)]'
                               : 'border-gray-600/50 text-gray-400 hover:border-cyan-500 hover:text-cyan-300 hover:bg-cyan-600/10 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]'
                           }`}
                         >
-                          <Bot size={16} className="inline mr-2" />
-                          Recommended Tools
+                          <Bot size={14} className="inline mr-2 sm:w-4 sm:h-4" />
+                          <span className="text-xs sm:text-sm">Recommended Tools</span>
                         </button>
                       </div>
                     </div>
@@ -540,12 +540,12 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                     {/* Main Content */}
                     <div className="flex-1 overflow-y-auto">
                       {activeTab === 'plan' && (
-                        <div className="p-6">
-                          <div className="flex items-center justify-between mb-6">
+                        <div className="p-3 sm:p-6">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 space-y-2 sm:space-y-0">
                             <div>
-                              <h3 className="text-lg font-semibold text-white">Development Plan</h3>
+                              <h3 className="text-base sm:text-lg font-semibold text-white">Development Plan</h3>
                               {selectedPlanId && (
-                                <p className="text-gray-400 text-sm mt-1">
+                                <p className="text-gray-400 text-xs sm:text-sm mt-1">
                                   {cachedPlans.find(p => p.id === selectedPlanId) ? 
                                     `Cached plan from ${new Date(cachedPlans.find(p => p.id === selectedPlanId).timestamp).toLocaleDateString()}` : 
                                     'Current analysis'
@@ -555,17 +555,17 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
                             </div>
                             <button
                               onClick={handleCopyPlan}
-                              className="flex items-center space-x-2 px-4 py-2 bg-gray-800/30 text-gray-300 rounded-lg border border-white/50 hover:border-white hover:bg-white/10 transition-all duration-200 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]"
+                              className="flex items-center justify-center space-x-2 px-3 py-2 sm:px-4 bg-gray-800/30 text-gray-300 rounded-lg border border-white/50 hover:border-white hover:bg-white/10 transition-all duration-200 shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] touch-target"
                             >
                               {copied ? (
                                 <>
-                                  <Check size={16} className="text-green-400" />
-                                  <span>Copied!</span>
+                                  <Check size={14} className="text-green-400 sm:w-4 sm:h-4" />
+                                  <span className="text-xs sm:text-sm">Copied!</span>
                                 </>
                               ) : (
                                 <>
-                                  <Copy size={16} />
-                                  <span>Copy as Markdown</span>
+                                  <Copy size={14} className="sm:w-4 sm:h-4" />
+                                  <span className="text-xs sm:text-sm">Copy as Markdown</span>
                                 </>
                               )}
                             </button>
