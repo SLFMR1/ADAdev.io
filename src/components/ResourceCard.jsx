@@ -737,7 +737,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
               </div>
             )}
             {activeTab === 'links' && (
-              <div className="flex flex-col space-y-2" onClick={(e) => e.stopPropagation()}>
+              <div className="flex flex-col space-y-2 mobile:space-y-1" onClick={(e) => e.stopPropagation()}>
                 {resource.website && (
                    <a href={resource.website} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 hover:text-gray-300">
                      <ExternalLink size={14} /> <span>Website</span>
@@ -811,7 +811,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                     }}
                     options={periodOptions}
                     placeholder="Select period..."
-                    className={`w-44 mobile:w-24 ${screenshotMode ? 'opacity-0 pointer-events-none' : ''}`}
+                    className={`w-44 mobile:w-36 ${screenshotMode ? 'opacity-0 pointer-events-none' : ''}`}
                     screenshotMode={screenshotMode}
                   />
                   {!screenshotMode && (
