@@ -754,9 +754,10 @@ const ResourceCard = ({ resource, onViewResource }) => {
             )}
                         {activeTab === 'video' && resource.video && (
               <div className="pb-8 mobile:pb-4">
-                <div className="relative mx-auto" style={{ 
-                  width: window.innerWidth < 768 ? '280px' : '720px', 
-                  height: window.innerWidth < 768 ? '157px' : '405px' /* 720p 16:9 ratio, mobile scaled down */ 
+                <div className="relative mx-auto w-full mobile:w-full mobile:max-w-none" style={{ 
+                  width: window.innerWidth < 768 ? 'calc(100% - 1rem)' : '720px',
+                  maxWidth: window.innerWidth < 768 ? 'calc(100% - 1rem)' : '720px',
+                  height: window.innerWidth < 768 ? 'calc((100vw - 5rem) * 9 / 16)' : '405px' /* 16:9 aspect ratio maintained */
                 }}>
                   <iframe
                     src={getYouTubeEmbedUrl(resource.video)}
