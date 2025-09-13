@@ -501,7 +501,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       });
 
       // Create final canvas with padding and branding space
-      const paddingX = 35;
+      const paddingX = 30;
       const paddingTop = 10;
       const finalWidth = img.width + (paddingX * 2);
       
@@ -630,7 +630,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
         marginBottom: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? (window.innerWidth < 768 ? '1rem' : '2rem') : undefined,
         marginTop: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? (window.innerWidth < 768 ? '1rem' : '2rem') : undefined,
         ...(screenshotMode && isExpanded && (activeTab === 'activity' || activeTab === 'video') ? {
-          width: '800px',
+          width: '900px',
           position: 'relative',
           zIndex: 'auto',
           transform: 'scale(1)' // Override mobile scaling for screenshots
@@ -723,7 +723,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
           </div>
 
           {/* Tab Content */}
-          <div className={`flex-grow text-sm mobile:text-xs text-gray-300 pr-2 mobile:pr-1 ${activeTab === 'updates' || activeTab === 'activity' ? 'overflow-y-auto' : activeTab === 'about' || activeTab === 'solutions' || activeTab === 'links' ? 'mobile:overflow-y-auto mobile:max-h-40' : 'overflow-hidden'}`}>
+          <div className={`flex-grow text-sm mobile:text-xs text-gray-300 pr-2 mobile:pr-1 ${screenshotMode ? 'overflow-hidden' : activeTab === 'updates' || activeTab === 'activity' ? 'overflow-y-auto' : activeTab === 'about' || activeTab === 'solutions' || activeTab === 'links' ? 'mobile:overflow-y-auto mobile:max-h-40' : 'overflow-hidden'}`}>
             {activeTab === 'about' && <p>{resource.fullDescription || resource.description}</p>}
             {activeTab === 'solutions' && (
               <div className="flex flex-wrap gap-2">
@@ -878,7 +878,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                     </button>
                   </div>
                 ) : (
-                  <div className={screenshotMode ? 'w-[800px] overflow-hidden' : ''}>
+                  <div className={screenshotMode ? 'w-[900px] overflow-visible' : ''}>
                     <WeeklyActivityChart 
                       resource={resource} 
                       showThreeYearOption={false} 
