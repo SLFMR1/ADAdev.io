@@ -630,7 +630,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
         marginBottom: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? (window.innerWidth < 768 ? '1rem' : '2rem') : undefined,
         marginTop: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? (window.innerWidth < 768 ? '1rem' : '2rem') : undefined,
         ...(screenshotMode && isExpanded && (activeTab === 'activity' || activeTab === 'video') ? {
-          width: '900px',
+          width: '980px',
           position: 'relative',
           zIndex: 'auto',
           transform: 'scale(1)' // Override mobile scaling for screenshots
@@ -878,7 +878,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                     </button>
                   </div>
                 ) : (
-                  <div className={screenshotMode ? 'w-[900px] overflow-visible' : ''}>
+                  <div className={screenshotMode ? 'w-[980px] overflow-visible' : ''}>
                     <WeeklyActivityChart 
                       resource={resource} 
                       showThreeYearOption={false} 

@@ -226,10 +226,10 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   })();
 
   // Chart configuration - responsive to container width, force desktop size for screenshots
-  const chartWidth = screenshotMode ? 800 : (containerWidth || (window.innerWidth < 1024 ? 300 : 850))
-  const chartHeight = screenshotMode ? 320 : Math.max(175, Math.min(400, chartWidth * 0.4)) // Responsive height based on width - reduced by 5px for label space
-  const chartPadding = screenshotMode ? 25 : (window.innerWidth < 1024 ? 15 : 25)
-  const bottomPadding = screenshotMode ? 30 : (window.innerWidth < 1024 ? 25 : 30)
+  const chartWidth = screenshotMode ? 920 : (containerWidth || (window.innerWidth < 1024 ? 300 : 850))
+  const chartHeight = screenshotMode ? 280 : Math.max(175, Math.min(400, chartWidth * 0.4)) // Responsive height based on width - reduced by 5px for label space
+  const chartPadding = screenshotMode ? 50 : (window.innerWidth < 1024 ? 15 : 25)
+  const bottomPadding = screenshotMode ? 45 : (window.innerWidth < 1024 ? 25 : 30)
   
   // Validate and sanitize weekly data with enhanced error handling
   const validWeeklyData = weeklyData
@@ -394,14 +394,14 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   return (
     <div className="w-full" ref={containerRef}>
       {/* Line Chart */}
-      <div className="bg-gray-800/50 rounded-lg p-4 sm:p-6" style={{ minHeight: Math.max(280, chartHeight + 100) }}>
+      <div className={`bg-gray-800/50 rounded-lg ${screenshotMode ? 'p-6' : 'p-4 sm:p-6'}`} style={{ minHeight: Math.max(280, chartHeight + 100) }}>
         <div className={`flex items-center justify-between ${screenshotMode ? 'mb-6' : 'mb-3'}`}>
           <span className={`text-gray-400 ${screenshotMode ? 'text-base' : 'text-xs'}`}>
             {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'} (Historical Complete Weeks)
           </span>
-          <div className={`flex items-baseline ${screenshotMode ? 'space-x-3' : 'space-x-2'}`}>
-            <GitCommit size={screenshotMode ? 18 : 12} style={{ color: accentColor.hex }} />
-            <span className={`font-bold ${screenshotMode ? 'text-3xl' : 'text-lg'}`} style={{ color: accentColor.hex }}>
+          <div className={`flex items-baseline ${screenshotMode ? 'space-x-2 mr-8' : 'space-x-2'}`}>
+            <GitCommit size={screenshotMode ? 16 : 12} style={{ color: accentColor.hex }} />
+            <span className={`font-bold ${screenshotMode ? 'text-2xl' : 'text-lg'}`} style={{ color: accentColor.hex }}>
               {(() => {
                 const total = validWeeklyData.reduce((sum, week) => sum + (week.count || 0), 0)
                 if (selectedPeriod === 'current') {
@@ -411,7 +411,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 }
               })()}
             </span>
-            <span className={`text-gray-400 whitespace-nowrap ${screenshotMode ? 'text-base ml-1' : 'text-xs'}`}>
+            <span className={`text-gray-400 whitespace-nowrap ${screenshotMode ? 'text-xs' : 'text-xs'}`}>
               {selectedPeriod === 'current' ? 'avg per day' : 'avg per week'}
             </span>
           </div>
@@ -419,7 +419,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
 
         {/* Line Chart */}
         <div className="relative">
-          <svg width="100%" height={chartHeight + 60} viewBox={`0 0 ${chartWidth} ${chartHeight + 60}`} preserveAspectRatio="xMidYMid meet">
+          <svg width="100%" height={chartHeight + (screenshotMode ? 90 : 60)} viewBox={`0 0 ${chartWidth} ${chartHeight + (screenshotMode ? 90 : 60)}`} preserveAspectRatio="xMidYMid meet">
             {/* Definitions - must come first */}
             <defs>
               <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -758,8 +758,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                     <text
                       key={`label-${label.index}`}
                       x={x}
-                      y={chartHeight - bottomPadding + 55}
-                      fontSize={screenshotMode ? (label.priority > 1 ? "20" : "18") : (label.priority > 1 ? "14" : "12")}
+                      y={chartHeight - bottomPadding + (screenshotMode ? 70 : 55)}
+                      fontSize={screenshotMode ? (label.priority > 1 ? "16" : "14") : (label.priority > 1 ? "14" : "12")}
                       fill={accentColor.hex}
                       textAnchor="middle"
                       fontWeight="300"
@@ -794,9 +794,9 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   labels.push(
                     <text 
                       key={`y-label-${i}`}
-                      x={yAxisLabelPadding - 12} 
+                      x={yAxisLabelPadding - (screenshotMode ? 8 : 12)} 
                       y={y + 4} 
-                      fontSize={screenshotMode ? "18" : "12"} 
+                      fontSize={screenshotMode ? "14" : "12"} 
                       fill={accentColor.hex} 
                       textAnchor="end"
                       fontWeight="300"
@@ -867,7 +867,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               </span>
             )}
           </div>
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 ${screenshotMode ? 'mr-8' : ''}`}>
             {(selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years') && isNewRecord && (
               <span 
                 className="text-xs font-medium px-2 py-0.5 rounded mr-1"
@@ -879,13 +879,13 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 new record
               </span>
             )}
-            <GitCommit size={12} style={{ color: accentColor.hex }} />
-            <span className="font-bold text-lg" style={{ color: accentColor.hex }}>
+            <GitCommit size={screenshotMode ? 14 : 12} style={{ color: accentColor.hex }} />
+            <span className={`font-bold ${screenshotMode ? 'text-lg' : 'text-lg'}`} style={{ color: accentColor.hex }}>
               {selectedPeriod === 'current' || selectedPeriod === '4weeks' || selectedPeriod === '3months' || selectedPeriod === '52weeks' || selectedPeriod === '3years' ? 
                 validWeeklyData.reduce((total, week) => total + (week.count || 0), 0) : 
                 validWeeklyData[validWeeklyData.length - 1]?.count || 0}
             </span>
-            <span className="text-gray-400 text-xs">commits</span>
+            <span className={`text-gray-400 ${screenshotMode ? 'text-xs' : 'text-xs'}`}>commits</span>
           </div>
         </div>
 
@@ -931,7 +931,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           <div className="flex justify-between text-xs text-gray-400 mt-1">
             <span>0</span>
             <span 
-              className="cursor-help relative"
+              className={`cursor-help relative ${screenshotMode ? 'mr-8' : ''}`}
               onMouseEnter={(e) => {
                 const rect = e.target.getBoundingClientRect();
                 setTooltip({
@@ -953,7 +953,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   const historicalMaxData = historicalMaximums[serverPeriod];
                   
                   if (!historicalMaxData || historicalMaxData.value === null) {
-                    return 'insufficient historical data';
+                    return 'Insufficient historical data';
                   }
 
                   const formatDate = (dateString) => {
@@ -969,8 +969,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   const tooltipText = `Historical Peak from ${startDate} - ${endDate}`;
                   
                   return (
-                    <span title={tooltipText} className="whitespace-nowrap">
-                      {`historical peak ${historicalMaxData.value || 1} (${startDate}-${endDate})`}
+                    <span title={tooltipText} className={screenshotMode ? "whitespace-nowrap text-xs" : "whitespace-nowrap"}>
+                      {screenshotMode ? `Historical Peak from ${historicalMaxData.value || 1} (${startDate}-${endDate})` : `historical peak ${historicalMaxData.value || 1} (${startDate}-${endDate})`}
                     </span>
                   );
                 } else {
@@ -979,7 +979,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   const historicalMaxData = historicalMaximums[serverPeriod];
                   
                   if (!historicalMaxData || historicalMaxData.value === null) {
-                    return 'insufficient historical data';
+                    return 'Insufficient historical data';
                   }
 
                   const formatDate = (dateString) => {
@@ -995,8 +995,8 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   const tooltipText = `Historical Peak from ${startDate} - ${endDate}`;
                   
                   return (
-                    <span title={tooltipText} className="whitespace-nowrap">
-                      {`historical peak ${historicalMaxData.value || 1} (${startDate}-${endDate})`}
+                    <span title={tooltipText} className={screenshotMode ? "whitespace-nowrap text-xs" : "whitespace-nowrap"}>
+                      {screenshotMode ? `peak ${historicalMaxData.value || 1} (${startDate}-${endDate})` : `historical peak ${historicalMaxData.value || 1} (${startDate}-${endDate})`}
                     </span>
                   );
                 }
