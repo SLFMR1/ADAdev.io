@@ -188,12 +188,10 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
               <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-3">Widgets</h3>
               <button
                 onClick={() => handleWidgetClick('dev')}
-                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
+                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
               >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-[#C8F560]/20 rounded-lg flex items-center justify-center">
-                    <Activity size={16} className="text-gray-400 group-hover:text-[#C8F560]" />
-                  </div>
+                <div className="flex items-center space-x-6">
+                  <Activity size={24} className="text-[#C8F560] drop-shadow-[0_0_12px_rgba(200,245,96,0.8)]" />
                   <div>
                     <div className="text-white font-medium">Development Activity</div>
                     <div className="text-gray-400 text-sm">Track ecosystem growth</div>
@@ -202,14 +200,12 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
               </button>
               <button
                 onClick={() => handleWidgetClick('github')}
-                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
+                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
               >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-gray-400 group-hover:text-purple-400">
-                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                    </svg>
-                  </div>
+                <div className="flex items-center space-x-6">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="text-purple-400 drop-shadow-[0_0_12px_rgba(168,85,247,0.8)]">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
                   <div>
                     <div className="text-white font-medium">GitHub Updates</div>
                     <div className="text-gray-400 text-sm">Latest releases & commits</div>
@@ -218,50 +214,16 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
               </button>
               <button
                 onClick={() => handleWidgetClick('ai')}
-                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
+                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
               >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-teal-500/20 rounded-lg flex items-center justify-center">
-                    <Bot size={16} className="text-gray-400 group-hover:text-teal-400" />
-                  </div>
+                <div className="flex items-center space-x-6">
+                  <Bot size={24} className="text-teal-400 drop-shadow-[0_0_12px_rgba(20,184,166,0.8)]" />
                   <div>
                     <div className="text-white font-medium">AI Development Plan</div>
                     <div className="text-gray-400 text-sm">Get personalized guidance</div>
                   </div>
                 </div>
               </button>
-              <button
-                onClick={() => handleWidgetClick('add')}
-                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                    <Plus size={16} className="text-gray-400 group-hover:text-emerald-400" />
-                  </div>
-                  <div>
-                    <div className="text-white font-medium">Add Resource</div>
-                    <div className="text-gray-400 text-sm">Contribute to the ecosystem</div>
-                  </div>
-                </div>
-              </button>
-              <button
-                onClick={() => handleWidgetClick('find')}
-                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors group"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                    <Users size={16} className="text-gray-400 group-hover:text-blue-400" />
-                  </div>
-                  <div>
-                    <div className="text-white font-medium">Find a Developer</div>
-                    <div className="text-gray-400 text-sm">Get help with your project</div>
-                  </div>
-                </div>
-              </button>
-            </div>
-
-            <div className="pt-4 border-t border-gray-800">
-              <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider mb-3">Quick Actions</h3>
               <button
                 onClick={() => {
                   const element = document.getElementById('resources')
@@ -279,13 +241,37 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
                 }}
                 className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
               >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                    <TrendingUp size={16} className="text-white" />
-                  </div>
+                <div className="flex items-center space-x-6">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-400 drop-shadow-[0_0_12px_rgba(248,113,113,0.8)]">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  </svg>
                   <div>
                     <div className="text-white font-medium">Browse Resources</div>
                     <div className="text-gray-400 text-sm">Find development tools</div>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleWidgetClick('add')}
+                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
+              >
+                <div className="flex items-center space-x-6">
+                  <Plus size={24} className="text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
+                  <div>
+                    <div className="text-white font-medium">Add Resource</div>
+                    <div className="text-gray-400 text-sm">Contribute to the ecosystem</div>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleWidgetClick('find')}
+                className="w-full text-left p-3 rounded-lg hover:bg-gray-800/50 transition-colors"
+              >
+                <div className="flex items-center space-x-6">
+                  <Users size={24} className="text-blue-400 drop-shadow-[0_0_12px_rgba(59,130,246,0.8)]" />
+                  <div>
+                    <div className="text-white font-medium">Find a Developer</div>
+                    <div className="text-gray-400 text-sm">Get help with your project</div>
                   </div>
                 </div>
               </button>
@@ -817,15 +803,38 @@ function App() {
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="lg:hidden fixed top-0 left-0 right-0 z-[9998] bg-card-bg/95 backdrop-blur-md border-b border-gray-800">
                 <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-6">
                     <button
                       onClick={() => setMobileMenuOpen(true)}
-                      className="p-2 rounded-lg hover:bg-gray-800/50 transition-colors"
+                      className="p-2 rounded-lg hover:bg-gray-800/50 hover:shadow-[0_0_10px_rgba(255,255,255,0.2)] transition-all duration-300 group"
                     >
-                      <Menu size={20} className="text-gray-400" />
+                      <Menu size={20} className="text-gray-400 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] transition-all duration-300" />
                     </button>
-                    <img src="/ADAdev_logo.svg" alt="ADAdev" className="h-8 w-auto object-contain" />
+                    <a href="#top" tabIndex={-1} aria-label="ADAdev Home" className="group">
+                      <img 
+                        src="/ADAdev_logo.svg" 
+                        alt="ADAdev Cardano Developer Resources Logo" 
+                        className="h-8 w-auto object-contain transition-all duration-300 group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]"
+                        width="32" height="32"
+                        loading="eager"
+                      />
+                    </a>
                   </div>
+                  <a 
+                    href="https://cardano.org/" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    aria-label="Visit Cardano Official Website"
+                    className="group"
+                  >
+                    <img 
+                      src="https://developers.cardano.org/img/cardano-black.svg" 
+                      alt="Cardano Logo" 
+                      className="h-6 w-auto object-contain opacity-70 filter brightness-0 invert transition-all duration-300 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
+                      width="24" height="24"
+                      loading="eager"
+                    />
+                  </a>
                 </div>
               </div>
 
@@ -837,7 +846,7 @@ function App() {
                 navigationSource={navigationSource}
               />
 
-              <section className="lg:hidden bg-card-bg/50 border border-gray-800 rounded-xl mx-4 my-8 p-6 mt-20">
+              <section className="hidden lg:hidden bg-card-bg/50 border border-gray-800 rounded-xl mx-4 my-8 p-6 mt-20">
                 <div className="flex items-center space-x-3 mb-4">
                   <Activity size={24} className="text-amber-400" />
                   <h3 className="text-white font-bold text-xl">Development Activity</h3>

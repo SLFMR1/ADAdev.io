@@ -145,6 +145,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   });
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [screenshotMode, setScreenshotMode] = useState(false);
+  const [currentShareType, setCurrentShareType] = useState(null);
   const [error, setError] = useState(null);
   
   
@@ -154,6 +155,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   const chartSvgRef = useRef(null);
   const chartInnerRef = useRef(null);
   const captureRef = useRef(null);
+  const mobileChartCaptureRef = useRef(null);
+  const [chartContainerWidth, setChartContainerWidth] = useState(0);
 
 
   // Use centralized caching - TTL is now determined per period in chartDataUtils
@@ -312,6 +315,29 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       }
     };
   }, []);
+
+  // Measure chart container width on mobile to avoid clipping
+  useEffect(() => {
+    const element = chartInnerRef.current;
+    if (!element) return;
+    const measure = () => {
+      try {
+        setChartContainerWidth(element.clientWidth || 0);
+      } catch {}
+    };
+    measure();
+    let resizeObserver;
+    if (window.ResizeObserver) {
+      resizeObserver = new ResizeObserver(measure);
+      resizeObserver.observe(element);
+    } else {
+      window.addEventListener('resize', measure);
+    }
+    return () => {
+      if (resizeObserver) resizeObserver.disconnect();
+      else window.removeEventListener('resize', measure);
+    };
+  }, [isExpanded]);
 
   // Handle view mode changes more gracefully
   const viewModeRef = useRef(viewMode);
@@ -532,22 +558,43 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
     setIsSharing(true);
     setScreenshotMode(true);
+    setCurrentShareType(shareType);
 
     try {
         // Wait for screenshot mode to apply and layout to stabilize
         await new Promise(resolve => setTimeout(resolve, 500));
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       
-      let targetElement = element;
-      
-      if (!targetElement) {
-        if (shareType === 'full') {
-          targetElement = captureRef.current || widgetRef.current;
-        } else if (shareType === 'leaderboard') {
-          targetElement = leaderboardRef.current;
-        } else if (shareType === 'chart') {
+      let targetElement;
+
+      // Determine the correct element to capture based on share type and screen size
+      if (shareType === 'full') {
+        targetElement = captureRef.current || widgetRef.current;
+      } else if (shareType === 'leaderboard') {
+        targetElement = leaderboardRef.current;
+      } else if (shareType === 'chart') {
+        if (window.innerWidth < 768) {
+          // On mobile, use the special container that includes metrics
+          targetElement = mobileChartCaptureRef.current;
+        } else {
+          // On desktop, use the chart-only container
           targetElement = chartRef.current;
         }
+      }
+
+      // Fallback to the passed element if not determined by shareType
+      if (!targetElement) {
+        targetElement = element;
+      }
+      
+      if (!targetElement) {
+        showShareError('Could not find element to capture.');
+        console.error('Share error: target element is null for shareType:', shareType);
+        // Reset state even on error
+        setScreenshotMode(false);
+        setCurrentShareType(null);
+        setIsSharing(false);
+        return;
       }
       
       // Capture widget first to get actual image dimensions
@@ -653,6 +700,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       showShareError('Failed to generate image. Please try again.');
     } finally {
       setScreenshotMode(false);
+      setCurrentShareType(null);
       setTimeout(() => {
         setIsSharing(false);
       }, 1000);
@@ -934,21 +982,133 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
           )}
           <div
             ref={widgetRef}
-            className={`dev-activity-widget ${screenshotMode ? 'absolute top-0 left-0 w-[1400px]' : 'fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[95vh] min-w-[900px] min-h-[700px]'} ${screenshotMode ? 'bg-card-bg/90' : 'bg-card-bg/40'} border border-gray-800 rounded-xl shadow-lg ${screenshotMode ? 'overflow-visible' : 'overflow-hidden'} widget-crossfade-enter-active`}
+            className={`dev-activity-widget ${screenshotMode ? 'absolute top-0 left-0 w-[1400px]' : 'fixed z-[9999] left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[95vh] min-w-[900px] min-h-[700px] md:w-[75vw] md:max-w-[1600px] md:min-w-[900px] md:min-h-[700px]'} ${screenshotMode ? 'bg-card-bg/90' : 'bg-card-bg/40'} border border-gray-800 rounded-xl shadow-lg ${screenshotMode ? 'overflow-visible' : 'overflow-hidden'} widget-crossfade-enter-active mobile:inset-4 mobile:w-auto mobile:h-auto mobile:min-w-0 mobile:min-h-0 mobile:max-w-none mobile:max-h-none mobile:bg-card-bg mobile:border-gray-700 mobile:rounded-2xl mobile:overflow-y-auto`}
             style={{ 
               borderRadius: '32px',
               ...(screenshotMode ? { 
                 transform: 'none',
                 position: 'absolute',
                 zIndex: 'auto'
+              } : (window.innerWidth < 768 ? {
+                transform: 'none',
+                position: 'fixed',
+                borderRadius: '16px'
               } : {
                 transform: 'translate(-50%, -50%)'
-              })
+              }))
             }}
             data-widget="development-activity"
           >
+            {/* Mobile top action bar with heading and mobile buttons */}
+            <div className={`absolute top-6 left-6 right-6 z-50 hidden mobile:flex items-center justify-between ${screenshotMode ? 'mobile:hidden' : ''}`}>
+              {/* Mobile heading */}
+              <div className="flex items-center gap-3">
+                <Activity size={20} className="text-[#C8F560] flex-shrink-0" />
+                <h3 className="text-white font-semibold text-lg">Development Activity</h3>
+              </div>
+              
+              {/* Mobile action buttons */}
+              <div className="flex items-center gap-3">
+                {/* Mobile Share Button - Icon Only */}
+                <div className="relative">
+                  <button
+                    className={`share-button text-white hover:text-gray-300 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-gray-800/50 ${
+                      isSharing ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    onClick={() => {
+                      if (!isSharing) {
+                        setShareMenuOpen(v => !v);
+                      }
+                    }}
+                    title="Share Development Activity"
+                    disabled={isSharing}
+                  >
+                    {isSharing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Share2 className="w-4 h-4" />
+                    )}
+                  </button>
+                  {shareMenuOpen && !screenshotMode && (
+                    <div className="share-menu-container absolute right-0 top-full mt-1 w-48 bg-gray-800/40 backdrop-blur-sm border border-gray-600/50 rounded-lg shadow-lg z-50">
+                      <div className="px-3 py-2 border-b border-gray-700">
+                        <div className="text-xs text-gray-400 font-medium">Share Options</div>
+                      </div>
+                      <button 
+                        className="block w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-700/50 text-gray-300"
+                        onClick={handleShareChart}
+                        disabled={isSharing}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="mobile:hidden">Chart Only</span>
+                          <span className="hidden mobile:block">Chart + Metrics</span>
+                          <span className="text-xs text-gray-400">Copy & Tweet</span>
+                        </div>
+                      </button>
+                      <button 
+                        className="block w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-700/50 text-gray-300 mobile:hidden"
+                        onClick={handleShareChartLeaderboard}
+                        disabled={isSharing}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>Complete</span>
+                          <span className="text-xs text-gray-400">Copy & Tweet</span>
+                        </div>
+                      </button>
+                      <button 
+                        className="block w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-700/50 text-gray-300"
+                        onClick={handleShareLeaderboard}
+                        disabled={isSharing}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>Leaderboard Only</span>
+                          <span className="text-xs text-gray-400">Copy & Tweet</span>
+                        </div>
+                      </button>
+                      <div className="px-3 py-2 border-t border-gray-700">
+                        <div className="text-xs text-gray-400">
+                          Copies image + text to clipboard.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Mobile Color Picker - Dot Only */}
+                <button
+                  onClick={handleAccentColorChange}
+                  className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-gray-800/50"
+                  title={`Current accent color: ${currentAccentColor.name}`}
+                >
+                  <div 
+                    className="w-3 h-3 rounded-full border border-gray-600/50 transition-all duration-200 hover:scale-110"
+                    style={{
+                      backgroundColor: currentAccentColor.hex,
+                      boxShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.boxShadow = `0 0 12px rgba(${currentAccentColor.rgb}, 0.8), 0 0 18px rgba(${currentAccentColor.rgb}, 0.5)`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.boxShadow = `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 6px rgba(${currentAccentColor.rgb}, 0.2)`;
+                    }}
+                  />
+                </button>
+                
+                {/* Close Button */}
+                <button
+                  className="text-gray-400 hover:text-white transition-all duration-200 w-8 h-8 flex items-center justify-center"
+                  onClick={onCollapse}
+                  aria-label="Close"
+                >
+                  <span style={{ fontSize: 24, fontWeight: 'bold', lineHeight: 1 }}>×</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* Desktop close button - positioned separately */}
             <button
-              className={`absolute top-6 right-6 z-50 text-gray-400 hover:text-white transition-all duration-200 ${screenshotMode ? 'hidden' : ''}`}
+              className={`absolute top-6 right-6 z-50 mobile:hidden text-gray-400 hover:text-white transition-all duration-200 ${screenshotMode ? 'hidden' : ''}`}
               onClick={onCollapse}
               aria-label="Close"
             >
@@ -956,180 +1116,251 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
             </button>
             
             {/* Main Content Container */}
-            <div ref={captureRef} className={`w-full flex flex-col ${screenshotMode ? 'h-auto overflow-visible' : 'h-full overflow-hidden'}`}>
+            <div ref={captureRef} className={`w-full flex flex-col ${screenshotMode ? 'h-auto overflow-visible' : 'h-full overflow-hidden mobile:h-auto mobile:overflow-visible'}`}>
               {/* Header Section */}
-              <div className={`flex-shrink-0 px-8 ${screenshotMode ? 'pt-4 pb-2' : 'pt-8 pb-4'} min-h-0`}>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4 min-w-0 flex-1">
+              <div className={`flex-shrink-0 px-8 mobile:px-6 ${screenshotMode ? 'pt-4 pb-2' : 'pt-8 pb-4 mobile:pt-16 mobile:pb-6'} min-h-0`}>
+                <div className="flex items-center justify-between gap-4 mobile:flex-col mobile:items-stretch mobile:gap-6">
+                  <div className="flex items-center gap-4 mobile:gap-3 min-w-0 flex-1 mobile:justify-center mobile:hidden">
                     <Activity size={screenshotMode ? 24 : 20} className="text-[#C8F560] flex-shrink-0" />
-                    <h3 className={`text-white font-semibold ${screenshotMode ? 'text-lg' : 'text-sm'}`}>Development Activity</h3>
+                    <h3 className={`text-white font-semibold ${screenshotMode ? 'text-lg' : 'text-base'}`}>Development Activity</h3>
                     {!screenshotMode ? (
                       <>
-                        <PeriodDropdown
-                          value={selectedPeriod}
-                          onChange={(newPeriod) => {
-                            console.log(`⚡ INSTANT PERIOD SWITCH: ${selectedPeriod} → ${newPeriod}`);
-                            
-                            // Always set the new period first
-                            setSelectedPeriod(newPeriod);
-                            try {
-                              localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
-                            } catch {}
-                            
-                            // Check centralized cache for instant switching
-                            const cachedData = ChartDataCache.get(viewMode, newPeriod);
-                            if (cachedData) {
-                              console.log('✅ Using cached data for instant period switch!');
+                        <div className="mobile:hidden flex gap-4 items-center">
+                          <PeriodDropdown
+                            value={selectedPeriod}
+                            onChange={(newPeriod) => {
+                              console.log(`⚡ INSTANT PERIOD SWITCH: ${selectedPeriod} → ${newPeriod}`);
                               
-                              // Update activity data with cached data
-                              const periodData = { ...cachedData, period: newPeriod, viewMode: viewMode };
-                              
-                              setActivityData(periodData);
-                              
-                              // Dispatch event for other components
-                              const event = new CustomEvent('activityDataUpdated', {
-                                detail: periodData.metrics?.daily || periodData.metrics?.weekly
-                              });
-                              document.dispatchEvent(event);
-                              
-                              console.log(`⚡ INSTANT SWITCH COMPLETE: Now showing ${newPeriod} with ${periodData.dailyLeaderboard?.length || periodData.weeklyLeaderboard?.length || 0} resources`);
-                            } else {
-                              console.log('⏳ No cached data available, will load from API...');
-                              loadActivityData();
-                            }
-                          }}
-                          options={periodOptions}
-                          placeholder="Select period..."
-                          className={`w-48 flex-shrink-0 ${screenshotMode ? 'screenshot-dropdown' : ''}`}
-                          screenshotMode={screenshotMode}
-                        />
-                        <PeriodDropdown
-                          value={viewMode}
-                          onChange={(newViewMode) => {
-                            if (newViewMode !== viewMode) {
-                              console.log(`🔄 View mode changing from ${viewMode} to ${newViewMode}`);
-                              setViewMode(newViewMode);
+                              // Always set the new period first
+                              setSelectedPeriod(newPeriod);
                               try {
-                                localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
+                                localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
                               } catch {}
-                            }
-                          }}
-                          options={viewModeOptions}
-                          placeholder="Select view mode..."
-                          className={`w-52 flex-shrink-0 ${screenshotMode ? 'screenshot-dropdown' : ''}`}
-                          screenshotMode={screenshotMode}
-                        />
+                              
+                              // Check centralized cache for instant switching
+                              const cachedData = ChartDataCache.get(viewMode, newPeriod);
+                              if (cachedData) {
+                                console.log('✅ Using cached data for instant period switch!');
+                                
+                                // Update activity data with cached data
+                                const periodData = { ...cachedData, period: newPeriod, viewMode: viewMode };
+                                
+                                setActivityData(periodData);
+                                
+                                // Dispatch event for other components
+                                const event = new CustomEvent('activityDataUpdated', {
+                                  detail: periodData.metrics?.daily || periodData.metrics?.weekly
+                                });
+                                document.dispatchEvent(event);
+                                
+                                console.log(`⚡ INSTANT SWITCH COMPLETE: Now showing ${newPeriod} with ${periodData.dailyLeaderboard?.length || periodData.weeklyLeaderboard?.length || 0} resources`);
+                              } else {
+                                console.log('⏳ No cached data available, will load from API...');
+                                loadActivityData();
+                              }
+                            }}
+                            options={periodOptions}
+                            placeholder="Select period..."
+                            className={`w-48 flex-shrink-0 ${screenshotMode ? 'screenshot-dropdown' : ''}`}
+                            screenshotMode={screenshotMode}
+                          />
+                          <PeriodDropdown
+                            value={viewMode}
+                            onChange={(newViewMode) => {
+                              if (newViewMode !== viewMode) {
+                                console.log(`🔄 View mode changing from ${viewMode} to ${newViewMode}`);
+                                setViewMode(newViewMode);
+                                try {
+                                  localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
+                                } catch {}
+                              }
+                            }}
+                            options={viewModeOptions}
+                            placeholder="Select view mode..."
+                            className={`w-52 flex-shrink-0 ${screenshotMode ? 'screenshot-dropdown' : ''}`}
+                            screenshotMode={screenshotMode}
+                          />
+                          
+                          {/* Desktop action buttons - directly next to dropdowns */}
+                          <div className="relative"> 
+                            <button
+                              className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10 ${
+                                isSharing ? 'opacity-50 cursor-not-allowed' : ''
+                              }`}
+                              onClick={() => {
+                                if (!isSharing) {
+                                  setShareMenuOpen(v => !v);
+                                }
+                              }}
+                              title="Share Development Activity"
+                              disabled={isSharing}
+                            >
+                              {isSharing ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Share2 className="w-4 h-4" />
+                              )}
+                            </button>
+                            {shareMenuOpen && !screenshotMode && (
+                              <div className="share-menu-container absolute left-0 top-full mt-1 w-64 bg-gray-800/40 backdrop-blur-sm border border-gray-600/50 rounded-lg shadow-lg z-50">
+                                <div className="px-3 py-2 border-b border-gray-700">
+                                  <div className="text-xs text-gray-400 font-medium">Share Options</div>
+                                </div>
+                                <button 
+                                  className="block w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-700/50 text-gray-300"
+                                  onClick={handleShareChart}
+                                  disabled={isSharing}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="mobile:hidden">Chart Only</span>
+                                    <span className="hidden mobile:block">Chart + Metrics</span>
+                                    <span className="text-xs text-gray-400">Copy & Tweet</span>
+                                  </div>
+                                </button>
+                                <button 
+                                  className="block w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-700/50 text-gray-300"
+                                  onClick={handleShareChartLeaderboard}
+                                  disabled={isSharing}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span>Complete</span>
+                                    <span className="text-xs text-gray-400">Copy & Tweet</span>
+                                  </div>
+                                </button>
+                                <button 
+                                  className="block w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-700/50 text-gray-300"
+                                  onClick={handleShareLeaderboard}
+                                  disabled={isSharing}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span>Leaderboard Only</span>
+                                    <span className="text-xs text-gray-400">Copy & Tweet</span>
+                                  </div>
+                                </button>
+                                <div className="px-3 py-2 border-t border-gray-700">
+                                  <div className="text-xs text-gray-400">
+                                    Copies image + text to clipboard.
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Desktop Accent Color Picker Dot */}
+                          <div className="relative">
+                            <button
+                              onClick={handleAccentColorChange}
+                              className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-gray-800/30"
+                              title={`Current accent color: ${currentAccentColor.name}`}
+                            >
+                              <div 
+                                className="w-2 h-2 rounded-full border border-gray-600/50 transition-all duration-200 hover:scale-85"
+                                style={{
+                                  backgroundColor: currentAccentColor.hex,
+                                  boxShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.target.style.boxShadow = `0 0 12px rgba(${currentAccentColor.rgb}, 0.8), 0 0 24px rgba(${currentAccentColor.rgb}, 0.5)`;
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.boxShadow = `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`;
+                                }}
+                              />
+                            </button>
+                          </div>
+                          
+                          {/* Share status message - positioned directly after controls */}
+                          {shareMessage && (
+                            <div className={`text-sm font-medium transition-all duration-300 max-w-64 text-left ml-4 ${
+                              shareMessageType === 'success' 
+                                ? 'bg-gradient-to-r from-[#C8F560] to-[#C8F560] bg-clip-text text-transparent' 
+                                : 'bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent'
+                            }`} dangerouslySetInnerHTML={{ __html: shareMessage }}>
+                            </div>
+                          )}
+                        </div>
                       </>
                     ) : (
                       <>
-                        <div className="w-48 flex-shrink-0">
-                          <div className="text-[11px] uppercase tracking-wide text-gray-500">Period</div>
-                          <div className="text-white text-sm font-semibold truncate">{selectedPeriodLabel}</div>
+                        <div className="w-48 mobile:w-24 flex-shrink-0">
+                          <div className="text-[11px] mobile:text-[9px] uppercase tracking-wide text-gray-500">Period</div>
+                          <div className="text-white text-sm mobile:text-xs font-semibold truncate">{selectedPeriodLabel}</div>
                         </div>
-                        <div className="w-52 flex-shrink-0">
-                          <div className="text-[11px] uppercase tracking-wide text-gray-500">View</div>
-                          <div className="text-white text-sm font-semibold truncate">{viewModeLabel}</div>
+                        <div className="w-52 mobile:w-28 flex-shrink-0">
+                          <div className="text-[11px] mobile:text-[9px] uppercase tracking-wide text-gray-500">View</div>
+                          <div className="text-white text-sm mobile:text-xs font-semibold truncate">{viewModeLabel}</div>
                         </div>
                       </>
-                    )}
-                    <div className={`relative ${screenshotMode ? 'hidden' : ''}`}>
-                      <button
-                        className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10 ${
-                          isSharing ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                        onClick={() => {
-                          if (!isSharing) {
-                            setShareMenuOpen(v => !v);
-                          }
-                        }}
-                        title="Share Development Activity"
-                        disabled={isSharing}
-                      >
-                        {isSharing ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Share2 className="w-4 h-4" />
-                        )}
-                      </button>
-                      {shareMenuOpen && !screenshotMode && (
-                        <div className="share-menu-container absolute left-0 top-full mt-1 w-64 bg-gray-800/40 backdrop-blur-sm border border-gray-600/50 rounded-lg shadow-lg z-50">
-                          <div className="px-3 py-2 border-b border-gray-700">
-                            <div className="text-xs text-gray-400 font-medium">Share Options</div>
-                          </div>
-                          <button 
-                            className="block w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-700/50 text-gray-300"
-                            onClick={handleShareChart}
-                            disabled={isSharing}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span>Chart Only</span>
-                              <span className="text-xs text-gray-400">Copy & Tweet</span>
-                            </div>
-                          </button>
-                          <button 
-                            className="block w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-700/50 text-gray-300"
-                            onClick={handleShareChartLeaderboard}
-                            disabled={isSharing}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span>Complete</span>
-                              <span className="text-xs text-gray-400">Copy & Tweet</span>
-                            </div>
-                          </button>
-                          <button 
-                            className="block w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-700/50 text-gray-300"
-                            onClick={handleShareLeaderboard}
-                            disabled={isSharing}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span>Leaderboard Only</span>
-                              <span className="text-xs text-gray-400">Copy & Tweet</span>
-                            </div>
-                          </button>
-                          <div className="px-3 py-2 border-t border-gray-700">
-                            <div className="text-xs text-gray-400">
-                              Copies image + text to clipboard.
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {/* Accent Color Picker Dot */}
-                    <div className={`relative ${screenshotMode ? 'hidden' : ''}`}>
-                      <button
-                        onClick={handleAccentColorChange}
-                        className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-gray-800/30"
-                        title={`Current accent color: ${currentAccentColor.name}`}
-                      >
-                        <div 
-                          className="w-2 h-2 rounded-full border border-gray-600/50 transition-all duration-200 hover:scale-85"
-                          style={{
-                            backgroundColor: currentAccentColor.hex,
-                            boxShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.boxShadow = `0 0 12px rgba(${currentAccentColor.rgb}, 0.8), 0 0 24px rgba(${currentAccentColor.rgb}, 0.5)`;
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.boxShadow = `0 0 6px rgba(${currentAccentColor.rgb}, 0.4), 0 0 12px rgba(${currentAccentColor.rgb}, 0.2)`;
-                          }}
-                        />
-                      </button>
-                    </div>
-                    {shareMessage && (
-                      <div className={`text-sm font-medium transition-all duration-300 max-w-64 ${
-                        shareMessageType === 'success' 
-                          ? 'bg-gradient-to-r from-[#C8F560] to-[#C8F560] bg-clip-text text-transparent' 
-                          : 'bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent'
-                      }`} dangerouslySetInnerHTML={{ __html: shareMessage }}>
-                      </div>
                     )}
                   </div>
                 </div>
               </div>
+              
+              {/* Mobile dropdowns section */}
+              <div className={`hidden mobile:block px-6 pt-2 pb-4 ${screenshotMode ? 'hidden' : ''}`}>
+                <div className="flex gap-3 w-full">
+                  <PeriodDropdown
+                    value={selectedPeriod}
+                    onChange={(newPeriod) => {
+                      console.log(`⚡ INSTANT PERIOD SWITCH: ${selectedPeriod} → ${newPeriod}`);
+                      
+                      // Always set the new period first
+                      setSelectedPeriod(newPeriod);
+                      try {
+                        localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
+                      } catch {}
+                      
+                      // Check centralized cache for instant switching
+                      const cachedData = ChartDataCache.get(viewMode, newPeriod);
+                      if (cachedData) {
+                        console.log('✅ Using cached data for instant period switch!');
+                        
+                        // Update activity data with cached data
+                        const periodData = { ...cachedData, period: newPeriod, viewMode: viewMode };
+                        
+                        setActivityData(periodData);
+                        
+                        // Dispatch event for other components
+                        const event = new CustomEvent('activityDataUpdated', {
+                          detail: periodData.metrics?.daily || periodData.metrics?.weekly
+                        });
+                        document.dispatchEvent(event);
+                        
+                        console.log(`⚡ INSTANT SWITCH COMPLETE: Now showing ${newPeriod} with ${periodData.dailyLeaderboard?.length || periodData.weeklyLeaderboard?.length || 0} resources`);
+                      } else {
+                        console.log('⏳ No cached data available, will load from API...');
+                        loadActivityData();
+                      }
+                    }}
+                    options={periodOptions}
+                    placeholder="Select period..."
+                    className={`flex-1 flex-shrink-0 ${screenshotMode ? 'screenshot-dropdown' : ''}`}
+                    screenshotMode={screenshotMode}
+                  />
+                  <PeriodDropdown
+                    value={viewMode}
+                    onChange={(newViewMode) => {
+                      if (newViewMode !== viewMode) {
+                        console.log(`🔄 View mode changing from ${viewMode} to ${newViewMode}`);
+                        setViewMode(newViewMode);
+                        try {
+                          localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
+                        } catch {}
+                      }
+                    }}
+                    options={viewModeOptions}
+                    placeholder="Select view mode..."
+                    className={`flex-1 flex-shrink-0 ${screenshotMode ? 'screenshot-dropdown' : ''}`}
+                    screenshotMode={screenshotMode}
+                  />
+                </div>
+              </div>
+              
+              {/* Mobile separator below header */}
+              <div className="hidden mobile:block h-px bg-gray-800/80" />
 
               {/* Content Section */}
-              <div className={`${screenshotMode ? '' : 'flex-1 min-h-0'} px-8 ${screenshotMode ? 'pb-4' : 'pb-8'}`}>
+              <div className={`${screenshotMode ? '' : 'flex-1 min-h-0'} px-8 mobile:px-6 ${screenshotMode ? 'pb-4' : 'pb-8 mobile:pb-6'}`}>
                 {error ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
@@ -1144,11 +1375,222 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     </div>
                   </div>
                 ) : (
-                <div className={`grid grid-cols-5 gap-8 ${screenshotMode ? '' : 'h-full'}`}>
+                <>
+                {/* Mobile Chart Capture Container - includes header, metrics, chart, and performance indicator for mobile chart screenshots */}
+                <div 
+                  ref={mobileChartCaptureRef} 
+                  className={`
+                    ${screenshotMode && currentShareType === 'chart' && window.innerWidth < 768
+                      ? 'block bg-card-bg/90 rounded-xl py-4 px-2'
+                      : 'hidden'
+                    }
+                  `}
+                >
+                  {/* Mobile Chart Screenshot Header - only visible in mobile chart screenshot mode */}
+                  {screenshotMode && currentShareType === 'chart' && (
+                    <div className="mb-6 pb-4 border-b border-gray-700/30">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2" style={{ marginTop: '-6px' }}>
+                          <Activity size={20} className="text-[#C8F560] flex-shrink-0" />
+                          <h3 className="text-white font-semibold text-lg">Development Activity</h3>
+                        </div>
+                        <div className="flex flex-col gap-1 text-sm text-right">
+                          <div className="flex items-end justify-end gap-1">
+                            <span className="text-gray-500">View:</span>
+                            <span className="text-gray-300 font-medium">{viewModeLabel}</span>
+                          </div>
+                          <div className="text-gray-300 font-medium">
+                            {selectedPeriodLabel}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Clone Metrics Bar for Mobile Chart Screenshot */}
+                  {screenshotMode && currentShareType === 'chart' && (
+                    <div className={`grid grid-cols-3 gap-2 py-3 px-4 rounded-lg items-center flex-shrink-0 border border-gray-700/30 mb-4`}>
+                      {isLoading ? (
+                        <>
+                          <SkeletonLoader className="text-center" />
+                          <SkeletonLoader className="text-center" />
+                          <SkeletonLoader className="text-center" />
+                        </>
+                      ) : metrics ? (
+                        <>
+                          <div className="text-center">
+                            <div className="text-white font-bold text-xl">
+                              {metrics.totalActiveRepos}
+                            </div>
+                            <div className="text-gray-400 text-xs">Active Repos</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-white font-bold text-xl">
+                              {metrics.avgCommitsPerRepo}
+                            </div>
+                            <div className="text-gray-400 text-xs">Avg Commits/Repo</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-white font-bold text-xl">
+                              {metrics.totalCommits}
+                            </div>
+                            <div className="text-gray-400 text-xs">Total Commits</div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-center">
+                            <div className="text-white font-bold text-lg">0</div>
+                            <div className="text-gray-400 text-xs">Active Repos</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-white font-bold text-lg">0</div>
+                            <div className="text-gray-400 text-xs">Avg Commits/Repo</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-white font-bold text-lg">0</div>
+                            <div className="text-gray-400 text-xs">Total Commits</div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Clone Chart for Mobile Chart Screenshot */}
+                  {screenshotMode && currentShareType === 'chart' && (
+                    <div className="rounded-lg border border-gray-700/30 overflow-visible mb-4" style={{ padding: '20px' }}>
+                      {!chartData || chartData.length === 0 ? (
+                        <div className="flex items-center justify-center h-32">
+                          <div className="text-center">
+                            <div className="text-gray-400 text-lg mb-2">No activity data available</div>
+                            <div className="text-gray-500 text-sm">Try switching to a different time period</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="chart-responsive flex items-center justify-center overflow-hidden">
+                          <AggregatedActivityChart
+                            weeklyData={chartData}
+                            width={950}
+                            height={580}
+                            padding={25}
+                            period={selectedPeriod}
+                            screenshotMode={screenshotMode}
+                            accentColor={currentAccentColor}
+                            contributingResources={contributingResources}
+                            isMobileScreenshot={true}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Clone Performance Indicator for Mobile Chart Screenshot */}
+                  {screenshotMode && currentShareType === 'chart' && currentPeriodData && chartData && chartData.length > 0 && (
+                    <div className="bg-gray-800/50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-col whitespace-nowrap">
+                          <span className="text-gray-400 text-xs whitespace-nowrap">
+                            {selectedPeriod === 'current' ? 'Current 7-Day Total' : 
+                             selectedPeriod === '5weeks' ? 'Current 4-Week Total' : 
+                             selectedPeriod === '3months' ? 'Current 3-Month Total' : 
+                             selectedPeriod === '52weeks' ? 'Current 12-Month Total' : 
+                             selectedPeriod === '3years' ? 'Current 3-Year Total' : 'Current Period Total'}
+                            {selectedPeriod === 'current' && isNewRecord && (
+                              <span 
+                                className="ml-2 text-xs opacity-75"
+                                style={{ color: currentAccentColor.hex }}
+                              >
+                                • new record
+                              </span>
+                            )}
+                          </span>
+                          {selectedPeriod !== 'current' && (
+                            <span className="text-gray-500 text-xs mt-0.5">
+                              {(() => {
+                                const currentTotal = chartData?.reduce((total, item) => total + (item.count || 0), 0) || 0;
+                                const historicalMaxData = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                                if (!historicalMaxData || historicalMaxData === null) {
+                                  return 'current maximum';
+                                }
+                                const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
+                                const periodLabel = selectedPeriod === '5weeks' ? '4-week' : 
+                                                  selectedPeriod === '3months' ? '3-month' : 
+                                                  selectedPeriod === '52weeks' ? '12-month' : 
+                                                  selectedPeriod === '3years' ? '3-year' : '';
+                                return `vs. best ${periodLabel} period${dateRange ? ` (${dateRange})` : ''}`;
+                              })()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <GitCommit size={12} style={{ color: currentAccentColor.hex }} />
+                          <span 
+                            className="font-bold text-lg" 
+                            style={{ color: currentAccentColor.hex }}
+                          >
+                            {chartData.reduce((total, item) => total + (item.count || 0), 0)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="h-2 rounded-full transition-all duration-500 ease-out"
+                            style={{ 
+                              width: (() => {
+                                if (selectedPeriod === 'current') {
+                                  const currentValue = chartData.reduce((total, item) => total + (item.count || 0), 0);
+                                  const historicalMaxData = weeklyHistoricalMaxWithDates;
+                                  const historicalMax = historicalMaxData?.value || 1;
+                                  return `${Math.min(100, Math.max(0, (currentValue / historicalMax) * 100))}%`;
+                                }
+                                const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
+                                const historicalMaxData = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                                if (!historicalMaxData || historicalMaxData === null) {
+                                  return '100%';
+                                }
+                                const historicalMaxValue = historicalMaxData.value || historicalMaxData;
+                                const percentage = (currentTotal / historicalMaxValue) * 100;
+                                return `${Math.min(100, Math.max(0, Math.round(percentage)))}%`;
+                              })(),
+                              background: `linear-gradient(to right, ${currentAccentColor.hex}, ${currentAccentColor.hex}dd)`,
+                              boxShadow: `0 0 8px rgba(${currentAccentColor.rgb}, 0.3)`
+                            }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-400 mt-1">
+                          <span>0</span>
+                          <span>
+                            {(() => {
+                              if (selectedPeriod === 'current') {
+                                const historicalMaxData = weeklyHistoricalMaxWithDates;
+                                if (!historicalMaxData || !historicalMaxData.peakStartDate) {
+                                  return `${historicalMaxData?.value || 1} (historical peak)`;
+                                }
+                                const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, 'current');
+                                return `${historicalMaxData.value} (peak: ${dateRange})`;
+                              }
+                              const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
+                              const historicalMaxData = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                              if (!historicalMaxData || historicalMaxData === null) {
+                                return 'Insufficient historical data for meaningful comparison';
+                              }
+                              const historicalMaxValue = historicalMaxData.value || historicalMaxData;
+                              const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
+                              return `${Math.round(historicalMaxValue)} (peak${dateRange ? `: ${dateRange}` : ''})`;
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className={`grid grid-cols-5 mobile:grid-cols-1 gap-8 mobile:gap-6 ${screenshotMode ? '' : 'h-full mobile:h-auto'}`}>
                   {/* Left Column - Metrics Bar and Chart */}
-                  <div className={`col-span-3 flex flex-col space-y-3 ${screenshotMode ? '' : 'h-full'} min-h-0`}>
+                  <div className={`col-span-3 mobile:col-span-1 flex flex-col space-y-3 ${screenshotMode ? '' : 'h-full mobile:h-auto'} min-h-0`}>
                       {/* Metrics Bar */}
-                    <div className={`grid grid-cols-3 gap-2 ${screenshotMode ? 'py-4 px-6' : 'py-2 px-4'} rounded-lg items-center flex-shrink-0 ${
+                    <div className={`grid grid-cols-3 gap-2 ${screenshotMode ? 'py-4 px-6' : 'py-3 px-4 mobile:py-2.5'} rounded-lg items-center flex-shrink-0 ${
                       screenshotMode ? 'border border-gray-700/30' : 'bg-gray-800/50'
                     }`}>
                         {isLoading ? (
@@ -1161,32 +1603,32 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           <>
                       <div className="text-center">
                               <div 
-                                className={`text-white font-bold ${screenshotMode ? 'text-2xl' : 'text-lg'}`}
+                                className={`text-white font-bold ${screenshotMode ? 'text-2xl' : 'text-lg mobile:text-base'}`}
                                 title={`Repositories with at least one commit in this ${selectedPeriod === 'current' ? '7-day' : selectedPeriod === '5weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period`}
                               >
                                 {metrics.totalActiveRepos}
                               </div>
-                        <div className={`text-gray-400 ${screenshotMode ? 'text-sm' : 'text-xs'}`}>Active Repos</div>
+                        <div className={`text-gray-400 ${screenshotMode ? 'text-sm' : 'text-xs mobile:text-xs'}`}>Active Repos</div>
                       </div>
                       <div className="text-center">
                               <div 
-                                className={`text-white font-bold ${screenshotMode ? 'text-2xl' : 'text-lg'}`}
+                                className={`text-white font-bold ${screenshotMode ? 'text-2xl' : 'text-lg mobile:text-base'}`}
                                 title={"Average commits per active repository during this period"}
                               >
                                 {metrics.avgCommitsPerRepo}
                               </div>
-                        <div className={`text-gray-400 ${screenshotMode ? 'text-sm' : 'text-xs'}`}>
+                        <div className={`text-gray-400 ${screenshotMode ? 'text-sm' : 'text-xs mobile:text-xs'}`}>
                                 {'Avg Commits/Repo'}
                         </div>
                       </div>
                       <div className="text-center">
                               <div 
-                                className={`text-white font-bold ${screenshotMode ? 'text-2xl' : 'text-lg'}`}
+                                className={`text-white font-bold ${screenshotMode ? 'text-2xl' : 'text-lg mobile:text-base'}`}
                                 title={"Total commits across all repositories during this period"}
                               >
                                 {metrics.totalCommits}
                               </div>
-                        <div className={`text-gray-400 ${screenshotMode ? 'text-sm' : 'text-xs'}`}>
+                        <div className={`text-gray-400 ${screenshotMode ? 'text-sm' : 'text-xs mobile:text-xs'}`}>
                                 {'Total Commits'}
                         </div>
                       </div>
@@ -1213,9 +1655,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     <div ref={chartRef} className={`flex-1 ${screenshotMode ? 'overflow-visible' : 'overflow-hidden'} min-h-0`}>
                       <div ref={chartInnerRef} className={`rounded-lg chart-container-padding ${screenshotMode ? '' : 'h-full'} ${
                         screenshotMode ? 'border border-gray-700/30 overflow-visible' : 'bg-gray-800/50 overflow-hidden'
-                      }`}>
-                          {/* Header for Chart Screenshot Mode */}
-                          {screenshotMode && (
+                      } mobile:border mobile:border-gray-800/60 mobile:bg-gray-800/40`}>
+                          {/* Header for Chart Screenshot Mode - Show only for chart-only screenshots */}
+                          {screenshotMode && currentShareType === 'chart' && (
                             <div className="mb-4 pb-3 border-b border-gray-700/30">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-2" style={{ marginTop: '-6px' }}>
@@ -1277,8 +1719,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               >
                                 <AggregatedActivityChart
                                   weeklyData={chartData}
-                                  width={screenshotMode ? 850 : 800}
-                                  height={screenshotMode ? 480 : 400}
+                                  width={screenshotMode ? 850 : (window.innerWidth < 768 ? Math.max(600, chartContainerWidth - 10) : 800)}
+                                  height={screenshotMode ? 480 : (window.innerWidth < 768 ? Math.max(450, Math.round((chartContainerWidth - 10) * 0.8)) : 400)}
                                   padding={10}
                                   period={selectedPeriod}
                                   screenshotMode={screenshotMode}
@@ -1293,15 +1735,176 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     </div>
                   </div>
 
+                  {/* Mobile Performance Indicator - positioned above leaderboard on mobile only */}
+                  {currentPeriodData && chartData && chartData.length > 0 && (
+                    <div className="hidden mobile:block mobile:col-span-1 bg-gray-800/50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-col whitespace-nowrap">
+                          <span 
+                            className="text-gray-400 text-xs whitespace-nowrap"
+                            title={(() => {
+                              if (selectedPeriod === 'current') {
+                                const historicalMaxData = weeklyHistoricalMaxWithDates;
+                                const dateRange = historicalMaxData?.peakStartDate ? 
+                                  formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, 'current') : null;
+                                return `Current 7-day period performance vs. best historical 7-day period${dateRange ? ` (${dateRange})` : ''}. Includes today's incomplete data.`;
+                              } else if (selectedPeriod === '5weeks') {
+                                return 'Current 4-week period performance vs. best historical sequential 4-week period. Excludes current incomplete week.';
+                              } else if (selectedPeriod === '3months') {
+                                return 'Current 3-month period performance vs. best historical sequential 3-month period. Excludes current incomplete week.';
+                              } else if (selectedPeriod === '52weeks') {
+                                return 'Current 12-month period performance vs. best historical sequential 12-month period. Excludes current incomplete week.';
+                              } else if (selectedPeriod === '3years') {
+                                return 'Current 3-year period performance vs. best historical sequential 3-year period. Excludes current incomplete week.';
+                              }
+                              return 'Current period performance vs. historical maximum';
+                            })()}
+                          >
+                            {selectedPeriod === 'current' ? 'Current 7-Day Total' : 
+                             selectedPeriod === '5weeks' ? 'Current 4-Week Total' : 
+                             selectedPeriod === '3months' ? 'Current 3-Month Total' : 
+                             selectedPeriod === '52weeks' ? 'Current 12-Month Total' : 
+                             selectedPeriod === '3years' ? 'Current 3-Year Total' : 'Current Period Total'}
+                            {selectedPeriod === 'current' && isNewRecord && (
+                              <span 
+                                className="ml-2 text-xs opacity-75"
+                                style={{ color: currentAccentColor.hex }}
+                                title="This current 7-day period has set a new record!"
+                              >
+                                • new record
+                              </span>
+                            )}
+                          </span>
+                          {selectedPeriod !== 'current' && (
+                            <span 
+                              className="text-gray-500 text-xs mt-0.5"
+                              title={(() => {
+                                const currentTotal = chartData?.reduce((total, item) => total + (item.count || 0), 0) || 0;
+                                const historicalMaxData = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                                if (!historicalMaxData || historicalMaxData === null) {
+                                  return 'Current period performance (no historical data for comparison)';
+                                }
+                                const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
+                                return `Comparison against the best performing sequential ${selectedPeriod === '5weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period${dateRange ? ` (${dateRange})` : ''} found in historical data`;
+                              })()}
+                            >
+                              {(() => {
+                                const currentTotal = chartData?.reduce((total, item) => total + (item.count || 0), 0) || 0;
+                                const historicalMaxData = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                                if (!historicalMaxData || historicalMaxData === null) {
+                                  return 'current maximum';
+                                }
+                                const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
+                                const periodLabel = selectedPeriod === '5weeks' ? '4-week' : 
+                                                  selectedPeriod === '3months' ? '3-month' : 
+                                                  selectedPeriod === '52weeks' ? '12-month' : 
+                                                  selectedPeriod === '3years' ? '3-year' : '';
+                                return `vs. best ${periodLabel} period${dateRange ? ` (${dateRange})` : ''}`;
+                              })()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <GitCommit size={12} style={{ color: currentAccentColor.hex }} />
+                          <span 
+                            className="font-bold text-lg" 
+                            style={{ color: currentAccentColor.hex }}
+                            title={(() => {
+                              if (selectedPeriod === 'current') {
+                                return 'Total commits across the current 7-day period (includes today\'s incomplete data)';
+                              } else if (selectedPeriod === '5weeks') {
+                                return 'Total commits across the current 4-week period (Excludes current incomplete week)';
+                              } else if (selectedPeriod === '3months') {
+                                return 'Total commits across the current 3-month period (Excludes current incomplete week)';
+                              } else if (selectedPeriod === '52weeks') {
+                                return 'Total commits across the current 12-month period (Excludes current incomplete week)';
+                              } else if (selectedPeriod === '3years') {
+                                return 'Total commits across the current 3-year period (Excludes current incomplete week)';
+                              }
+                              return 'Total commits for the current period';
+                            })()}
+                          >
+                            {(() => {
+                              if (selectedPeriod === 'current') {
+                                // For 7-day period, show total commits across all 7 days
+                                return chartData.reduce((total, item) => total + (item.count || 0), 0);
+                              } else {
+                                // For longer periods, show total commits across all weeks
+                                return chartData.reduce((total, item) => total + (item.count || 0), 0);
+                              }
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="relative">
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="h-2 rounded-full transition-all duration-500 ease-out"
+                            style={{ 
+                              width: (() => {
+                                if (selectedPeriod === 'current') {
+                                  // For 7-day period (1 week), use enhanced historical maximum with dates
+                                  const currentValue = chartData.reduce((total, item) => total + (item.count || 0), 0);
+                                  const historicalMaxData = weeklyHistoricalMaxWithDates;
+                                  const historicalMax = historicalMaxData?.value || 1;
+                                  return `${Math.min(100, Math.max(0, (currentValue / historicalMax) * 100))}%`;
+                                }
+                                
+                                const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
+                                const historicalMaxData = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                                if (!historicalMaxData || historicalMaxData === null) {
+                                  return '100%'; // Current period is the maximum for young repos
+                                }
+                                const historicalMaxValue = historicalMaxData.value || historicalMaxData;
+                                const percentage = (currentTotal / historicalMaxValue) * 100;
+                                return `${Math.min(100, Math.max(0, Math.round(percentage)))}%`;
+                              })(),
+                              background: `linear-gradient(to right, ${currentAccentColor.hex}, ${currentAccentColor.hex}dd)`,
+                              boxShadow: `0 0 8px rgba(${currentAccentColor.rgb}, 0.3)`
+                            }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-400 mt-1">
+                          <span>0</span>
+                          <span>
+                            {(() => {
+                              if (selectedPeriod === 'current') {
+                                // For 7-day period, use enhanced historical maximum with dates
+                                const historicalMaxData = weeklyHistoricalMaxWithDates;
+                                if (!historicalMaxData || !historicalMaxData.peakStartDate) {
+                                  return `${historicalMaxData?.value || 1} (historical peak)`;
+                                }
+                                const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, 'current');
+                                return `${historicalMaxData.value} (peak: ${dateRange})`;
+                              }
+                              const currentTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
+                              const historicalMaxData = metrics?.historicalMax || calculateLongerPeriodHistoricalMax(currentTotal);
+                              if (!historicalMaxData || historicalMaxData === null) {
+                                return 'Insufficient historical data for meaningful comparison';
+                              }
+                              const historicalMaxValue = historicalMaxData.value || historicalMaxData;
+                              const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
+                              return `${Math.round(historicalMaxValue)} (peak${dateRange ? `: ${dateRange}` : ''})`;
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Right Column - Leaderboard */}
                   <div 
                     ref={leaderboardRef} 
-                    className={`col-span-2 flex flex-col h-full min-h-0 ${screenshotMode ? 'rounded-lg border border-gray-700/30' : ''}`}
-                    style={screenshotMode ? { padding: '12px 16px', marginTop: 0 } : { padding: '0 8px 0 8px', marginTop: '-7px' }}
+                    className={`col-span-2 mobile:col-span-1 flex flex-col h-full mobile:h-auto min-h-0 ${screenshotMode ? 'rounded-lg border border-gray-700/30' : ''}`}
+                    style={screenshotMode ? { padding: '12px 16px', marginTop: 0 } : { padding: '0 8px 0 8px', marginTop: '0px' }}
                     data-screenshot-mode={screenshotMode}
                   >
-                      {/* Header for Screenshot Mode */}
-                      {screenshotMode && (
+                      {/* Mobile Section Divider */}
+                      <div className="hidden mobile:block h-px bg-gray-800/80 my-4" />
+                      {/* Header for Screenshot Mode - Show only for leaderboard-only screenshots */}
+                      {screenshotMode && currentShareType === 'leaderboard' && (
                         <div className="mb-4 pb-3 border-b border-gray-700/30">
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-2" style={{ marginTop: '-6px' }}>
@@ -1322,7 +1925,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                       )}
                       
                       {/* Top 3 Items */}
-                      <div className="flex-shrink-0 mb-1 relative" style={{ zIndex: 10 }}>
+                      <div className="flex-shrink-0 mb-3 relative" style={{ zIndex: 10 }}>
                         {isLoading ? (
                           <>
                             <SkeletonLeaderboardItem rank={1} />
@@ -1380,7 +1983,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                   : 'bg-gray-800/30 hover:bg-gray-800/50'
                               }`}
                               style={{ 
-                                margin: '10px 0', 
+                                margin: '6px 0', 
                                 position: 'relative', 
                                 ...containerStyle 
                               }}
@@ -1394,12 +1997,12 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 {index + 1}
                               </div>
                               <div className="flex-1 min-w-0 overflow-hidden">
-                                <div className={`${isWinner ? 'font-semibold' : 'font-normal'} ${screenshotMode ? 'text-[17px] leading-[24px]' : 'text-base'} text-white truncate`} style={isWinner ? { textShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.35)` } : undefined}>
+                                <div className={`${isWinner ? 'font-semibold' : 'font-normal'} ${screenshotMode ? 'text-[17px] leading-[24px]' : 'text-base mobile:text-sm'} text-white truncate`} style={isWinner ? { textShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.35)` } : undefined}>
                                   {item.resource.name}
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <div className={`${isWinner ? 'font-bold' : 'font-normal'} ${screenshotMode ? 'text-[15px] leading-[21px]' : 'text-base'} text-white`} style={isWinner ? { textShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.35)` } : undefined}>
+                                <div className={`${isWinner ? 'font-bold' : 'font-normal'} ${screenshotMode ? 'text-[15px] leading-[21px]' : 'text-base mobile:text-sm'} text-white`} style={isWinner ? { textShadow: `0 0 6px rgba(${currentAccentColor.rgb}, 0.35)` } : undefined}>
                                     {item.totalCommits}
                                 </div>
                               </div>
@@ -1411,9 +2014,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
 
                       {/* Scrollable List */}
                     <div 
-                      className="overflow-y-auto space-y-1.5 pr-2 relative scrollbar-hide" 
+                      className="overflow-y-auto space-y-2 pr-2 relative scrollbar-hide mobile:max-h-96" 
                       style={{ 
-                          height: screenshotMode ? 'auto' : '325px',
+                          height: screenshotMode ? 'auto' : (window.innerWidth < 768 ? 'auto' : '320px'),
                         transform: 'translateZ(0)', 
                         willChange: 'scroll-position',
                         zIndex: 1
@@ -1429,14 +2032,14 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               <div className="text-gray-400 text-sm">No repositories found</div>
                             </div>
                           </div>
-                      ) : (
+                        ) : (
                           (screenshotMode ? leaderboard.slice(3, 10) : leaderboard.slice(3)).map((item, index) => {
                           const adjustedIndex = index + 3;
 
                           return (
                             <div 
                               key={item.resource.id} 
-                              className={`flex items-center space-x-4 py-2 px-3 rounded-lg transition-colors cursor-pointer ${
+                              className={`flex items-center space-x-4 py-2.5 px-3 rounded-lg transition-colors cursor-pointer ${
                                 screenshotMode 
                                   ? 'text-[14px] leading-[20px] bg-gray-800/30' 
                                   : 'bg-gray-800/30 hover:bg-gray-800/50'
@@ -1451,27 +2054,28 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 {adjustedIndex + 1}
                               </div>
                               <div className="flex-1 min-w-0 overflow-hidden">
-                                <div className={`font-normal ${screenshotMode ? 'text-[17px] leading-[24px]' : 'text-base'} text-white truncate`}>
+                                <div className={`font-normal ${screenshotMode ? 'text-[17px] leading-[24px]' : 'text-base mobile:text-sm'} text-white truncate`}>
                                   {item.resource.name}
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <div className={`font-normal ${screenshotMode ? 'text-[15px] leading-[21px]' : 'text-base'} text-white`}>
+                                <div className={`font-normal ${screenshotMode ? 'text-[15px] leading-[21px]' : 'text-base mobile:text-sm'} text-white`}>
                                     {item.totalCommits}
                                 </div>
                               </div>
                             </div>
                           );
                         })
-                      )}
+                        )}
                     </div>
                   </div>
                 </div>
+                </>
                 )}
                 
-                {/* Global Performance Indicator */}
+                {/* Global Performance Indicator - Desktop only */}
                 {currentPeriodData && chartData && chartData.length > 0 && (
-                  <div className="bg-gray-800/50 rounded-lg p-3 mt-4">
+                  <div className="bg-gray-800/50 rounded-lg p-4 mt-4 mobile:hidden">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex flex-col whitespace-nowrap">
                         <span 

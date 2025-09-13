@@ -77,7 +77,7 @@ const GitHubUpdates = ({ resource }) => {
   const TabButton = ({ tabName, count, children, icon: Icon }) => (
     <button
       onClick={() => setActiveTab(tabName)}
-      className={`flex items-center space-x-1 px-2 py-1 text-xs rounded transition-all duration-200 ${
+      className={`flex items-center space-x-1 px-2 mobile:px-1 py-1 text-xs mobile:text-[10px] rounded transition-all duration-200 ${
         activeTab === tabName 
           ? 'bg-gray-700/50 text-white' 
           : 'text-gray-400 hover:bg-gray-800/30 hover:text-gray-300'
@@ -96,7 +96,7 @@ const GitHubUpdates = ({ resource }) => {
   return (
     <div className="space-y-2">
       {/* Tabs */}
-      <div className="flex space-x-1">
+      <div className="flex space-x-1 mobile:space-x-0.5">
         <TabButton 
           tabName="releases" 
           count={releases.length} 
@@ -114,30 +114,30 @@ const GitHubUpdates = ({ resource }) => {
       </div>
 
       {/* Tab Content */}
-      <div className="space-y-1 max-h-44 overflow-y-auto scrollbar-hide">
+      <div className="space-y-1 max-h-44 mobile:max-h-32 overflow-y-auto scrollbar-hide">
         {activeTab === 'releases' && (
           <>
             {releases.length === 0 ? (
               <p className="text-gray-500 text-xs">No recent releases</p>
             ) : (
               releases.map((release) => (
-                <div key={release.id} className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
+                <div key={release.id} className="flex items-center justify-between mobile:flex-col mobile:items-start mobile:space-y-1">
+                  <div className="flex-1 min-w-0 mobile:w-full">
                     <a
                       href={release.htmlUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-cyan-400 hover:text-cyan-300 text-xs font-medium truncate block"
+                      className="text-cyan-400 hover:text-cyan-300 text-xs mobile:text-[10px] font-medium truncate block"
                     >
                       {release.name}
                     </a>
                     {resource.type === 'organization' && release.repositoryName && (
-                      <div className="text-gray-500 text-xs truncate">
+                      <div className="text-gray-500 text-xs mobile:text-[10px] truncate">
                         {release.repositoryName}
                       </div>
                     )}
                   </div>
-                  <span className="text-gray-500 text-xs flex items-center ml-2 flex-shrink-0">
+                  <span className="text-gray-500 text-xs mobile:text-[10px] flex items-center ml-2 mobile:ml-0 flex-shrink-0">
                     <Calendar size={8} className="mr-1" />
                     {formatRelativeTime(release.publishedAt)}
                   </span>
@@ -153,23 +153,23 @@ const GitHubUpdates = ({ resource }) => {
               <p className="text-gray-500 text-xs">No recent commits</p>
             ) : (
               commits.map((commit) => (
-                <div key={commit.sha} className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
+                <div key={commit.sha} className="flex items-center justify-between mobile:flex-col mobile:items-start mobile:space-y-1">
+                  <div className="flex-1 min-w-0 mobile:w-full">
                     <a
                       href={commit.htmlUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-gray-300 hover:text-white text-xs line-clamp-1 block"
+                      className="text-gray-300 hover:text-white text-xs mobile:text-[10px] line-clamp-1 block"
                     >
                       {commit.message.split('\n')[0]}
                     </a>
                     {resource.type === 'organization' && commit.repositoryName && (
-                      <div className="text-gray-500 text-xs truncate">
+                      <div className="text-gray-500 text-xs mobile:text-[10px] truncate">
                         {commit.repositoryName}
                       </div>
                     )}
                   </div>
-                  <span className="text-gray-500 text-xs flex items-center ml-2 flex-shrink-0">
+                  <span className="text-gray-500 text-xs mobile:text-[10px] flex items-center ml-2 mobile:ml-0 flex-shrink-0">
                     <Calendar size={8} className="mr-1" />
                     {formatRelativeTime(commit.date)}
                   </span>

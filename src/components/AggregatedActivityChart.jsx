@@ -5,7 +5,7 @@ import { generateChartPoints, validateNodeCount, generateChartXAxisLabels } from
 
 // Use centralized chart point generation - removed duplicate function
 
-const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 300, padding = 40, rightPadding, period, screenshotMode = false, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' }, contributingResources = null }, svgRef) => {
+const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 300, padding = 40, rightPadding, period, screenshotMode = false, accentColor = { hex: '#FFFFFF', rgb: '255, 255, 255' }, contributingResources = null, isMobileScreenshot = false }, svgRef) => {
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
   const areaGradientId = `aggregated-area-gradient-${(accentColor.hex || '#FFFFFF').replace('#','')}`
   
@@ -128,9 +128,12 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
   const uniqueLabels = [...new Set(yAxisLabels)].sort((a, b) => a - b)
   
   // Dynamic padding based on max number width + screenshot mode
-  const maxLabelWidth = Math.max(...uniqueLabels.map(label => label.toString().length)) * 8; // ~8px per digit
+  const isMobile = window.innerWidth < 768;
+  const fontSize = isMobileScreenshot ? 24 : (isMobile ? 20 : 13);
+  const charWidth = fontSize * 0.6; // More accurate character width based on font size
+  const maxLabelWidth = Math.max(...uniqueLabels.map(label => label.toString().length)) * charWidth;
   const basePadding = screenshotMode ? 50 : 35; // Slightly increased base padding
-  const effectivePadding = Math.max(basePadding, maxLabelWidth + 18); // Slightly increased margin
+  const effectivePadding = Math.max(basePadding, maxLabelWidth + 25); // Increased margin for mobile
   const effectiveRightPadding = 15; // Reduced to match tighter spacing
   // Use actual chart height - labels are positioned within chart area
   const svgHeight = height;
@@ -235,7 +238,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           points={chartPoints}
           fill="none"
           stroke={accentColor.hex}
-          strokeWidth="4"
+          strokeWidth={window.innerWidth < 768 ? "6" : "4"}
           opacity="0.4"
           filter="url(#glow)"
         />
@@ -244,7 +247,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           points={chartPoints}
           fill="none"
           stroke="url(#accent-gradient)"
-          strokeWidth="1"
+          strokeWidth={window.innerWidth < 768 ? "2" : "1"}
                             style={{ filter: `drop-shadow(0 0 3px rgba(${accentColor.rgb},0.5))` }}
         />
         {/* Invisible larger hover areas for tooltips */}
@@ -258,10 +261,10 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
               <circle
                 cx={x}
                 cy={y}
-                r={w.count > 0 ? "4" : "2.5"}
+                r={window.innerWidth < 768 ? (w.count > 0 ? "6" : "4") : (w.count > 0 ? "4" : "2.5")}
                 fill="none"
                 stroke={w.count > 0 ? accentColor.hex : "#64748b"}
-                strokeWidth="1.5"
+                strokeWidth={window.innerWidth < 768 ? "2.5" : "1.5"}
                 style={{ 
                   filter: w.count > 0 ? `drop-shadow(0 0 6px rgba(${accentColor.rgb},0.6))` : 'none'
                 }}
@@ -286,19 +289,20 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           const y = height - effectivePadding - (label / maxCommits) * (height - 2 * effectivePadding)
           const labelSpacing = 12; // increased space for better readability
           const leftPadding = 8;
+          const isMobile = window.innerWidth < 768;
           return (
             <text
               key={i}
               x={effectivePadding - labelSpacing - leftPadding}
               y={y + 4}
-              fontSize="13"
+              fontSize={isMobileScreenshot ? "24" : (isMobile ? "20" : "13")}
               fill={accentColor.hex}
               textAnchor="end"
               dominantBaseline="middle"
               fontWeight="300"
               style={{ fontFamily: "Outfit, system-ui, sans-serif" }}
             >
-              {label}
+              {Number.isInteger(label) ? label : label.toFixed(2).replace(/\.?0+$/, '')}
             </text>
           )
         })}
@@ -327,12 +331,19 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
                 const x = effectivePadding + (c.index / (weeklyData.length - 1)) * (effectiveWidth - effectivePadding - effectiveRightPadding);
                 if (canPlace(x)) {
                   placed.push({ x });
+                  const isMobile = window.innerWidth < 768;
                   labels.push(
                     <text
                       key={`x-label-${c.index}`}
                       x={x}
                       y={height - effectivePadding + (screenshotMode ? 18 : 24) + (c.type === 'year' ? 5 : 0)}
-                      fontSize={c.type === 'year' ? '15' : c.type === 'month' ? '13' : '12'}
+                      fontSize={isMobileScreenshot
+                        ? (c.type === 'year' ? '26' : c.type === 'month' ? '24' : '22')
+                        : (isMobile 
+                          ? (c.type === 'year' ? '22' : c.type === 'month' ? '20' : '18')
+                          : (c.type === 'year' ? '15' : c.type === 'month' ? '13' : '12')
+                        )
+                      }
                       fontWeight="300"
                       fill={accentColor.hex}
                       textAnchor="middle"

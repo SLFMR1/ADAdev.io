@@ -225,11 +225,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     return historicalMaxForPeriod !== null && currentPeriodTotal >= historicalMaxForPeriod;
   })();
 
-  // Chart configuration - responsive to container width
-  const chartWidth = containerWidth || (window.innerWidth < 1024 ? 300 : 850)
-  const chartHeight = Math.max(175, Math.min(400, chartWidth * 0.4)) // Responsive height based on width - reduced by 5px for label space
-  const chartPadding = window.innerWidth < 1024 ? 15 : 25
-  const bottomPadding = window.innerWidth < 1024 ? 25 : 30
+  // Chart configuration - responsive to container width, force desktop size for screenshots
+  const chartWidth = screenshotMode ? 800 : (containerWidth || (window.innerWidth < 1024 ? 300 : 850))
+  const chartHeight = screenshotMode ? 320 : Math.max(175, Math.min(400, chartWidth * 0.4)) // Responsive height based on width - reduced by 5px for label space
+  const chartPadding = screenshotMode ? 25 : (window.innerWidth < 1024 ? 15 : 25)
+  const bottomPadding = screenshotMode ? 30 : (window.innerWidth < 1024 ? 25 : 30)
   
   // Validate and sanitize weekly data with enhanced error handling
   const validWeeklyData = weeklyData
