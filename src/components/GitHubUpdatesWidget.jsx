@@ -567,32 +567,42 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, 
                     {allUpdates.map((update, index) => (
                       <div key={`${update.resource.id || update.resource.name || index}-${update.type}-${index}`} 
                            className="bg-gray-800/50 rounded-lg p-2 transition-all duration-200 hover:bg-gray-700/50">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <a
-                            href={update.resource.social?.github || '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium text-xs text-white hover:text-gray-300 truncate max-w-[100px] flex-shrink-0 transition-colors"
-                            title={`View ${update.resource.name} on GitHub`}
-                          >
-                            {update.resource.name}
-                          </a>
-                          {update.type === 'release' ? (
-                            <Tag size={12} className="text-purple-400 flex-shrink-0" />
-                          ) : (
-                            <GitCommit size={12} className="text-purple-400 flex-shrink-0" />
-                          )}
-                          <a
-                            href={update.type === 'release' ? update.data.html_url : update.data.htmlUrl || '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-gray-300 hover:text-white text-xs truncate flex-1"
-                          >
-                            {update.type === 'release' ? update.data.name : update.data.message?.split('\n')[0] || 'No message'}
-                          </a>
-                          <span className="text-gray-500 text-xs ml-auto flex-shrink-0">
-                            {formatRelativeTime(update.type === 'release' ? update.data.published_at : update.data.date)}
-                          </span>
+                        <div className="space-y-0.5">
+                          {/* Line 1: Project name + Icon + Release name + Timestamp */}
+                          <div className="flex items-center gap-2 min-w-0">
+                            <a
+                              href={update.resource.social?.github || '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-xs text-white hover:text-gray-300 truncate max-w-[80px] sm:max-w-[100px] flex-shrink-0 transition-colors"
+                              title={`View ${update.resource.name} on GitHub`}
+                            >
+                              {update.resource.name}
+                            </a>
+                            {update.type === 'release' ? (
+                              <Tag size={12} className="text-purple-400 flex-shrink-0 relative -top-[12px] sm:top-0" />
+                            ) : (
+                              <GitCommit size={12} className="text-purple-400 flex-shrink-0 relative -top-[12px] sm:top-0" />
+                            )}
+                            <a
+                              href={update.type === 'release' ? update.data.html_url : update.data.htmlUrl || '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-gray-300 hover:text-white text-xs truncate flex-1"
+                            >
+                              {update.type === 'release' ? update.data.name : update.data.message?.split('\n')[0] || 'No message'}
+                            </a>
+                            <span className="text-gray-500 text-xs ml-auto flex-shrink-0">
+                              {formatRelativeTime(update.type === 'release' ? update.data.published_at : update.data.date)}
+                            </span>
+                          </div>
+                          {/* Line 2: Description - aligned with project name */}
+                          <div className="text-gray-400 text-xs pl-0">
+                            {update.type === 'release' 
+                              ? (update.data.body || update.data.description || 'No description available')
+                              : (update.data.message?.split('\n').slice(1).join(' ') || 'No additional details')
+                            }
+                          </div>
                         </div>
                       </div>
                     ))}
