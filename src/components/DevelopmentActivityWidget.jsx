@@ -982,7 +982,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
           )}
           <div
             ref={widgetRef}
-            className={`dev-activity-widget ${screenshotMode ? 'absolute top-0 left-0 w-[1400px]' : 'fixed z-[9999] left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[95vh] min-w-[900px] min-h-[700px] md:w-[75vw] md:max-w-[1600px] md:min-w-[900px] md:min-h-[700px]'} ${screenshotMode ? 'bg-card-bg/90' : 'bg-card-bg/40'} border border-gray-800 rounded-xl shadow-lg ${screenshotMode ? 'overflow-visible' : 'overflow-hidden'} widget-crossfade-enter-active mobile:inset-4 mobile:w-auto mobile:h-auto mobile:min-w-0 mobile:min-h-0 mobile:max-w-none mobile:max-h-none mobile:bg-card-bg mobile:border-gray-700 mobile:rounded-2xl mobile:overflow-y-auto`}
+            className={`dev-activity-widget ${screenshotMode ? 'absolute top-0 left-0 w-[1400px]' : 'fixed z-[9999] left-1/2 top-1/2 w-[75vw] max-w-[1600px] max-h-[95vh] min-w-[900px] min-h-[700px] md:w-[75vw] md:max-w-[1600px] md:min-w-[900px] md:min-h-[700px]'} ${screenshotMode ? 'bg-card-bg/90' : 'bg-card-bg/40'} border border-gray-800 rounded-xl shadow-lg ${screenshotMode ? 'overflow-visible' : 'overflow-hidden'} widget-crossfade-enter-active mobile:inset-4 mobile:w-auto mobile:h-auto mobile:min-w-0 mobile:min-h-0 mobile:max-w-none mobile:max-h-none mobile:bg-card-bg/40 mobile:border-gray-700 mobile:rounded-2xl mobile:overflow-y-auto`}
             style={{ 
               borderRadius: '32px',
               ...(screenshotMode ? { 
