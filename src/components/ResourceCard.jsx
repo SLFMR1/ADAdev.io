@@ -622,9 +622,10 @@ const ResourceCard = ({ resource, onViewResource }) => {
       }`}
       style={{
         height: isExpanded ? 'auto' : '6rem',
-        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 768 ? (screenshotMode ? '24rem' : '32rem') : window.innerWidth < 1024 ? (screenshotMode ? '31rem' : '35rem') : (screenshotMode ? '47rem' : '51rem')) : 
+        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 768 ? (screenshotMode ? '24rem' : '41rem') : window.innerWidth < 1024 ? (screenshotMode ? '31rem' : '35rem') : (screenshotMode ? '47rem' : '51rem')) : 
                    isExpanded && activeTab === 'video' ? (window.innerWidth < 768 ? '24rem' : '35rem') : 
                    isExpanded && activeTab === 'updates' ? (window.innerWidth < 768 ? '28rem' : (screenshotMode ? '19.5rem' : '22rem')) :
+                   isExpanded && activeTab === 'solutions' ? (window.innerWidth < 768 ? (screenshotMode ? '20rem' : '24rem') : window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) :
                    isExpanded ? (window.innerWidth < 768 ? (screenshotMode ? '12rem' : '18rem') : window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) : undefined,
         transform: isExpanded ? (screenshotMode ? 'scale(1)' : (window.innerWidth < 1024 ? 'scale(1)' : 'scale(1.03)')) : 'scale(1)',
         marginBottom: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? (window.innerWidth < 768 ? '1rem' : '2rem') : undefined,
@@ -657,9 +658,10 @@ const ResourceCard = ({ resource, onViewResource }) => {
       <div className={`absolute top-0 left-0 w-full p-4 mobile:p-3 transition-all duration-300 ease-out ${
         isExpanded ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
       }`} style={{ 
-        minHeight: activeTab === 'activity' ? (window.innerWidth < 768 ? (screenshotMode ? '23rem' : '31rem') : window.innerWidth < 1024 ? (screenshotMode ? '30rem' : '34rem') : (screenshotMode ? '46rem' : '50rem')) : 
+        minHeight: activeTab === 'activity' ? (window.innerWidth < 768 ? (screenshotMode ? '23rem' : '39rem') : window.innerWidth < 1024 ? (screenshotMode ? '30rem' : '34rem') : (screenshotMode ? '46rem' : '50rem')) : 
                    activeTab === 'video' ? (window.innerWidth < 768 ? '23rem' : '34rem') : 
                    activeTab === 'updates' ? (window.innerWidth < 768 ? '27rem' : (screenshotMode ? '19.5rem' : '22rem')) :
+                   activeTab === 'solutions' ? (window.innerWidth < 768 ? (screenshotMode ? '19rem' : '23rem') : window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) :
                    (window.innerWidth < 768 ? (screenshotMode ? '11.5rem' : '17rem') : window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')),
         overflow: 'visible'
       }}>
@@ -723,7 +725,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
           </div>
 
           {/* Tab Content */}
-          <div className={`flex-grow text-sm mobile:text-xs text-gray-300 pr-2 mobile:pr-1 ${screenshotMode ? 'overflow-hidden' : activeTab === 'updates' || activeTab === 'activity' ? 'overflow-y-auto' : activeTab === 'about' || activeTab === 'solutions' || activeTab === 'links' ? 'mobile:overflow-y-auto mobile:max-h-40' : 'overflow-hidden'}`}>
+          <div className={`flex-grow text-sm mobile:text-xs text-gray-300 pr-2 mobile:pr-1 ${screenshotMode ? 'overflow-hidden' : activeTab === 'updates' || activeTab === 'activity' ? 'overflow-y-auto' : activeTab === 'solutions' ? 'mobile:overflow-y-auto mobile:max-h-64' : activeTab === 'about' || activeTab === 'links' ? 'mobile:overflow-y-auto mobile:max-h-40' : 'overflow-hidden'}`}>
             {activeTab === 'about' && <p>{resource.fullDescription || resource.description}</p>}
             {activeTab === 'solutions' && (
               <div className="flex flex-wrap gap-2">
@@ -860,7 +862,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
               </div>
             )}
             {activeTab === 'activity' && resource.social?.github && (
-              <div ref={chartContainerRef} style={{ minHeight: window.innerWidth < 768 ? '250px' : '400px' }}>
+              <div ref={chartContainerRef} style={{ minHeight: window.innerWidth < 768 ? '320px' : '400px' }}>
                 {isLoadingActivityChart ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
