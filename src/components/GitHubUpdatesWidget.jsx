@@ -569,26 +569,26 @@ const GitHubUpdatesWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, 
                            className="bg-gray-800/50 rounded-lg p-2 transition-all duration-200 hover:bg-gray-700/50">
                         <div className="space-y-0.5">
                           {/* Line 1: Project name + Icon + Release name + Timestamp */}
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex items-baseline gap-2 min-w-0">
                             <a
                               href={update.resource.social?.github || '#'}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="font-medium text-xs text-white hover:text-gray-300 truncate max-w-[80px] sm:max-w-[100px] flex-shrink-0 transition-colors"
+                              className="font-medium text-xs text-white hover:text-gray-300 truncate max-w-[80px] sm:max-w-[100px] flex-shrink-0 transition-colors min-h-0"
                               title={`View ${update.resource.name} on GitHub`}
                             >
                               {update.resource.name}
                             </a>
                             {update.type === 'release' ? (
-                              <Tag size={12} className="text-purple-400 flex-shrink-0 relative -top-[12px] sm:top-0" />
+                              <Tag size={12} className="text-purple-400 flex-shrink-0" />
                             ) : (
-                              <GitCommit size={12} className="text-purple-400 flex-shrink-0 relative -top-[12px] sm:top-0" />
+                              <GitCommit size={12} className="text-purple-400 flex-shrink-0" />
                             )}
                             <a
                               href={update.type === 'release' ? update.data.html_url : update.data.htmlUrl || '#'}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-gray-300 hover:text-white text-xs truncate flex-1"
+                              className="text-gray-300 hover:text-white text-xs truncate flex-1 min-h-0"
                             >
                               {update.type === 'release' ? update.data.name : update.data.message?.split('\n')[0] || 'No message'}
                             </a>

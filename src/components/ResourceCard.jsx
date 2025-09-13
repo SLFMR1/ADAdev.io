@@ -503,7 +503,6 @@ const ResourceCard = ({ resource, onViewResource }) => {
       // Create final canvas with padding and branding space
       const paddingX = 35;
       const paddingTop = 10;
-      const paddingBottom = 10;
       const finalWidth = img.width + (paddingX * 2);
       
       // Calculate logo dimensions
@@ -511,7 +510,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       const logoTargetWidth = Math.min(420, finalWidth * 0.28);
       const computedLogoHeight = Math.max(28, Math.round(logoTargetWidth / logoAspectRatio));
       const brandingPadding = computedLogoHeight + 20;
-      const finalHeight = img.height + paddingTop + paddingBottom + brandingPadding;
+      const finalHeight = img.height + paddingTop + brandingPadding;
       
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -625,6 +624,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
         height: isExpanded ? 'auto' : '6rem',
         minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 768 ? (screenshotMode ? '24rem' : '32rem') : window.innerWidth < 1024 ? (screenshotMode ? '31rem' : '35rem') : (screenshotMode ? '47rem' : '51rem')) : 
                    isExpanded && activeTab === 'video' ? (window.innerWidth < 768 ? '24rem' : '35rem') : 
+                   isExpanded && activeTab === 'updates' ? (window.innerWidth < 768 ? '28rem' : (screenshotMode ? '19.5rem' : '22rem')) :
                    isExpanded ? (window.innerWidth < 768 ? (screenshotMode ? '12rem' : '18rem') : window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) : undefined,
         transform: isExpanded ? (screenshotMode ? 'scale(1)' : (window.innerWidth < 1024 ? 'scale(1)' : 'scale(1.03)')) : 'scale(1)',
         marginBottom: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? (window.innerWidth < 768 ? '1rem' : '2rem') : undefined,
@@ -659,6 +659,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       }`} style={{ 
         minHeight: activeTab === 'activity' ? (window.innerWidth < 768 ? (screenshotMode ? '23rem' : '31rem') : window.innerWidth < 1024 ? (screenshotMode ? '30rem' : '34rem') : (screenshotMode ? '46rem' : '50rem')) : 
                    activeTab === 'video' ? (window.innerWidth < 768 ? '23rem' : '34rem') : 
+                   activeTab === 'updates' ? (window.innerWidth < 768 ? '27rem' : (screenshotMode ? '19.5rem' : '22rem')) :
                    (window.innerWidth < 768 ? (screenshotMode ? '11.5rem' : '17rem') : window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')),
         overflow: 'visible'
       }}>

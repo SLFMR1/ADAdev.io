@@ -114,7 +114,7 @@ const GitHubUpdates = ({ resource }) => {
       </div>
 
       {/* Tab Content */}
-      <div className="space-y-1 max-h-44 mobile:max-h-32 overflow-y-auto scrollbar-hide">
+      <div className="space-y-1 max-h-44 mobile:max-h-64 overflow-y-auto scrollbar-hide">
         {activeTab === 'releases' && (
           <>
             {releases.length === 0 ? (
@@ -127,7 +127,7 @@ const GitHubUpdates = ({ resource }) => {
                       href={release.htmlUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-cyan-400 hover:text-cyan-300 text-xs mobile:text-[10px] font-medium truncate block"
+                      className="text-cyan-400 hover:text-cyan-300 text-xs mobile:text-[10px] font-medium truncate block min-h-0"
                     >
                       {release.name}
                     </a>
@@ -159,7 +159,7 @@ const GitHubUpdates = ({ resource }) => {
                       href={commit.htmlUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-gray-300 hover:text-white text-xs mobile:text-[10px] line-clamp-1 block"
+                      className="text-gray-300 hover:text-white text-xs mobile:text-[10px] line-clamp-1 block min-h-0"
                     >
                       {commit.message.split('\n')[0]}
                     </a>
