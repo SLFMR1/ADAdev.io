@@ -801,40 +801,40 @@ function App() {
             }`}
           >
             <div style={{ position: 'relative', zIndex: 1 }}>
-              <div className="lg:hidden fixed top-0 left-0 right-0 z-[9998] bg-card-bg/95 backdrop-blur-md border-b border-gray-800">
+              <div className="lg:hidden fixed top-0 left-0 right-0 z-[9998]">
                 <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center space-x-6">
-                    <button
-                      onClick={() => setMobileMenuOpen(true)}
-                      className="p-2 rounded-lg hover:bg-gray-800/50 hover:shadow-[0_0_10px_rgba(255,255,255,0.2)] transition-all duration-300 group"
-                    >
-                      <Menu size={20} className="text-gray-400 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] transition-all duration-300" />
-                    </button>
+                  <div className="flex flex-col items-start space-y-2">
                     <a href="#top" tabIndex={-1} aria-label="ADAdev Home" className="group">
-                      <img 
-                        src="/ADAdev_logo.svg" 
-                        alt="ADAdev Cardano Developer Resources Logo" 
-                        className="h-8 w-auto object-contain transition-all duration-300 group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]"
-                        width="32" height="32"
+                      <img
+                        src="/ADAdev_logo.svg"
+                        alt="ADAdev Cardano Developer Resources Logo"
+                        className="h-12 w-auto object-contain transition-all duration-300 group-hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]"
+                        width="48" height="48"
+                        loading="eager"
+                      />
+                    </a>
+                    <a
+                      href="https://cardano.org/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Visit Cardano Official Website"
+                      className="group ml-[5px]"
+                    >
+                      <img
+                        src="https://developers.cardano.org/img/cardano-black.svg"
+                        alt="Cardano Logo"
+                        className="h-9 w-auto object-contain opacity-70 filter brightness-0 invert transition-all duration-300 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
+                        width="36" height="36"
                         loading="eager"
                       />
                     </a>
                   </div>
-                  <a 
-                    href="https://cardano.org/" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    aria-label="Visit Cardano Official Website"
-                    className="group"
+                  <button
+                    onClick={() => setMobileMenuOpen(true)}
+                    className="p-2 rounded-lg hover:bg-gray-800/50 hover:shadow-[0_0_10px_rgba(255,255,255,0.2)] transition-all duration-300 group"
                   >
-                    <img 
-                      src="https://developers.cardano.org/img/cardano-black.svg" 
-                      alt="Cardano Logo" 
-                      className="h-6 w-auto object-contain opacity-70 filter brightness-0 invert transition-all duration-300 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
-                      width="24" height="24"
-                      loading="eager"
-                    />
-                  </a>
+                    <Menu size={28} className="text-gray-400 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)] transition-all duration-300" />
+                  </button>
                 </div>
               </div>
 
