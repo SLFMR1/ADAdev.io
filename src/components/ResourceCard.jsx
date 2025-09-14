@@ -622,11 +622,11 @@ const ResourceCard = ({ resource, onViewResource }) => {
       }`}
       style={{
         height: isExpanded ? 'auto' : '6rem',
-        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 768 ? (screenshotMode ? '24rem' : '41rem') : window.innerWidth < 1024 ? (screenshotMode ? '31rem' : '35rem') : (screenshotMode ? '47rem' : '51rem')) : 
+        minHeight: isExpanded && activeTab === 'activity' ? (window.innerWidth < 768 ? (screenshotMode ? '38rem' : '41rem') : window.innerWidth < 1024 ? (screenshotMode ? '31rem' : '35rem') : (screenshotMode ? '47rem' : '51rem')) : 
                    isExpanded && activeTab === 'video' ? (window.innerWidth < 768 ? '24rem' : '35rem') : 
                    isExpanded && activeTab === 'updates' ? (window.innerWidth < 768 ? '28rem' : (screenshotMode ? '19.5rem' : '22rem')) :
                    isExpanded && activeTab === 'solutions' ? (window.innerWidth < 768 ? (screenshotMode ? '20rem' : '24rem') : window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) :
-                   isExpanded ? (window.innerWidth < 768 ? (screenshotMode ? '12rem' : '18rem') : window.innerWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) : undefined,
+                   isExpanded ? (window.innerWidth < 768 ? (screenshotMode ? '12rem' : '18rem') : window.innekmmitrWidth < 1024 ? (screenshotMode ? '15.5rem' : '18rem') : (screenshotMode ? '19.5rem' : '22rem')) : undefined,
         transform: isExpanded ? (screenshotMode ? 'scale(1)' : (window.innerWidth < 1024 ? 'scale(1)' : 'scale(1.03)')) : 'scale(1)',
         marginBottom: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? (window.innerWidth < 768 ? '1rem' : '2rem') : undefined,
         marginTop: isExpanded && (activeTab === 'activity' || activeTab === 'video') ? (window.innerWidth < 768 ? '1rem' : '2rem') : undefined,
