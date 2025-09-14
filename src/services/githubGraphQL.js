@@ -197,10 +197,10 @@ const REPO_ACTIVITY_QUERY = gql`
  * Fetch organization repositories and commits using GraphQL
  * @param {string} orgLogin - GitHub organization login/name
  * @param {string} since - ISO date string for filtering commits
- * @param {number} maxRepos - Maximum number of repositories to fetch (default: 200)
+ * @param {number} maxRepos - Maximum number of repositories to fetch (default: 500)
  * @returns {Promise<Object>} Structured data with repositories and commits
  */
-const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 200) => {
+const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 500) => {
   try {
     logger.debug(`🔍 Fetching GraphQL data for organization: ${orgLogin}`)
     
