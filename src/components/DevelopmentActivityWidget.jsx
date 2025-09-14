@@ -465,7 +465,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     validateNodeCount(transformedChartData, selectedPeriod, 'DevelopmentActivityWidget');
     
     console.log(`🔍 DEBUG: currentPeriodData result - leaderboard: ${leaderboard.length}, transformedChartData: ${transformedChartData.length}, isDaily: ${isDaily}`);
-    
+
     return {
       leaderboard,
       chartData: transformedChartData,
@@ -475,6 +475,68 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       rawChartData // Keep raw data for contributing resources
     };
   }, [activityData, selectedPeriod, viewMode]);
+
+  // Calculate filtered leaderboard totals from the exact same data used by chart tooltips
+  const filteredLeaderboard = useMemo(() => {
+    // Only apply filtering to periods that have discrepancies
+    // Daily was working correctly, so leave it unchanged
+    if (!currentPeriodData || currentPeriodData.isDaily) {
+      return currentPeriodData?.leaderboard || [];
+    }
+
+    const { leaderboard, chartData, rawChartData, isDaily } = currentPeriodData;
+
+    if (!leaderboard || !chartData || !rawChartData) {
+      return leaderboard || [];
+    }
+
+    // Calculate totals by summing each resource's contribution to each chart data point
+    const resourceTotals = new Map();
+
+
+    // Use the EXACT same logic as contributingResources (lines 542-571)
+    chartData.forEach((dataPoint) => {
+      rawChartData.forEach(resourceData => {
+        let resourceCount = 0;
+
+        if (isDaily && resourceData.dailyCounts) {
+          // For daily periods, find matching day in dailyCounts
+          const dayIndex = chartData.findIndex(dp => dp.weekStart === dataPoint.weekStart);
+          if (dayIndex >= 0 && dayIndex < resourceData.dailyCounts.length) {
+            resourceCount = resourceData.dailyCounts[dayIndex] || 0;
+          }
+        } else if (!isDaily && resourceData.weeklyData) {
+          // For weekly periods, match by weekStart date (most reliable)
+          const weekData = resourceData.weeklyData.find(w => w.weekStart === dataPoint.weekStart);
+          resourceCount = weekData?.count || 0;
+        } else if (!isDaily && resourceData.weeklyCounts) {
+          // Fallback: if weeklyData not available, match by date in weeklyCounts
+          const weekIndex = chartData.findIndex(dp => dp.weekStart === dataPoint.weekStart);
+          if (weekIndex >= 0 && weekIndex < resourceData.weeklyCounts.length) {
+            resourceCount = resourceData.weeklyCounts[weekIndex] || 0;
+          }
+        }
+
+        if (resourceCount > 0) {
+          const resourceId = resourceData.resource?.id || resourceData.resource?.name;
+          const currentTotal = resourceTotals.get(resourceId) || 0;
+          resourceTotals.set(resourceId, currentTotal + resourceCount);
+        }
+      });
+    });
+
+    // Update leaderboard with chart-consistent totals
+    return leaderboard.map(item => {
+      const resourceId = item.resource?.id || item.resource?.name;
+      const chartTotal = resourceTotals.get(resourceId);
+
+      return {
+        ...item,
+        totalCommits: chartTotal !== undefined ? chartTotal : item.totalCommits // Safe fallback
+      };
+    }).sort((a, b) => b.totalCommits - a.totalCommits); // Re-sort after recalculation
+
+  }, [currentPeriodData]);
 
   // Extract contributing resources for each data point
   const contributingResources = useMemo(() => {
@@ -722,7 +784,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     shareToXHandler(leaderboardRef.current, 'leaderboard');
   };
 
-  const { leaderboard, chartData, metrics } = currentPeriodData || {};
+  const { chartData, metrics } = currentPeriodData || {};
+  const leaderboard = filteredLeaderboard;
 
   // Labels for screenshot mode (dropdowns become static text)
   const selectedPeriodLabel = useMemo(() => {

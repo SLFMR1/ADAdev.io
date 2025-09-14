@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { GitCommit } from 'lucide-react'
 import { fetchGitHubUpdates } from '../services/github'
 import { useCommitData } from '../contexts/CommitDataContext'
+import { isCurrentWeek } from '../utils/weekCalculation'
 
 const WeeklyCommitCount = ({ resource }) => {
   const [commitsPerMonth, setCommitsPerMonth] = useState(null)
@@ -20,9 +21,18 @@ const WeeklyCommitCount = ({ resource }) => {
         const data = await fetchGitHubUpdates(resource, '4weeks')
         
         if (data && data.commitsPerWeek !== undefined) {
-          // commitsPerWeek from 4-week period represents total commits in 4 complete weeks
-          // This gives us a good monthly activity indicator
-          const commits = data.commitsPerWeek || 0
+          // commitsPerWeek from 4-week period actually contains 5 weeks of data from server
+          // Filter to only show the last 4 weeks to match user expectations
+          let commits = data.commitsPerWeek || 0
+
+          // If we have weeklyData, calculate from the exact weeks we want to display
+          if (data.weeklyData && Array.isArray(data.weeklyData)) {
+            // For 4-week period: server sends 5 weeks [Oldest, Week2, Week3, Week4, Current]
+            // We want the most recent 4 complete weeks - remove the OLDEST week (first one)
+            const recent4Weeks = data.weeklyData.slice(1) // Remove first (oldest) week, keep last 4
+
+            commits = recent4Weeks.reduce((sum, week) => sum + (week.count || 0), 0)
+          }
           setCommitsPerMonth(commits)
           // Register this data with the global context for sorting (with error handling)
           try {
