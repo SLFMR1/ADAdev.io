@@ -27,9 +27,9 @@ const WeeklyCommitCount = ({ resource }) => {
 
           // If we have weeklyData, calculate from the exact weeks we want to display
           if (data.weeklyData && Array.isArray(data.weeklyData)) {
-            // For 4-week period: server sends 5 weeks [Oldest, Week2, Week3, Week4, Current]
-            // We want the most recent 4 complete weeks - remove the OLDEST week (first one)
-            const recent4Weeks = data.weeklyData.slice(1) // Remove first (oldest) week, keep last 4
+            // For 4-week period: server sends 5 weeks [Week1, Week2, Week3, Week4, Current]
+            // We want the most recent 4 complete weeks - remove the current incomplete week
+            const recent4Weeks = data.weeklyData.slice(0, -1) // Remove current incomplete week, keep 4 complete weeks
 
             commits = recent4Weeks.reduce((sum, week) => sum + (week.count || 0), 0)
           }

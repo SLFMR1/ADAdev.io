@@ -764,7 +764,6 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
     const resourceIdentifier = repoPath
     
     // Add timeout and retry logic for large datasets
-    // Order by fetched_at DESC to get newest entries first for each week
     const queryPromise = supabase
       .from('github_activity')
       .select('*')
@@ -773,27 +772,14 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
       .gte('week_start', startDate)
       .lte('week_start', endDate)
       .order('week_start')
-      .order('fetched_at', { ascending: false })
-    
+
     const { data, error } = await queryPromise
 
     if (error) throw error
 
-    // Deduplicate entries - keep only the most recent entry for each week_start
-    // (since we ordered by fetched_at DESC, first occurrence is most recent)
-    const deduplicatedData = []
-    const seenWeeks = new Set()
+    console.log(`📊 Database query for ${resourceIdentifier}: ${data?.length || 0} records`)
 
-    for (const record of data || []) {
-      if (!seenWeeks.has(record.week_start)) {
-        seenWeeks.add(record.week_start)
-        deduplicatedData.push(record)
-      }
-    }
-
-    console.log(`📊 Database query for ${resourceIdentifier}: ${data?.length || 0} total records, ${deduplicatedData.length} after deduplication`)
-
-    return deduplicatedData
+    return data || []
   } catch (error) {
     console.error(`Error fetching weekly activity for ${resource.name}:`, error)
     
@@ -1378,28 +1364,17 @@ const calculateHistoricalMaximums = async (resource) => {
 
     const { data, error } = await supabase
       .from('github_activity')
-      .select('week_start, commit_count, fetched_at')
+      .select('week_start, commit_count')
       .eq('resource_id', repoPath)
       .eq('repo_path', repoPath)
       .order('week_start')
-      .order('fetched_at', { ascending: false })
 
     if (error) {
       console.warn(`Error fetching historical data for maximums: ${error.message}`)
       return createFallbackMaximums()
     }
 
-    // Deduplicate by week_start (keep most recent entries)
-    const deduplicatedData = []
-    const seenWeeks = new Set()
-    for (const record of data || []) {
-      if (!seenWeeks.has(record.week_start)) {
-        seenWeeks.add(record.week_start)
-        deduplicatedData.push(record)
-      }
-    }
-
-    if (!deduplicatedData || deduplicatedData.length === 0) {
+    if (!data || data.length === 0) {
       logger.debug(`No historical data found for ${resource.name} - returning empty maximums for intelligent frontend handling`)
       return {
         maximums: {}, // Empty object - let frontend handle gracefully
@@ -1413,7 +1388,7 @@ const calculateHistoricalMaximums = async (resource) => {
     }
 
     // Convert to array of weekly commit counts, sorted by date
-    const weeklyCommits = deduplicatedData.map(row => ({
+    const weeklyCommits = data.map(row => ({
       weekStart: row.week_start,
       count: row.commit_count || 0
     })).sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart))

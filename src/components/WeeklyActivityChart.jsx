@@ -124,8 +124,13 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                         repoInfo: resourceData.repoInfo
                     });
 
-                    const filteredData = transformChartData([{ weeklyData: validWeeklyData }], selectedPeriod, `WeeklyActivityChart-${resource.name}`);
-                    setWeeklyData(filteredData);
+                    // Use raw server data directly, but filter for 4-week period to show only last 4 weeks
+                    let finalWeeklyData = validWeeklyData;
+                    if (selectedPeriod === '4weeks' && validWeeklyData.length > 4) {
+                        // For 4-week period: exclude the oldest week, keep the last 4 weeks
+                        finalWeeklyData = validWeeklyData.slice(-4);
+                    }
+                    setWeeklyData(finalWeeklyData);
                 } else {
                     setActivityData({ currentWeek: 0, repoInfo: null });
                     setWeeklyData([]);
@@ -174,8 +179,13 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 setHistoricalMaximums(resourceData.historicalMaximums || {});
                 setHistoricalMetadata(resourceData.historicalMetadata || {});
 
-                const filteredData = transformChartData([{ weeklyData: validWeeklyData }], selectedPeriod, `WeeklyActivityChart-${resource.name}-preloaded`);
-                setWeeklyData(filteredData);
+                // Use raw server data directly, but filter for 4-week period to show only last 4 weeks
+                let finalWeeklyData = validWeeklyData;
+                if (selectedPeriod === '4weeks' && validWeeklyData.length > 4) {
+                    // For 4-week period: exclude the oldest week, keep the last 4 weeks
+                    finalWeeklyData = validWeeklyData.slice(-4);
+                }
+                setWeeklyData(finalWeeklyData);
                 setIsLoading(false);
             }
         }
@@ -328,7 +338,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     try {
       const week = validWeeklyData[weekIdx];
       if (!week || !week.weekStart) {
-        console.warn(`Invalid week data for tooltip at index ${weekIdx}`);
+        console.warn(`Invalid week data for tooltip at index ${weekIdx}:`, week);
         return;
       }
       
@@ -397,7 +407,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       <div className={`bg-gray-800/50 rounded-lg ${screenshotMode ? 'p-6' : 'p-4 sm:p-6'}`} style={{ minHeight: Math.max(280, chartHeight + 100) }}>
         <div className={`flex items-center justify-between ${screenshotMode ? 'mb-6' : 'mb-3'}`}>
           <span className={`text-gray-400 ${screenshotMode ? 'text-base' : 'text-xs'}`}>
-            {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'} (Historical Complete Weeks)
+            {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'} (Incl. current Week since Sun.)
           </span>
           <div className={`flex items-baseline ${screenshotMode ? 'space-x-2 mr-8' : 'space-x-2'}`}>
             <GitCommit size={screenshotMode ? 16 : 12} style={{ color: accentColor.hex }} />
@@ -905,9 +915,27 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   if (isLongerPeriod) {
                     // For longer periods, use total sum
                     currentValue = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
-                    // Use period-total historical maximum
-                    const historicalMaxData = historicalMaximums[getServerPeriod(selectedPeriod)];
-                    historicalMaxToUse = historicalMaxData?.value;
+
+                    // Special handling for 4-week period: calculate correct 4-week rolling maximum
+                    if (selectedPeriod === '4weeks' && preloadedData?.commitsPerWeekDetailed) {
+                      // Calculate 4-week rolling maximum from all available historical data
+                      const historicalData = preloadedData.commitsPerWeekDetailed;
+                      let max4WeekTotal = 0;
+
+                      for (let i = 0; i <= historicalData.length - 4; i++) {
+                        const window = historicalData.slice(i, i + 4);
+                        const windowTotal = window.reduce((sum, week) => sum + (week.count || 0), 0);
+                        if (windowTotal > max4WeekTotal) {
+                          max4WeekTotal = windowTotal;
+                        }
+                      }
+
+                      historicalMaxToUse = max4WeekTotal > 0 ? max4WeekTotal : null;
+                    } else {
+                      // Use period-total historical maximum from server
+                      const historicalMaxData = historicalMaximums[getServerPeriod(selectedPeriod)];
+                      historicalMaxToUse = historicalMaxData?.value;
+                    }
                   } else {
                     // For 'current' period (7-day view), use total sum across all 7 days
                     currentValue = validWeeklyData.reduce((total, week) => total + (week.count || 0), 0);
@@ -948,13 +976,50 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 const isLongerPeriod = selectedPeriod !== 'current';
                 
                 if (isLongerPeriod) {
-                  // For longer periods, show period-total historical maximum with dates
-                  const serverPeriod = getServerPeriod(selectedPeriod);
-                  const historicalMaxData = historicalMaximums[serverPeriod];
-                  
-                  if (!historicalMaxData || historicalMaxData.value === null) {
-                    return 'Insufficient historical data';
-                  }
+                  // Special handling for 4-week period: calculate correct 4-week rolling maximum
+                  if (selectedPeriod === '4weeks' && preloadedData?.commitsPerWeekDetailed) {
+                    const historicalData = preloadedData.commitsPerWeekDetailed;
+                    let max4WeekTotal = 0;
+                    let maxStartDate = null;
+                    let maxEndDate = null;
+
+                    for (let i = 0; i <= historicalData.length - 4; i++) {
+                      const window = historicalData.slice(i, i + 4);
+                      const windowTotal = window.reduce((sum, week) => sum + (week.count || 0), 0);
+                      if (windowTotal > max4WeekTotal) {
+                        max4WeekTotal = windowTotal;
+                        maxStartDate = window[0].weekStart;
+                        const lastWeekStart = new Date(window[3].weekStart);
+                        maxEndDate = new Date(lastWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000)
+                          .toISOString().slice(0, 10);
+                      }
+                    }
+
+                    if (max4WeekTotal === 0) {
+                      return 'Insufficient historical data';
+                    }
+
+                    const formatDate = (dateStr) => {
+                      const date = new Date(dateStr);
+                      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                    };
+
+                    const startDate = formatDate(maxStartDate);
+                    const endDate = formatDate(maxEndDate);
+
+                    return (
+                      <span>
+                        {max4WeekTotal} ({startDate}-{endDate})
+                      </span>
+                    );
+                  } else {
+                    // For other longer periods, show period-total historical maximum with dates
+                    const serverPeriod = getServerPeriod(selectedPeriod);
+                    const historicalMaxData = historicalMaximums[serverPeriod];
+
+                    if (!historicalMaxData || historicalMaxData.value === null) {
+                      return 'Insufficient historical data';
+                    }
 
                   const formatDate = (dateString) => {
                     if (!dateString) return '';
@@ -973,6 +1038,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                       {screenshotMode ? `Historical Peak from ${historicalMaxData.value || 1} (${startDate}-${endDate})` : `historical peak ${historicalMaxData.value || 1} (${startDate}-${endDate})`}
                     </span>
                   );
+                  }
                 } else {
                   // For 'current' period (7-day view), show server-provided historical maximum with dates
                   const serverPeriod = getServerPeriod(selectedPeriod);
