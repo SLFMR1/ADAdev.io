@@ -536,7 +536,7 @@ class GitHubActivityService {
    */
   getWeekStart(date) {
     const weekStart = getWeekStart(date)
-    return weekStart.toLocaleDateString('en-CA') // YYYY-MM-DD format in local timezone
+    return weekStart.toISOString().slice(0, 10) // YYYY-MM-DD format in UTC (consistent)
   }
 
   /**

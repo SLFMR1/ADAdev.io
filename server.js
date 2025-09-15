@@ -2935,11 +2935,9 @@ function aggregateCommitsToWeeklyData(commits) {
       const date = new Date(commitDate)
       if (isNaN(date.getTime())) return // Skip invalid dates
 
-      // Calculate week start (Sunday)
-      const weekStart = new Date(date)
-      weekStart.setDate(date.getDate() - date.getDay()) // Go to Sunday
-      weekStart.setHours(0, 0, 0, 0) // Start of day
-      const weekKey = weekStart.toISOString().split('T')[0] // YYYY-MM-DD format
+      // Calculate week start (Sunday) using centralized function for consistency
+      const weekStart = getWeekStart(date)
+      const weekKey = weekStart.toISOString().slice(0, 10) // YYYY-MM-DD format
 
       // Increment count for this week
       if (weeklyMap.has(weekKey)) {

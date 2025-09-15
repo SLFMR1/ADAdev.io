@@ -200,7 +200,7 @@ const REPO_ACTIVITY_QUERY = gql`
  * @param {number} maxRepos - Maximum number of repositories to fetch (default: 500)
  * @returns {Promise<Object>} Structured data with repositories and commits
  */
-const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 500) => {
+const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 1000) => {
   try {
     logger.debug(`🔍 Fetching GraphQL data for organization: ${orgLogin}`)
     
