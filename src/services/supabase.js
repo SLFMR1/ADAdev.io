@@ -76,7 +76,8 @@ class GitHubActivityService {
             year: year,
             week_number: weekNumber,
             commit_count: week.count,
-            fetched_at: new Date().toISOString()
+            fetched_at: new Date().toISOString(),
+            data_source: 'github_graphql'
           }
         })
 
@@ -104,12 +105,11 @@ class GitHubActivityService {
       logger.info(`🟢 About to upsert to Supabase (first 5):`, uniqueRecords.slice(0, 5))
       logger.info(`🟢 About to upsert to Supabase (last 5):`, uniqueRecords.slice(-5))
 
-      // Use upsert with ON CONFLICT DO UPDATE
+      // Use upsert with proper merge behavior to update existing records
       const { data, error } = await supabase
         .from('github_activity')
         .upsert(uniqueRecords, {
-          onConflict: 'resource_id,repo_path,week_start',
-          ignoreDuplicates: false
+          onConflict: 'resource_id,repo_path,week_start'
         })
 
       if (error) {
@@ -120,6 +120,26 @@ class GitHubActivityService {
           details: error.details
         })
         return { error: error.message }
+      }
+
+      // Data integrity verification - verify a sample of the data was actually stored/updated
+      if (uniqueRecords.length > 0) {
+        const sampleRecord = uniqueRecords[0]
+        const { data: verifyData, error: verifyError } = await supabase
+          .from('github_activity')
+          .select('commit_count, fetched_at')
+          .eq('resource_id', sampleRecord.resource_id)
+          .eq('repo_path', sampleRecord.repo_path)
+          .eq('week_start', sampleRecord.week_start)
+          .single()
+
+        if (verifyError) {
+          logger.error(`❌ Data integrity verification failed for ${resource.name}:`, verifyError)
+        } else if (verifyData?.commit_count !== sampleRecord.commit_count) {
+          logger.error(`❌ Data integrity issue for ${resource.name}: Expected ${sampleRecord.commit_count}, got ${verifyData?.commit_count}`)
+        } else {
+          logger.debug(`✅ Data integrity verified for ${resource.name} - commit count: ${verifyData.commit_count}`)
+        }
       }
 
       logger.info(`✅ Successfully stored ${uniqueRecords.length} weekly records for ${resource.name}`)
@@ -373,7 +393,8 @@ class GitHubActivityService {
             month: month,
             day: dayOfMonth,
             commit_count: day.count,
-            fetched_at: new Date().toISOString()
+            fetched_at: new Date().toISOString(),
+            data_source: 'github_graphql'
           }
         })
 
@@ -397,12 +418,11 @@ class GitHubActivityService {
       logger.info(`📊 Daily data summary: ${uniqueRecords.filter(r => r.commit_count > 0).length} days with commits`)
       logger.info(`📅 Date range: ${uniqueRecords[0]?.date} to ${uniqueRecords[uniqueRecords.length - 1]?.date}`)
 
-      // Use upsert with ON CONFLICT DO UPDATE
+      // Use upsert with proper merge behavior to update existing records
       const { data, error } = await supabase
         .from('github_daily_activity')
         .upsert(uniqueRecords, {
-          onConflict: 'resource_id,repo_path,date',
-          ignoreDuplicates: false
+          onConflict: 'resource_id,repo_path,date'
         })
 
       if (error) {

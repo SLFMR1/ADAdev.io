@@ -1,8 +1,8 @@
 const { GraphQLClient, gql } = require('graphql-request')
 // Use console for server-side logging since logger-frontend is for client-side
 const logger = {
-  debug: console.log,
-  info: console.log, 
+  debug: console.log, // Changed to console.log for visibility in production
+  info: console.log,
   warn: console.warn,
   error: console.error
 }
@@ -245,8 +245,9 @@ const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 500) => {
         }
       }
       
-      // Log rate limit status
-      logger.debug(`⚡ Rate limit: ${rateLimit.remaining}/${rateLimit.limit} (resets: ${rateLimit.resetAt})`)
+      // Log rate limit status and optimize usage
+      const rateLimitUsed = rateLimit.limit - rateLimit.remaining
+      logger.info(`⚡ GraphQL Rate limit: ${rateLimit.remaining}/${rateLimit.limit} used (${Math.round(rateLimitUsed/rateLimit.limit*100)}% - resets: ${rateLimit.resetAt})`)
       
       // Filter out private and archived repos if needed
       const publicRepos = repositories.nodes.filter(repo => 
@@ -309,7 +310,8 @@ const fetchRepoDataGraphQL = async (owner, name, since = null) => {
     
     const { repository, rateLimit } = response
     
-    logger.debug(`⚡ Rate limit: ${rateLimit.remaining}/${rateLimit.limit} (resets: ${rateLimit.resetAt})`)
+    const rateLimitUsed = rateLimit.limit - rateLimit.remaining
+    logger.info(`⚡ GraphQL Rate limit: ${rateLimit.remaining}/${rateLimit.limit} used (${Math.round(rateLimitUsed/rateLimit.limit*100)}% - resets: ${rateLimit.resetAt})`)
     logger.debug(`✅ GraphQL fetch complete for ${owner}/${name}`)
     
     return {

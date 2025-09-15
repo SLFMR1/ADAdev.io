@@ -764,6 +764,7 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
     const resourceIdentifier = repoPath
     
     // Add timeout and retry logic for large datasets
+    // Order by fetched_at DESC to get newest entries first for each week
     const queryPromise = supabase
       .from('github_activity')
       .select('*')
@@ -772,11 +773,27 @@ const getWeeklyActivity = async (resource, startDate, endDate) => {
       .gte('week_start', startDate)
       .lte('week_start', endDate)
       .order('week_start')
+      .order('fetched_at', { ascending: false })
     
     const { data, error } = await queryPromise
-    
+
     if (error) throw error
-    return data || []
+
+    // Deduplicate entries - keep only the most recent entry for each week_start
+    // (since we ordered by fetched_at DESC, first occurrence is most recent)
+    const deduplicatedData = []
+    const seenWeeks = new Set()
+
+    for (const record of data || []) {
+      if (!seenWeeks.has(record.week_start)) {
+        seenWeeks.add(record.week_start)
+        deduplicatedData.push(record)
+      }
+    }
+
+    console.log(`📊 Database query for ${resourceIdentifier}: ${data?.length || 0} total records, ${deduplicatedData.length} after deduplication`)
+
+    return deduplicatedData
   } catch (error) {
     console.error(`Error fetching weekly activity for ${resource.name}:`, error)
     
@@ -1361,17 +1378,28 @@ const calculateHistoricalMaximums = async (resource) => {
 
     const { data, error } = await supabase
       .from('github_activity')
-      .select('week_start, commit_count')
+      .select('week_start, commit_count, fetched_at')
       .eq('resource_id', repoPath)
       .eq('repo_path', repoPath)
       .order('week_start')
+      .order('fetched_at', { ascending: false })
 
     if (error) {
       console.warn(`Error fetching historical data for maximums: ${error.message}`)
       return createFallbackMaximums()
     }
 
-    if (!data || data.length === 0) {
+    // Deduplicate by week_start (keep most recent entries)
+    const deduplicatedData = []
+    const seenWeeks = new Set()
+    for (const record of data || []) {
+      if (!seenWeeks.has(record.week_start)) {
+        seenWeeks.add(record.week_start)
+        deduplicatedData.push(record)
+      }
+    }
+
+    if (!deduplicatedData || deduplicatedData.length === 0) {
       logger.debug(`No historical data found for ${resource.name} - returning empty maximums for intelligent frontend handling`)
       return {
         maximums: {}, // Empty object - let frontend handle gracefully
@@ -1385,7 +1413,7 @@ const calculateHistoricalMaximums = async (resource) => {
     }
 
     // Convert to array of weekly commit counts, sorted by date
-    const weeklyCommits = data.map(row => ({
+    const weeklyCommits = deduplicatedData.map(row => ({
       weekStart: row.week_start,
       count: row.commit_count || 0
     })).sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart))
@@ -2910,6 +2938,59 @@ Respond with valid JSON in this exact format:
 // UPDATES CACHE DATA COLLECTION FUNCTIONS
 
 /**
+ * Aggregate commits into weekly data format for storeWeeklyActivity
+ * @param {Array} commits - Raw commits from GraphQL
+ * @returns {Array} - Weekly aggregated data
+ */
+function aggregateCommitsToWeeklyData(commits) {
+  if (!commits || commits.length === 0) return []
+
+  const weeklyMap = new Map()
+
+  commits.forEach(commit => {
+    try {
+      // Extract commit date from nested structure
+      const commitDate = commit.commit?.author?.date ||
+                        commit.commit?.committer?.date ||
+                        commit.authored_date ||
+                        commit.committed_date
+
+      if (!commitDate) return // Skip commits without dates
+
+      const date = new Date(commitDate)
+      if (isNaN(date.getTime())) return // Skip invalid dates
+
+      // Calculate week start (Sunday)
+      const weekStart = new Date(date)
+      weekStart.setDate(date.getDate() - date.getDay()) // Go to Sunday
+      weekStart.setHours(0, 0, 0, 0) // Start of day
+      const weekKey = weekStart.toISOString().split('T')[0] // YYYY-MM-DD format
+
+      // Increment count for this week
+      if (weeklyMap.has(weekKey)) {
+        weeklyMap.set(weekKey, weeklyMap.get(weekKey) + 1)
+      } else {
+        weeklyMap.set(weekKey, 1)
+      }
+    } catch (error) {
+      // Skip malformed commits
+      console.warn('Error processing commit for weekly aggregation:', error.message)
+    }
+  })
+
+  // Convert to array format expected by storeWeeklyActivity
+  const weeklyData = Array.from(weeklyMap.entries()).map(([weekStart, count]) => ({
+    weekStart,
+    count
+  }))
+
+  // Sort by date for consistency
+  weeklyData.sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart))
+
+  return weeklyData
+}
+
+/**
  * Maintain rolling cache of latest commits for a resource (30 max)
  */
 async function maintainCommitsCache(resourceId, commits) {
@@ -3000,7 +3081,7 @@ async function maintainCommitsCache(resourceId, commits) {
     }).filter(record => record !== null) // Remove invalid commits
     
     // Insert new commits (duplicates will be ignored due to unique constraint)
-    logger.debug(`📝 ${resourceId}: Attempting to upsert ${commitRecords.length} commit records to database`)
+    console.log(`📝 ${resourceId}: Attempting to upsert ${commitRecords.length} commit records to database`)
     logger.debug(`🔍 ${resourceId}: First few commit records:`, commitRecords.slice(0, 2).map(record => ({
       resource_id: record.resource_id,
       sha: record.sha?.substring(0, 8),
@@ -3011,9 +3092,8 @@ async function maintainCommitsCache(resourceId, commits) {
     
     const { data: upsertData, error: insertError } = await supabase
       .from('github_commits_cache')
-      .upsert(commitRecords, { 
-        onConflict: 'resource_id,sha',
-        ignoreDuplicates: true 
+      .upsert(commitRecords, {
+        onConflict: 'resource_id,sha'
       })
       .select()
     
@@ -3023,7 +3103,7 @@ async function maintainCommitsCache(resourceId, commits) {
       return
     }
     
-    logger.debug(`✅ ${resourceId}: Successfully cached ${commitRecords.length} commits to database. Upserted: ${upsertData?.length || 'unknown'} records`)
+    console.log(`✅ ${resourceId}: Successfully cached ${commitRecords.length} commits to database. Upserted: ${upsertData?.length || 'unknown'} records`)
     
     // Manually maintain rolling cache (keep only latest 30)
     const { error: cleanupError } = await supabase.rpc('cleanup_commits_cache', {
@@ -3075,12 +3155,12 @@ async function maintainReleasesCache(resourceId, releases) {
       prerelease: release.prerelease || false
     }))
     
-    // Insert new releases (duplicates will be ignored due to unique constraint)
+    // Update releases (fresh data always wins over cached data)
     const { error: insertError } = await supabase
       .from('github_releases_cache')
-      .upsert(releaseRecords, { 
+      .upsert(releaseRecords, {
         onConflict: 'resource_id,repo_name,tag_name',
-        ignoreDuplicates: true 
+        ignoreDuplicates: false
       })
     
     if (insertError) {
@@ -3136,8 +3216,8 @@ async function populateUpdatesCache(priority = 'all') {
     let successCount = 0
     let errorCount = 0
     
-    // Process in smaller batches to avoid overwhelming GitHub API
-    const batchSize = 3
+    // Process in larger batches for GraphQL efficiency - GraphQL can handle more concurrent requests
+    const batchSize = 12
     for (let i = 0; i < resourcesToProcess.length; i += batchSize) {
       const batch = resourcesToProcess.slice(i, i + batchSize)
       
@@ -3191,9 +3271,19 @@ async function populateUpdatesCache(priority = 'all') {
           })
           
           if (rawCommits && rawCommits.length > 0) {
-            logger.debug(`🔄 ${resource.name}: Calling maintainCommitsCache with ${rawCommits.length} raw commits`)
+            console.log(`🔄 ${resource.name}: Calling maintainCommitsCache with ${rawCommits.length} raw commits`)
             await maintainCommitsCache(resource.name, rawCommits)
-            logger.debug(`✅ ${resource.name}: Updated ${rawCommits.length} commits in database`)
+            console.log(`✅ ${resource.name}: Updated ${rawCommits.length} commits in database`)
+
+            // NEW: Aggregate commits into weekly data and store in github_activity
+            console.log(`🔄 ${resource.name}: Aggregating ${rawCommits.length} commits into weekly data`)
+            const weeklyData = aggregateCommitsToWeeklyData(rawCommits)
+            if (weeklyData && weeklyData.length > 0) {
+              console.log(`🔄 ${resource.name}: Storing ${weeklyData.length} weekly records in github_activity`)
+              await supabaseService.storeWeeklyActivity(resource, weeklyData)
+            } else {
+              logger.debug(`ℹ️ ${resource.name}: No weekly data to store (all commits filtered out)`)
+            }
           } else {
             logger.debug(`ℹ️ ${resource.name}: No recent commits found - rawCommits is ${rawCommits ? 'empty array' : 'null/undefined'}`)
           }
@@ -4570,6 +4660,12 @@ const checkResourceDataExists = async (resource) => {
 
 // ✅ NEW: Setup cache refresh schedules (non-blocking)
 const setupCacheRefreshSchedules = () => {
+  // Run initial cache refresh immediately
+  console.log('🚀 Running initial cache refresh on startup...')
+  populateUpdatesCache('all').catch(error => {
+    console.error('❌ Initial cache refresh failed:', error.message)
+  })
+
   // High priority: All projects every 30 minutes (current data updates)
   setInterval(() => {
     console.log('⚡ Running high-priority cache refresh...')
