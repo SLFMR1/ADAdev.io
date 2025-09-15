@@ -16,25 +16,16 @@ const WeeklyCommitCount = ({ resource }) => {
       try {
         setLoading(true)
         
-        // Use the same historical data approach as ResourceCard
-        // Fetch 4-week data (maps to 'monthly' period in the API)
-        const data = await fetchGitHubUpdates(resource, '4weeks')
+        // Fetch individual resource data for last 4 weeks
+        const response = await fetch(`/api/development-activity?resourceId=${resource.id}&resourceName=${encodeURIComponent(resource.name)}&period=4weeks`)
+        const data = await response.json()
         
-        if (data && data.commitsPerWeek !== undefined) {
-          // commitsPerWeek from 4-week period actually contains 5 weeks of data from server
-          // Filter to only show the last 4 weeks to match user expectations
-          let commits = data.commitsPerWeek || 0
-
-          // If we have weeklyData, calculate from the exact weeks we want to display
-          if (data.weeklyData && Array.isArray(data.weeklyData)) {
-            // For 4-week period: server sends 5 weeks [Week1, Week2, Week3, Week4, Current]
-            // We want the most recent 4 complete weeks - remove the current incomplete week
-            const recent4Weeks = data.weeklyData.slice(0, -1) // Remove current incomplete week, keep 4 complete weeks
-
-            commits = recent4Weeks.reduce((sum, week) => sum + (week.count || 0), 0)
-          }
+        if (data && data.weeklyData && Array.isArray(data.weeklyData)) {
+          // Server returns 5 weeks of data, we want the most recent 4 weeks (including current)
+          const recentWeeks = data.weeklyData.slice(-4) // Take last 4 weeks
+          const commits = recentWeeks.reduce((sum, week) => sum + (week.count || 0), 0)
           setCommitsPerMonth(commits)
-          // Register this data with the global context for sorting (with error handling)
+
           try {
             updateCommitData(resource.name, commits)
           } catch (error) {
