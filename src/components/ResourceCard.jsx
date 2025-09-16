@@ -568,7 +568,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
       const fourWeekCommits = activityChartData['4weeks']?.commitsPerWeekDetailed?.reduce((sum, week) => sum + (week.count || 0), 0) || 0;
       const totalWeeks = activityChartData['4weeks']?.commitsPerWeekDetailed?.length || 0;
       
-      const tweetText = `Cardano Development Activity\n\n${resource.name}\n📊 ${currentWeekCommits} commits this week\n ${fourWeekCommits} commits in last ${totalWeeks} weeks\n\nSee more at: https://adadev.io`;
+      const tweetText = `Cardano Development Activity\n\n${resource.name}\n ${currentWeekCommits} commits this week\n ${fourWeekCommits} commits in last ${totalWeeks} weeks\n\nSee more at: https://adadev.io`;
       
       // Use the enhanced share function
       const result = await shareToX(blob, tweetText);
