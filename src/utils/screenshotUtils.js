@@ -435,24 +435,37 @@ export async function mergeImagesWithGap(images, gap = 32) {
 export async function shareToX(blob, tweetText, handles = []) {
   try {
     const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && !/Mac/.test(navigator.platform));
-    const file = new File([blob], `cardano-activity-${Date.now()}.png`, { type: 'image/png' });
+    let file = new File([blob], `cardano-activity-${Date.now()}.png`, { type: 'image/png' });
+
+    async function createShareableFile(originalBlob, targetWidth = 1600, quality = 0.9) {
+      try {
+        const url = URL.createObjectURL(originalBlob);
+        const img = new Image();
+        await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; });
+        const scale = img.width > targetWidth ? targetWidth / img.width : 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        const jpegBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        if (!jpegBlob) return null;
+        return new File([jpegBlob], `cardano-activity-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      } catch {
+        return null;
+      }
+    }
 
     // Desktop: prefer clipboard (image + text combined), then separate, before any Web Share attempt
     if (!isMobile && navigator.clipboard && window.isSecureContext) {
-      // Try combined item first (desktop Chrome/Edge)
       if (typeof ClipboardItem !== 'undefined') {
         try {
-          const item = new ClipboardItem({
-            'image/png': blob,
-            'text/plain': new Blob([tweetText], { type: 'text/plain' })
-          });
+          const item = new ClipboardItem({ 'image/png': blob, 'text/plain': new Blob([tweetText], { type: 'text/plain' }) });
           await navigator.clipboard.write([item]);
-          return { success: true, message: 'Image and text copied! Paste in your tweet.' };
-        } catch (e) {
-          // Fall back to separate writes below
-        }
+          return { success: true, message: 'Image and text copied! Paste in your tweet.', method: 'clipboard-both' };
+        } catch {}
       }
-
       let copiedImage = false;
       let copiedText = false;
       try {
@@ -466,35 +479,29 @@ export async function shareToX(blob, tweetText, handles = []) {
         copiedText = true;
       } catch {}
       if (copiedImage || copiedText) {
-        return {
-          success: true,
-          message: copiedImage && copiedText
-            ? 'Image and text copied! Paste in your tweet.'
-            : copiedImage
-              ? 'Image copied! Paste in your tweet.'
-              : 'Text copied! Paste in your tweet.'
-        };
+        return { success: true, message: copiedImage && copiedText ? 'Image and text copied! Paste in your tweet.' : (copiedImage ? 'Image copied! Paste in your tweet.' : 'Text copied! Paste in your tweet.'), method: copiedImage && copiedText ? 'clipboard-both' : (copiedImage ? 'clipboard-image' : 'clipboard-text') };
       }
     }
 
-    // Mobile: prefer Web Share with files + text.
+    // Mobile: prefer Web Share with files + text. If PNG cannot be shared, try smaller JPEG; then text-only
     if (isMobile && navigator.share) {
-      // If file sharing is supported, include the image
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ title: 'Cardano Development Activity', text: tweetText, files: [file] });
-          return { success: true, message: 'Shared successfully!' };
-        } catch (shareError) {
-          // Fall through to text-only share
+          return { success: true, message: 'Shared successfully!', method: 'webshare-files' };
         }
-      }
-      // Try text-only share (covers iOS Chrome/older WebKit where file share is limited)
+      } catch {}
+      try {
+        const smaller = await createShareableFile(blob, 1600, 0.9) || await createShareableFile(blob, 1200, 0.85);
+        if (smaller && navigator.canShare && navigator.canShare({ files: [smaller] })) {
+          await navigator.share({ title: 'Cardano Development Activity', text: tweetText, files: [smaller] });
+          return { success: true, message: 'Shared successfully!', method: 'webshare-files' };
+        }
+      } catch {}
       try {
         await navigator.share({ title: 'Cardano Development Activity', text: tweetText });
-        return { success: true, message: 'Shared successfully!' };
-      } catch (shareError) {
-        // User cancelled or gesture chain broken; fall through to fallbacks
-      }
+        return { success: true, message: 'Shared successfully!', method: 'webshare-text' };
+      } catch {}
     }
 
     // Generic clipboard fallback (may help on some mobile/desktop combos)
@@ -502,16 +509,14 @@ export async function shareToX(blob, tweetText, handles = []) {
       try {
         if (typeof ClipboardItem !== 'undefined') {
           await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          // Try to copy text too (ignore failures)
           try { await navigator.clipboard.writeText(tweetText); } catch {}
-          return { success: true, message: 'Image copied! Paste in your tweet.' };
+          return { success: true, message: 'Image copied! Paste in your tweet.', method: 'clipboard-image' };
         }
       } catch {}
       try {
         await navigator.clipboard.writeText(tweetText);
-        return { success: true, message: 'Text copied! Paste in your tweet.' };
+        return { success: true, message: 'Text copied! Paste in your tweet.', method: 'clipboard-text' };
       } catch {}
-      // Legacy text-copy fallback for iOS WebKit
       try {
         const ta = document.createElement('textarea');
         ta.value = tweetText;
@@ -524,7 +529,7 @@ export async function shareToX(blob, tweetText, handles = []) {
         const ok = document.execCommand('copy');
         document.body.removeChild(ta);
         if (ok) {
-          return { success: true, message: 'Text copied! Paste in your tweet.' };
+          return { success: true, message: 'Text copied! Paste in your tweet.', method: 'clipboard-text-legacy' };
         }
       } catch {}
     }
@@ -542,11 +547,11 @@ export async function shareToX(blob, tweetText, handles = []) {
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(tweetText);
-        return { success: true, message: 'Image downloaded! Text copied. Paste in your tweet.' };
+        return { success: true, message: 'Image downloaded! Text copied. Paste in your tweet.', method: 'download+text' };
       }
     } catch {}
 
-    return { success: true, message: 'Image downloaded! Copy and paste the text into your tweet.' };
+    return { success: true, message: 'Image downloaded! Copy and paste the text into your tweet.', method: 'download' };
   } catch (error) {
     console.warn('Share error:', error);
     return { success: false, message: 'Failed to share. Please try again.' };
