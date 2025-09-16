@@ -610,7 +610,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
     <>
       {isSharing && (
         <Portal>
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[10000] flex flex-col items-center justify-center text-white">
+          <div className="fixed inset-0 bg-gray-900 z-[10000] flex flex-col items-center justify-center text-white">
             <ClipboardCheck size={48} className="text-[#C8F560]" />
             <p className="mt-4 text-lg font-medium text-[#C8F560]">Copied to clipboard</p>
           </div>
