@@ -34,9 +34,9 @@ export const FRESHNESS_THRESHOLDS = {
 
 export const PERIOD_EXPECTATIONS = {
   '4weeks': { weeks: 4, days: 28 },
-  '3months': { weeks: 13, days: 91 },
+  '3months': { weeks: 12, days: 84 },
   '52weeks': { weeks: 52, days: 364 },
-  '3years': { weeks: 156, days: 1095 }
+  '3years': { weeks: 156, days: 1092 }
 }
 
 /**

@@ -324,7 +324,7 @@ class GitHubService {
     try {
       // Map period to the same values used by DevelopmentActivityWidget
       const periodMap = {
-        '4weeks': '5weeks',     // Last 4 weeks (5 weeks of data to get 4 complete weeks)
+        '4weeks': '4weeks',     // Last 4 weeks (3 complete + 1 current incomplete)
         '3months': '3months',   // Last 3 months
         '52weeks': '52weeks'    // Last 12 months
       }

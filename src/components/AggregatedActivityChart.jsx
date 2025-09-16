@@ -77,7 +77,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
       } else if (period === '52weeks') {
         const weekNumber = weekIdx + 1
         label = `Week ${weekNumber} • ${startDate} – ${endDate}`
-      } else if (period === '4weeks' || period === '5weeks') {
+      } else if (period === '4weeks') {
         const weekNumber = weekIdx + 1
         label = `Week ${weekNumber} • ${startDate} – ${endDate}`
       } else {
@@ -198,7 +198,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
         {xAxisLabels.map((label, i) =>
           label && label.type && (
             // Show all labels for short periods, filter for longer periods
-            (period === 'current' || period === '4weeks' || period === '5weeks' || 
+            (period === 'current' || period === '4weeks' || 
              ['year', 'month', 'day', 'date', 'midmonth'].includes(label.type)) && (
             <line
               key={`month-grid-${i}`}
@@ -313,7 +313,7 @@ const AggregatedActivityChart = forwardRef(({ weeklyData, width = 700, height = 
           const placed = [];
           const canPlace = (x) => placed.every(p => Math.abs(p.x - x) >= minLabelSpacing);
           // More lenient spacing for shorter periods
-          const minLabelSpacing = (period === 'current' || period === '4weeks' || period === '5weeks')
+          const minLabelSpacing = (period === 'current' || period === '4weeks')
             ? 40
             : 40;
 

@@ -21,9 +21,8 @@ const WeeklyCommitCount = ({ resource }) => {
         const data = await response.json()
         
         if (data && data.weeklyData && Array.isArray(data.weeklyData)) {
-          // Server returns 5 weeks of data, we want the most recent 4 weeks (including current)
-          const recentWeeks = data.weeklyData.slice(-4) // Take last 4 weeks
-          const commits = recentWeeks.reduce((sum, week) => sum + (week.count || 0), 0)
+          // Server now returns exactly 4 weeks of data (3 complete + 1 current incomplete)
+          const commits = data.weeklyData.reduce((sum, week) => sum + (week.count || 0), 0)
           setCommitsPerMonth(commits)
 
           try {

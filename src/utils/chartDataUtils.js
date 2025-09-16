@@ -20,18 +20,9 @@ export const PERIOD_CONFIGS = {
   '4weeks': {
     key: '4weeks',
     label: 'Last 4 Weeks',
-    weeks: 4, // ResourceCard wants 4 weeks displayed
+    weeks: 4, // 3 complete + 1 current incomplete week
     isDaily: false,
-    serverPeriod: '5weeks', // Maps to server's 5weeks endpoint
-    useHybridData: false, // Database only
-    cacheTTL: 30 * 24 * 60 * 60 * 1000 // 30 days for immutable weekly data
-  },
-  '5weeks': {
-    key: '5weeks',
-    label: 'Last 4 Weeks',
-    weeks: 4, // Server sends 5 weeks, cut oldest, display 3 complete + 1 current
-    isDaily: false,
-    serverPeriod: '5weeks',
+    serverPeriod: '4weeks', // Maps to server's 4weeks endpoint
     useHybridData: false, // Database only
     cacheTTL: 30 * 24 * 60 * 60 * 1000 // 30 days for immutable weekly data
   },
@@ -67,8 +58,8 @@ export const PERIOD_CONFIGS = {
 // Period options for dropdowns
 export const PERIOD_OPTIONS = [
   { key: 'current', label: 'Last 7 Days', weeks: 1 },
-  { key: '5weeks', label: 'Last 4 Weeks', weeks: 4 },
-  { key: '3months', label: 'Last 3 Months', weeks: 13 },
+  { key: '4weeks', label: 'Last 4 Weeks', weeks: 4 },
+  { key: '3months', label: 'Last 3 Months', weeks: 12 },
   { key: '52weeks', label: 'Last 12 Months', weeks: 52 },
   { key: '3years', label: 'Last 3 Years', weeks: 156 }
 ]
@@ -76,7 +67,7 @@ export const PERIOD_OPTIONS = [
 // ResourceCard specific period options (subset)
 export const RESOURCE_CARD_PERIOD_OPTIONS = [
   { key: 'current', label: 'Last 7 Days' }, // Add 7-day option for single resources
-  { key: '4weeks', label: 'Last 4 Weeks' }, // Maps to 5weeks server period
+  { key: '4weeks', label: 'Last 4 Weeks' }, // Maps to 4weeks server period
   { key: '3months', label: 'Last 3 Months' },
   { key: '52weeks', label: 'Last 1 Year' },
   { key: '3years', label: 'Last 3 Years' }
@@ -85,7 +76,7 @@ export const RESOURCE_CARD_PERIOD_OPTIONS = [
 // Period mapping for ResourceCard (client → server)
 export const RESOURCE_CARD_PERIOD_MAPPING = {
   'current': 'current', // Direct mapping for 7-day period
-  '4weeks': '5weeks', // Client shows 4 weeks, server sends 5 weeks data
+  '4weeks': '4weeks', // Direct mapping for 4-week period
   '3months': '3months',
   '52weeks': '52weeks',
   '3years': '3years'
@@ -284,8 +275,8 @@ const transformWeeklyData = (rawData, periodKey, componentName) => {
     availableWeeksData = allAggregatedWeeks.filter(week => !isCurrentWeek(`${week.weekStart}T00:00:00`))
   }
 
-  // Implement user's specification: "receive N+1, cut oldest, display N"
-  // For 4-week period: receive 5 weeks, cut oldest, display 3 complete + 1 current = 4 total
+  // Server now provides exact period data: N weeks = N-1 complete + 1 current
+  // For 4-week period: receive 4 weeks = 3 complete + 1 current
   const availableWeeks = availableWeeksData.length
   const requestedWeeks = config.weeks
 
@@ -402,7 +393,7 @@ export const getServerPeriod = (clientPeriod) => {
 /**
  * Generates smart x-axis labels for charts based on the selected period.
  * @param {Array} data - The chart data array, containing objects with a `weekStart` property.
- * @param {string} period - The selected time period (e.g., 'current', '5weeks', '3months').
+ * @param {string} period - The selected time period (e.g., 'current', '4weeks', '3months').
  * @returns {Array} An array of label objects with properties { x, text, priority, ... } to be rendered.
  */
 export const generateChartXAxisLabels = (data, period) => {
@@ -440,8 +431,7 @@ export const generateChartXAxisLabels = (data, period) => {
         }
         break;
       
-      case '4weeks':
-      case '5weeks': // 4 weeks
+      case '4weeks': // 4 weeks
         const weekEndDate = new Date(date);
         weekEndDate.setDate(date.getDate() + 6);
         if (i === 0 || (prevDate && date.getMonth() !== prevDate.getMonth())) {

@@ -949,7 +949,7 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
     
     // Map period to bulk cache period keys
     let periodKey = null
-    if (period === '4weeks') periodKey = '5weeks'
+    if (period === '4weeks') periodKey = '4weeks'
     else if (period === '3months') periodKey = '3months'
     else if (period === '52weeks') periodKey = '52weeks'
     else if (period === '3years') periodKey = '3years'
@@ -979,8 +979,8 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
     
     try {
       const periodToDays = {
-        '4weeks': 35,    // 5 weeks (aligned with bulk cache)
-        '3months': 91,   // 13 weeks (aligned with bulk cache)
+        '4weeks': 28,    // 4 weeks
+        '3months': 84,   // 12 weeks (aligned with bulk cache)
         '52weeks': 364,  // 52 weeks (aligned with bulk cache)
         '3years': 1092   // 156 weeks (aligned with bulk cache)
       }
@@ -1027,8 +1027,8 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
     } else {
       // Map period to appropriate time window in days (aligned with bulk cache)
       const periodToDays = {
-        '4weeks': 35,    // 5 weeks (aligned with bulk cache '5weeks' period)
-        '3months': 91,   // 13 weeks (aligned with bulk cache)
+        '4weeks': 28,    // 4 weeks
+        '3months': 84,   // 12 weeks (aligned with bulk cache)
         '52weeks': 364,  // 52 weeks (aligned with bulk cache)
         '3years': 1092   // 156 weeks (aligned with bulk cache)
       };
@@ -1210,7 +1210,7 @@ const getHistoricalActivity = async (resource, startDate, endDate, forceRefresh 
           if (periodDays >= 1000) periodKey = '3years'      // 3+ years
           else if (periodDays >= 300) periodKey = '52weeks'  // 10+ months  
           else if (periodDays >= 70) periodKey = '3months'   // 2+ months
-          else if (periodDays >= 28) periodKey = '5weeks'    // 4+ weeks
+          else if (periodDays >= 28) periodKey = '4weeks'    // 4+ weeks
           
           if (periodKey && bulkCache.data.preloadedPeriods[periodKey]) {
             const periodData = bulkCache.data.preloadedPeriods[periodKey]
@@ -1429,19 +1429,19 @@ const calculateHistoricalMaximums = async (resource) => {
     // Calculate rolling maximums for each period
     const periods = {
       'current': 1,   // 1 week period for 7-day view (current week vs historical weeks)
-      '5weeks': 5,    // 4 weeks period uses 5 weeks of data (minus current week)
-      '3months': 13,  // 3 months = ~13 weeks
-      '52weeks': 52,  // 12 months = ~52 weeks  
+      '4weeks': 4,    // 4 weeks period
+      '3months': 12,  // 3 months = ~12 weeks
+      '52weeks': 52,  // 12 months = ~52 weeks
       '3years': 156   // 3 years = ~156 weeks
     }
     
     // Minimum data requirements for meaningful comparison (Period + 1 logic)
     const minimumWeeksForComparison = {
       'current': 1,   // Need 1 week minimum - current week vs any historical week
-      '5weeks': 5,    // Need 5 weeks minimum for 4-week comparison (can compare 2 sequences)
-      '3months': 17,  // Need ~4 months (17 weeks) for 3-month comparison  
-      '52weeks': 65,  // Need ~13 months (65 weeks) for 12-month comparison
-      '3years': 208   // Need ~4 years (208 weeks) for 3-year comparison
+      '4weeks': 5,    // Need 4+1=5 weeks minimum for 4-week comparison
+      '3months': 13,  // Need 12+1=13 weeks minimum for 3-month comparison
+      '52weeks': 53,  // Need 52+1=53 weeks minimum for 12-month comparison
+      '3years': 157   // Need 156+1=157 weeks minimum for 3-year comparison
     }
 
     const result = {
@@ -1679,9 +1679,9 @@ app.post('/api/github/updates', async (req, res) => {
     // For periods > 7 days, use historical activity to match dashboard behavior
     const periodToDays = {
       '4weeks': 28,
-      '3months': 90,
-      '52weeks': 365,
-      '3years': 1095
+      '3months': 84,
+      '52weeks': 364,
+      '3years': 1092
     }
     
     const requestedDays = periodToDays[period] || 28
@@ -1734,7 +1734,7 @@ app.post('/api/github/updates', async (req, res) => {
     // Trim data based on period parameter
     const periodToWeeks = {
       '4weeks': 4,
-      '3months': 13,
+      '3months': 12,
       '52weeks': 52,
       '3years': 156
     }
@@ -2037,8 +2037,8 @@ app.get('/api/development-activity', async (req, res) => {
       
       // Map period to the correct format
       const periodMapping = {
-        '4weeks': '5weeks',
-        '3months': '3months', 
+        '4weeks': '4weeks',
+        '3months': '3months',
         '52weeks': '52weeks',
         '3years': '3years'
       };
@@ -2056,9 +2056,9 @@ app.get('/api/development-activity', async (req, res) => {
           since: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString(),
           days: 28
         },
-        '5weeks': {
-          since: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000).toISOString(),
-          days: 35
+        '4weeks': {
+          since: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString(),
+          days: 28
         },
         '3months': {
           since: new Date(now.getTime() - 13 * 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -2070,7 +2070,7 @@ app.get('/api/development-activity', async (req, res) => {
         },
         '3years': {
           since: new Date(now.getTime() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString(),
-          days: 1095
+          days: 1092
         }
       };
       
@@ -2164,9 +2164,9 @@ app.get('/api/development-activity', async (req, res) => {
         days: 28,
         useDailyProcessing: false
       },
-      '5weeks': {
-        since: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000).toISOString(),
-        days: 35,
+      '4weeks': {
+        since: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString(),
+        days: 28,
         useDailyProcessing: false
       },
       '3months': {
@@ -2250,7 +2250,7 @@ app.get('/api/development-activity', async (req, res) => {
           // Fetch data with priority: 7-day first, then other periods
           const prioritizedPeriods = [
             ['current', periods.current], // 7-day first (highest priority)
-            ['5weeks', periods['5weeks']],
+            ['4weeks', periods['4weeks']],
             ['monthly', periods.monthly],
             ['3months', periods['3months']],
             ['52weeks', periods['52weeks']],
@@ -2407,7 +2407,7 @@ app.get('/api/development-activity', async (req, res) => {
       // 🚀 NEW: Preloaded data for ALL periods to enable instant switching
       preloadedPeriods: {
         current: buildPeriodData(allResourcesData, 'current'),
-        '5weeks': buildPeriodData(allResourcesData, '5weeks'),
+        '4weeks': buildPeriodData(allResourcesData, '4weeks'),
         monthly: buildPeriodData(allResourcesData, 'monthly'),
         '3months': buildPeriodData(allResourcesData, '3months'),
         '52weeks': buildPeriodData(allResourcesData, '52weeks'),
@@ -3226,7 +3226,7 @@ async function populateUpdatesCache(priority = 'all') {
           logger.debug(`🔍 Processing ${resource.name} (${resource.type})...`)
           
           // Get fresh commit data directly from GraphQL (not via getRecentActivity cache)
-          const timeWindow = 35 // 5 weeks to match cache alignment
+          const timeWindow = 28 // 4 weeks to match cache alignment
           const since = new Date(Date.now() - timeWindow * 24 * 60 * 60 * 1000).toISOString()
           
           let rawCommits = []
@@ -3391,8 +3391,8 @@ const ensureHistoricalDataCompleteness = async () => {
     
     // Define minimum historical data requirements (in weeks)
     const HISTORICAL_REQUIREMENTS = {
-      '5weeks': 5,
-      '3months': 13,
+      '4weeks': 4,
+      '3months': 12,
       '52weeks': 52,
       '3years': 156
     }
@@ -4269,9 +4269,9 @@ app.get('/api/data-quality/gaps/:resourceId', async (req, res) => {
     // Get historical data for the specified period
     const periodDays = { 
       '4weeks': 28, 
-      '3months': 91, 
+      '3months': 84, 
       '52weeks': 364, 
-      '3years': 1095 
+      '3years': 1092 
     }[period] || 364
 
     const endDate = new Date().toISOString()
@@ -4338,9 +4338,9 @@ function analyzeDataQuality(weeklyData) {
 function analyzePeriodCompleteness(weeklyData) {
   const periods = {
     '4weeks': 28,
-    '3months': 91, 
+    '3months': 84, 
     '52weeks': 364,
-    '3years': 1095
+    '3years': 1092
   }
 
   const analysis = {}
@@ -4821,8 +4821,8 @@ const preloadOrganizationDataForAll = async () => {
   const now = new Date()
   const periodConfigs = {
     current: { since: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString() },
-    '4weeks': { since: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000).toISOString() },
-    '3months': { since: new Date(now.getTime() - 13 * 7 * 24 * 60 * 60 * 1000).toISOString() },
+    '4weeks': { since: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString() },
+    '3months': { since: new Date(now.getTime() - 12 * 7 * 24 * 60 * 60 * 1000).toISOString() },
     '52weeks': { since: new Date(now.getTime() - 52 * 7 * 24 * 60 * 60 * 1000).toISOString() },
     '3years': { since: new Date(now.getTime() - 156 * 7 * 24 * 60 * 60 * 1000).toISOString() }
   }

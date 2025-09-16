@@ -805,7 +805,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     
     // Map period to number of weeks for sequential calculation
     const periodWeeks = {
-      '5weeks': 4,
+      '4weeks': 4,
       '3months': 12,
       '52weeks': 52,
       '3years': 156
@@ -817,7 +817,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     let maxSequentialTotal = 0;
     let peakPeriodStartDate = null;
     let peakPeriodEndDate = null;
-    const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
+    const periodsToCheck = ['3years', '52weeks', '3months', '4weeks'];
     
     for (const period of periodsToCheck) {
       const cachedPeriodData = ChartDataCache.get(viewMode, period);
@@ -931,7 +931,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
     const currentWeekTotal = chartData.reduce((total, item) => total + (item.count || 0), 0);
     
     // Use only the longest available period for consistent comparison
-    const periodsToCheck = ['3years', '52weeks', '3months', '5weeks'];
+    const periodsToCheck = ['3years', '52weeks', '3months', '4weeks'];
     
     for (const period of periodsToCheck) {
       const cachedPeriodData = ChartDataCache.get(viewMode, period);
@@ -1554,7 +1554,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                         <div className="flex flex-col whitespace-nowrap">
                           <span className="text-gray-400 text-xs whitespace-nowrap">
                             {selectedPeriod === 'current' ? 'Current 7-Day Total' : 
-                             selectedPeriod === '5weeks' ? 'Current 4-Week Total' : 
+                             selectedPeriod === '4weeks' ? 'Current 4-Week Total' : 
                              selectedPeriod === '3months' ? 'Current 3-Month Total' : 
                              selectedPeriod === '52weeks' ? 'Current 12-Month Total' : 
                              selectedPeriod === '3years' ? 'Current 3-Year Total' : 'Current Period Total'}
@@ -1576,7 +1576,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                   return 'current maximum';
                                 }
                                 const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
-                                const periodLabel = selectedPeriod === '5weeks' ? '4-week' : 
+                                const periodLabel = selectedPeriod === '4weeks' ? '4-week' : 
                                                   selectedPeriod === '3months' ? '3-month' : 
                                                   selectedPeriod === '52weeks' ? '12-month' : 
                                                   selectedPeriod === '3years' ? '3-year' : '';
@@ -1667,7 +1667,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                       <div className="text-center">
                               <div 
                                 className={`text-white font-bold ${screenshotMode ? 'text-2xl' : 'text-lg mobile:text-base'}`}
-                                title={`Repositories with at least one commit in this ${selectedPeriod === 'current' ? '7-day' : selectedPeriod === '5weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period`}
+                                title={`Repositories with at least one commit in this ${selectedPeriod === 'current' ? '7-day' : selectedPeriod === '4weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period`}
                               >
                                 {metrics.totalActiveRepos}
                               </div>
@@ -1811,7 +1811,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 const dateRange = historicalMaxData?.peakStartDate ? 
                                   formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, 'current') : null;
                                 return `Current 7-day period performance vs. best historical 7-day period${dateRange ? ` (${dateRange})` : ''}. Includes today's incomplete data.`;
-                              } else if (selectedPeriod === '5weeks') {
+                              } else if (selectedPeriod === '4weeks') {
                                 return 'Current 4-week period performance vs. best historical sequential 4-week period. Excludes current incomplete week.';
                               } else if (selectedPeriod === '3months') {
                                 return 'Current 3-month period performance vs. best historical sequential 3-month period. Excludes current incomplete week.';
@@ -1824,7 +1824,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             })()}
                           >
                             {selectedPeriod === 'current' ? 'Current 7-Day Total' : 
-                             selectedPeriod === '5weeks' ? 'Current 4-Week Total' : 
+                             selectedPeriod === '4weeks' ? 'Current 4-Week Total' : 
                              selectedPeriod === '3months' ? 'Current 3-Month Total' : 
                              selectedPeriod === '52weeks' ? 'Current 12-Month Total' : 
                              selectedPeriod === '3years' ? 'Current 3-Year Total' : 'Current Period Total'}
@@ -1848,7 +1848,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                   return 'Current period performance (no historical data for comparison)';
                                 }
                                 const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
-                                return `Comparison against the best performing sequential ${selectedPeriod === '5weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period${dateRange ? ` (${dateRange})` : ''} found in historical data`;
+                                return `Comparison against the best performing sequential ${selectedPeriod === '4weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period${dateRange ? ` (${dateRange})` : ''} found in historical data`;
                               })()}
                             >
                               {(() => {
@@ -1858,7 +1858,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                   return 'current maximum';
                                 }
                                 const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
-                                const periodLabel = selectedPeriod === '5weeks' ? '4-week' : 
+                                const periodLabel = selectedPeriod === '4weeks' ? '4-week' : 
                                                   selectedPeriod === '3months' ? '3-month' : 
                                                   selectedPeriod === '52weeks' ? '12-month' : 
                                                   selectedPeriod === '3years' ? '3-year' : '';
@@ -1875,7 +1875,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             title={(() => {
                               if (selectedPeriod === 'current') {
                                 return 'Total commits across the current 7-day period (includes today\'s incomplete data)';
-                              } else if (selectedPeriod === '5weeks') {
+                              } else if (selectedPeriod === '4weeks') {
                                 return 'Total commits across the current 4-week period (Excludes current incomplete week)';
                               } else if (selectedPeriod === '3months') {
                                 return 'Total commits across the current 3-month period (Excludes current incomplete week)';
@@ -2149,7 +2149,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                               const dateRange = historicalMaxData?.peakStartDate ? 
                                 formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, 'current') : null;
                               return `Current 7-day period performance vs. best historical 7-day period${dateRange ? ` (${dateRange})` : ''}. Includes today's incomplete data.`;
-                            } else if (selectedPeriod === '5weeks') {
+                            } else if (selectedPeriod === '4weeks') {
                               return 'Current 4-week period performance vs. best historical sequential 4-week period. Excludes current incomplete week.';
                             } else if (selectedPeriod === '3months') {
                               return 'Current 3-month period performance vs. best historical sequential 3-month period. Excludes current incomplete week.';
@@ -2162,7 +2162,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           })()}
                         >
                           {selectedPeriod === 'current' ? 'Current 7-Day Total' : 
-                           selectedPeriod === '5weeks' ? 'Current 4-Week Total' : 
+                           selectedPeriod === '4weeks' ? 'Current 4-Week Total' : 
                            selectedPeriod === '3months' ? 'Current 3-Month Total' : 
                            selectedPeriod === '52weeks' ? 'Current 12-Month Total' : 
                            selectedPeriod === '3years' ? 'Current 3-Year Total' : 'Current Period Total'}
@@ -2186,7 +2186,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 return 'Current period performance (no historical data for comparison)';
                               }
                               const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
-                              return `Comparison against the best performing sequential ${selectedPeriod === '5weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period${dateRange ? ` (${dateRange})` : ''} found in historical data`;
+                              return `Comparison against the best performing sequential ${selectedPeriod === '4weeks' ? '4-week' : selectedPeriod === '3months' ? '3-month' : selectedPeriod === '52weeks' ? '12-month' : selectedPeriod === '3years' ? '3-year' : ''} period${dateRange ? ` (${dateRange})` : ''} found in historical data`;
                             })()}
                           >
                             {(() => {
@@ -2196,7 +2196,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 return 'current maximum';
                               }
                               const dateRange = formatPeriodDateRange(historicalMaxData.peakStartDate, historicalMaxData.peakEndDate, selectedPeriod);
-                              const periodLabel = selectedPeriod === '5weeks' ? '4-week' : 
+                              const periodLabel = selectedPeriod === '4weeks' ? '4-week' : 
                                                 selectedPeriod === '3months' ? '3-month' : 
                                                 selectedPeriod === '52weeks' ? '12-month' : 
                                                 selectedPeriod === '3years' ? '3-year' : '';
@@ -2213,7 +2213,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           title={(() => {
                             if (selectedPeriod === 'current') {
                               return 'Total commits across the current 7-day period (includes today\'s incomplete data)';
-                            } else if (selectedPeriod === '5weeks') {
+                            } else if (selectedPeriod === '4weeks') {
                               return 'Total commits across the current 4-week period (Excludes current incomplete week)';
                             } else if (selectedPeriod === '3months') {
                               return 'Total commits across the current 3-month period (Excludes current incomplete week)';
