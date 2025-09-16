@@ -918,10 +918,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
 
                     // Special handling for 4-week period: calculate correct 4-week rolling maximum
                     if (selectedPeriod === '4weeks' && preloadedData?.commitsPerWeekDetailed) {
-                      // Calculate 4-week rolling maximum from all available historical data
+                      // Calculate 4-week rolling maximum from ALL available historical data
                       const historicalData = preloadedData.commitsPerWeekDetailed;
                       let max4WeekTotal = 0;
 
+                      // Calculate 4-week rolling maximum across full history
                       for (let i = 0; i <= historicalData.length - 4; i++) {
                         const window = historicalData.slice(i, i + 4);
                         const windowTotal = window.reduce((sum, week) => sum + (week.count || 0), 0);
@@ -978,6 +979,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 if (isLongerPeriod) {
                   // Special handling for 4-week period: calculate correct 4-week rolling maximum
                   if (selectedPeriod === '4weeks' && preloadedData?.commitsPerWeekDetailed) {
+                    // Calculate 4-week rolling maximum from ALL available historical data
                     const historicalData = preloadedData.commitsPerWeekDetailed;
                     let max4WeekTotal = 0;
                     let maxStartDate = null;

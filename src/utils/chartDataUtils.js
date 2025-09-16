@@ -29,7 +29,7 @@ export const PERIOD_CONFIGS = {
   '5weeks': {
     key: '5weeks',
     label: 'Last 4 Weeks',
-    weeks: 4, // Server sends 5 weeks, display 4 (excludes current)
+    weeks: 4, // Server sends 5 weeks, cut oldest, display 3 complete + 1 current
     isDaily: false,
     serverPeriod: '5weeks',
     useHybridData: false, // Database only
@@ -38,7 +38,7 @@ export const PERIOD_CONFIGS = {
   '3months': {
     key: '3months',
     label: 'Last 3 Months',
-    weeks: 13,
+    weeks: 12, // 11 complete weeks + 1 current incomplete week
     isDaily: false,
     serverPeriod: '3months',
     useHybridData: false, // Database only
@@ -132,9 +132,8 @@ export const validateNodeCount = (chartData, periodKey, componentName = 'Chart')
  * @returns {boolean} True if current week should be excluded
  */
 export const shouldExcludeCurrentWeek = (periodKey) => {
-  const config = getPeriodConfig(periodKey)
-  // Only daily (7-day) period includes current incomplete data
-  return !config.isDaily
+  // Always include current incomplete week for all periods
+  return false
 }
 
 /**
@@ -275,22 +274,30 @@ const transformWeeklyData = (rawData, periodKey, componentName) => {
     return []
   }
 
-  // **FIX**: Perform filtering and slicing on the fully aggregated data.
+  // **FIX**: Implement "receive N+1, cut oldest, display N" logic as specified
   const allWeekStarts = allAggregatedWeeks.map(w => w.weekStart)
 
-  // Filter out current incomplete week for non-daily periods only.
+  // Always include current incomplete week (shouldExcludeCurrentWeek now returns false)
   const shouldExcludeCurrentWeekForPeriod = shouldExcludeCurrentWeek(periodKey)
-  let completedWeeksData = allAggregatedWeeks
+  let availableWeeksData = allAggregatedWeeks
   if (shouldExcludeCurrentWeekForPeriod) {
-    completedWeeksData = allAggregatedWeeks.filter(week => !isCurrentWeek(`${week.weekStart}T00:00:00`))
+    availableWeeksData = allAggregatedWeeks.filter(week => !isCurrentWeek(`${week.weekStart}T00:00:00`))
   }
 
-  // Prioritize most recent weeks.
-  const availableWeeks = completedWeeksData.length
+  // Implement user's specification: "receive N+1, cut oldest, display N"
+  // For 4-week period: receive 5 weeks, cut oldest, display 3 complete + 1 current = 4 total
+  const availableWeeks = availableWeeksData.length
   const requestedWeeks = config.weeks
-  const weeksToUse = availableWeeks >= requestedWeeks
-    ? completedWeeksData.slice(-requestedWeeks) // Slice the correct number of weeks from the end.
-    : completedWeeksData // Use all available data if less than requested.
+
+  let weeksToUse
+  if (availableWeeks > requestedWeeks) {
+    // Cut off oldest weeks to match requested display count
+    // Take the most recent N weeks (including current incomplete week)
+    weeksToUse = availableWeeksData.slice(-requestedWeeks)
+  } else {
+    // Use all available data if less than requested
+    weeksToUse = availableWeeksData
+  }
   
   // Log data completeness for debugging.
   if (weeksToUse.length < config.weeks) {
