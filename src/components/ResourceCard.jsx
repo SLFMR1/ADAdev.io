@@ -563,8 +563,12 @@ const ResourceCard = ({ resource, onViewResource }) => {
         canvas.toBlob(resolve, 'image/png', 1.0);
       });
       
-      // Generate tweet text
-      const tweetText = `Cardano Project Activity\n\n${resource.name} - ${resource.category}\n#Cardano #Development #OpenSource\n\nSee more at: https://adadev.io`;
+      // Generate tweet text with stats
+      const currentWeekCommits = activityChartData['1week']?.commitsPerWeek || 0;
+      const fourWeekCommits = activityChartData['4weeks']?.commitsPerWeekDetailed?.reduce((sum, week) => sum + (week.count || 0), 0) || 0;
+      const totalWeeks = activityChartData['4weeks']?.commitsPerWeekDetailed?.length || 0;
+      
+      const tweetText = `Cardano Development Activity\n\n${resource.name}\n📊 ${currentWeekCommits} commits this week\n ${fourWeekCommits} commits in last ${totalWeeks} weeks\n\nSee more at: https://adadev.io`;
       
       // Use the enhanced share function
       const result = await shareToX(blob, tweetText);

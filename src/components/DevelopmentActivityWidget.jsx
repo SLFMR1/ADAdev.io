@@ -748,7 +748,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       });
 
       const handles = getTop5HandlesOrNames(currentPeriodData?.leaderboard || []);
-      const tweetText = generateTweetText(handles, shareType);
+      const tweetText = generateTweetText(handles, shareType, currentPeriodData?.leaderboard || []);
 
       const result = await shareToX(blob, tweetText, handles);
       

@@ -431,36 +431,39 @@ export async function mergeImagesWithGap(images, gap = 32) {
   });
 }
 
-// Share to X (Twitter) with clipboard support
+// Share to X (Twitter) with mobile-compatible clipboard support
 export async function shareToX(blob, tweetText, handles = []) {
   try {
-    if (navigator.clipboard && navigator.clipboard.write) {
-      const clipboardItems = [
-        new ClipboardItem({
-          'image/png': blob,
-          'text/plain': new Blob([tweetText], { type: 'text/plain' })
-        })
-      ];
-      await navigator.clipboard.write(clipboardItems);
-      return { success: true, message: 'Tweet prepared! Opening X... Just paste!' };
-    } else {
-      // Fallback for browsers without clipboard API
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `cardano-dev-activity-${new Date().toISOString().slice(0, 10)}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      try {
-        await navigator.clipboard.writeText(tweetText);
-        return { success: true, message: 'Text copied + image downloaded! Opening X... Press Cmd+V for text, then upload image.' };
-      } catch (textError) {
-        return { success: true, message: 'Image downloaded! Copy this text to X: ' + tweetText };
-      }
+    // Try Web Share API first (mobile-friendly)
+    if (navigator.share && 'files' in navigator.share) {
+      const file = new File([blob], `cardano-activity-${Date.now()}.png`, { type: 'image/png' });
+      await navigator.share({
+        title: 'Cardano Development Activity',
+        text: tweetText,
+        files: [file]
+      });
+      return { success: true, message: 'Shared successfully!' };
     }
+
+    // Try clipboard with simplified approach for mobile
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      return { success: true, message: 'Image copied! Paste in your tweet!' };
+    }
+
+    // Fallback: download image
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `cardano-activity-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    return { success: true, message: 'Image downloaded! Upload to your tweet.' };
   } catch (error) {
     console.warn('Share error:', error);
     return { success: false, message: 'Failed to share. Please try again.' };
@@ -468,9 +471,14 @@ export async function shareToX(blob, tweetText, handles = []) {
 }
 
 // Generate tweet text for development activity
-export function generateTweetText(handles = [], shareType = 'chart') {
+export function generateTweetText(handles = [], shareType = 'chart', activityData = []) {
   const handleText = handles.join(' ');
-  return `Cardano Development Activity\n\nTop projects: ${handleText}\n#Cardano #Development #OpenSource\n\nSee more at: https://adadev.io`;
+  
+  // Calculate total commits from activity data
+  const totalCommits = activityData.reduce((sum, item) => sum + (item.totalCommits || 0), 0);
+  const projectCount = activityData.length;
+  
+  return `Cardano Development Activity\n\nTop projects: ${handleText}\n📊 ${totalCommits} total commits from ${projectCount} projects\n\nSee more at: https://adadev.io`;
 }
 
 // Get top handles or names from activity data
