@@ -870,31 +870,58 @@ const processCommitsToWeekly = (commits) => {
 // Process commits into daily data for 7-day view
 const processCommitsToDaily = (commits) => {
   const dailyData = new Map()
-  
-  // Get the last 7 days
-  const today = new Date()
+
+  // Get the last 7 days using UTC to match GitHub API timezone
+  // This ensures consistent date bucketing regardless of server timezone
+  const nowUTC = new Date()
   for (let i = 6; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-    const dateKey = date.toISOString().slice(0, 10)
+    // Create dates in UTC to avoid timezone conversion issues
+    const utcDate = new Date(Date.UTC(
+      nowUTC.getUTCFullYear(),
+      nowUTC.getUTCMonth(),
+      nowUTC.getUTCDate() - i
+    ))
+    const dateKey = utcDate.toISOString().slice(0, 10)
     dailyData.set(dateKey, 0) // Initialize with 0
   }
-  
-  // Count commits for each day
+
+  // Count commits for each day (GitHub API dates are already in UTC)
   commits.forEach(commit => {
-    const date = new Date(commit.date)
-    const dateKey = date.toISOString().slice(0, 10)
+    const commitDate = new Date(commit.date)
+    const dateKey = commitDate.toISOString().slice(0, 10)
     if (dailyData.has(dateKey)) {
       dailyData.set(dateKey, dailyData.get(dateKey) + 1)
     }
   })
-  
+
   return Array.from(dailyData.entries()).map(([date, count]) => ({
     weekStart: date,
     count: count,
     year: new Date(date).getFullYear(),
     week: 1
   }))
+}
+
+// Helper function to invalidate current period cache after timezone fix
+const invalidateCurrentPeriodCache = () => {
+  const keysToDelete = []
+
+  // Find all cache keys related to 'current' period daily processing
+  for (const [key] of CACHE.data.entries()) {
+    if (key.includes('recent_activity') && key.includes('useDailyProcessing":true')) {
+      keysToDelete.push(key)
+    }
+  }
+
+  // Remove the found keys
+  keysToDelete.forEach(key => {
+    CACHE.data.delete(key)
+    CACHE.timestamps.delete(key)
+  })
+
+  if (keysToDelete.length > 0) {
+    console.log(`🗑️  Invalidated ${keysToDelete.length} current period cache entries due to timezone fix`)
+  }
 }
 
 const getRecentActivity = async (resource, useDailyProcessing = false, period = '4weeks') => {
@@ -4483,7 +4510,10 @@ const startServer = async () => {
       logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
       logger.info(`🔐 GitHub Token: ${GITHUB_TOKEN ? '✅ Available' : '❌ Not configured'}`)
       logger.info(`💾 Supabase: ${supabase ? '✅ Connected' : '❌ Not configured'}`)
-      
+
+      // Clear any stale current period cache after timezone fix
+      invalidateCurrentPeriodCache()
+
       // ✅ NON-BLOCKING: Start background processes immediately
       startBackgroundProcesses()
     })
