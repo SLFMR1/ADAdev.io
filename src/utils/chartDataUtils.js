@@ -15,7 +15,7 @@ export const PERIOD_CONFIGS = {
     isDaily: true,
     serverPeriod: 'current',
     useHybridData: true, // Only period that uses DB + GitHub API
-    cacheTTL: 30 * 60 * 1000 // 30 minutes for current data (real-time updates)
+    cacheTTL: process.env.NODE_ENV === 'production' ? 2 * 60 * 60 * 1000 : 30 * 60 * 1000 // 2 hours in prod, 30 min in dev
   },
   '4weeks': {
     key: '4weeks',

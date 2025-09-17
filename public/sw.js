@@ -2,7 +2,7 @@ const CACHE_NAME = 'github-updates-v2'
 const CACHE_DURATION = 30 * 24 * 60 * 60 * 1000 // 30 days for immutable GitHub data
 const MAX_CACHE_SIZE = 50 // Reduced for memory constraints
 const API_CACHE_NAME = 'api-cache-v1'
-const API_CACHE_DURATION = 30 * 60 * 1000 // 30 minutes for API responses (current data)
+const API_CACHE_DURATION = self.location?.hostname === 'localhost' ? 30 * 60 * 1000 : 2 * 60 * 60 * 1000 // 2 hours in prod, 30 min in dev
 
 // Production logger - only log in development
 const log = (...args) => {

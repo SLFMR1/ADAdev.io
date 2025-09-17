@@ -4,7 +4,7 @@ class GitHubDataStore {
     this.data = new Map();
     this.lastFetchTime = null;
     this.isLoading = false;
-    this.cacheTimeout = 30 * 60 * 1000; // 30 minutes for current data updates
+    this.cacheTimeout = process.env.NODE_ENV === 'production' ? 2 * 60 * 60 * 1000 : 30 * 60 * 1000; // 2 hours in prod, 30 min in dev
     this.listeners = new Set();
   }
 
