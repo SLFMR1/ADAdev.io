@@ -117,13 +117,13 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   const [isSharing, setIsSharing] = useState(false);
   const [hasDataLoadError, setHasDataLoadError] = useState(false);
   
-  // Accent color state - defaults to white (index 0)
+  // Accent color state - defaults to Cyber Lime (index 8)
   const [accentColorIndex, setAccentColorIndex] = useState(() => {
     try {
       const saved = localStorage.getItem('developmentActivityWidget.accentColor');
-      return saved !== null ? parseInt(saved) : 0;
+      return saved !== null ? parseInt(saved) : 8;
     } catch {
-      return 0;
+      return 8;
     }
   });
   

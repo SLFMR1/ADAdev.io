@@ -112,13 +112,13 @@ const ResourceCard = ({ resource, onViewResource }) => {
   const [shareMessage, setShareMessage] = useState('')
   const [shareMessageType, setShareMessageType] = useState('success')
   
-  // Accent color state - defaults to white (index 0)
+  // Accent color state - defaults to Cyber Lime (index 8)
   const [accentColorIndex, setAccentColorIndex] = useState(() => {
     try {
       const saved = localStorage.getItem('resourceCard.accentColor');
-      return saved !== null ? parseInt(saved) : 0; // Always default to 0 (white)
+      return saved !== null ? parseInt(saved) : 8; // Always default to 8 (Cyber Lime)
     } catch {
-      return 0; // Default to white
+      return 8; // Default to Cyber Lime
     }
   });
   

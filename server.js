@@ -133,7 +133,7 @@ const CACHE = {
   timestamps: new Map(),
   maxSize: 10000, // Restored to original size for optimal performance
   ttl: {
-    recent: 30 * 60 * 1000, // 30 minutes for recent data (real-time updates)
+    recent: process.env.NODE_ENV === 'production' ? 2 * 60 * 60 * 1000 : 30 * 60 * 1000, // 2 hours in prod, 30 min in dev
     weekly: 30 * 24 * 60 * 60 * 1000, // 30 days for weekly data (immutable)
     historical: 180 * 24 * 60 * 60 * 1000 // 180 days for historical data (immutable)
   },
@@ -4849,13 +4849,14 @@ const setupCacheRefreshSchedules = () => {
     console.error('❌ Initial cache refresh failed:', error.message)
   })
 
-  // High priority: All projects every 30 minutes (current data updates)
+  // High priority: All projects every 90 minutes (optimized for low traffic)
+  const refreshInterval = process.env.NODE_ENV === 'production' ? 90 * 60 * 1000 : 30 * 60 * 1000
   setInterval(() => {
     console.log('⚡ Running high-priority cache refresh...')
     populateUpdatesCache('all').catch(error => {
       console.error('❌ High-priority cache refresh failed:', error.message)
     })
-  }, 30 * 60 * 1000) // 30 minutes
+  }, refreshInterval)
   
   // Standard priority: All projects every 24 hours (immutable data)
   setInterval(() => {
