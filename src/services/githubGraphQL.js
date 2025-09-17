@@ -61,6 +61,43 @@ const makeTrackedGraphQLRequest = async (query, variables = {}, operation = 'gra
   }
 }
 
+// Separate query for paginating commit history
+const COMMIT_HISTORY_QUERY = gql`
+  query CommitHistory($owner: String!, $name: String!, $ref: String!, $since: GitTimestamp, $after: String) {
+    repository(owner: $owner, name: $name) {
+      ref(qualifiedName: $ref) {
+        target {
+          ... on Commit {
+            history(first: 100, since: $since, after: $after) {
+              totalCount
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+              nodes {
+                oid
+                message
+                committedDate
+                author {
+                  name
+                  email
+                  date
+                }
+                committer {
+                  name
+                  email
+                  date
+                }
+                url
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
 // Core GraphQL query for organization repositories and commits
 const ORG_ACTIVITY_QUERY = gql`
   query OrgActivity($orgLogin: String!, $since: GitTimestamp, $first: Int, $after: String, $commitCursor: String) {
@@ -68,7 +105,7 @@ const ORG_ACTIVITY_QUERY = gql`
       login
       name
       url
-      repositories(first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      repositories(first: $first, after: $after, isFork: false, orderBy: {field: UPDATED_AT, direction: DESC}) {
         totalCount
         pageInfo {
           hasNextPage
@@ -117,6 +154,40 @@ const ORG_ACTIVITY_QUERY = gql`
                       date
                     }
                     url
+                  }
+                }
+              }
+            }
+          }
+          refs(refPrefix: "refs/heads/", first: 45) {
+            nodes {
+              name
+              target {
+                ... on Commit {
+                  oid
+                  committedDate
+                  history(first: 100, since: $since, after: $commitCursor) {
+                    totalCount
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
+                    nodes {
+                      oid
+                      message
+                      committedDate
+                      author {
+                        name
+                        email
+                        date
+                      }
+                      committer {
+                        name
+                        email
+                        date
+                      }
+                      url
+                    }
                   }
                 }
               }
@@ -204,8 +275,8 @@ const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 1000) => {
   try {
     logger.debug(`🔍 Fetching GraphQL data for organization: ${orgLogin}`)
     
-    // Calculate since date if not provided (default: 7 days ago)
-    const sinceDate = since || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    // Use since date if provided, otherwise fetch complete history (null = no date filter)
+    const sinceDate = since === null ? null : (since || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
     
     let allRepositories = []
     let hasNextPage = true
@@ -250,9 +321,9 @@ const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 1000) => {
       const rateLimitUsed = rateLimit.limit - rateLimit.remaining
       logger.info(`⚡ GraphQL Rate limit: ${rateLimit.remaining}/${rateLimit.limit} used (${Math.round(rateLimitUsed/rateLimit.limit*100)}% - resets: ${rateLimit.resetAt})`)
       
-      // Filter out private and archived repos if needed
-      const publicRepos = repositories.nodes.filter(repo => 
-        !repo.isPrivate && !repo.isArchived && !repo.isFork
+      // Filter out private and archived repos (forks are already excluded by GraphQL query)
+      const publicRepos = repositories.nodes.filter(repo =>
+        !repo.isPrivate && !repo.isArchived
       )
       
       allRepositories.push(...publicRepos)
@@ -266,46 +337,123 @@ const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 1000) => {
     
     logger.debug(`✅ GraphQL fetch complete for ${orgLogin}: ${allRepositories.length} repositories`)
 
-    // Fetch additional commits for repositories that have more than 100 commits
+    // Fetch additional commits for repositories that have more than 100 commits on any branch
     for (const repo of allRepositories) {
+      // Handle default branch pagination
       if (repo.defaultBranchRef?.target?.history) {
         const history = repo.defaultBranchRef.target.history
         if (history.pageInfo.hasNextPage && history.totalCount > 100) {
           let commitCursor = history.pageInfo.endCursor
           let totalCommitsFetched = history.nodes.length
 
-          logger.debug(`📈 ${repo.name}: Fetching additional commits (${history.totalCount} total, ${totalCommitsFetched} fetched)`)
+          logger.debug(`📈 ${repo.name} (default): Fetching additional commits (${history.totalCount} total, ${totalCommitsFetched} fetched)`)
 
-          // Fetch all commits (no limit, but keep function structure for future configurability)
-          while (history.pageInfo.hasNextPage) {
+          // Fetch all commits from default branch with retry logic
+          let retryCount = 0
+          const maxRetries = 3
+
+          while (history.pageInfo.hasNextPage && retryCount <= maxRetries) {
             try {
-              const commitPageResponse = await makeTrackedGraphQLRequest(ORG_ACTIVITY_QUERY, {
-                orgLogin,
+              // Exponential backoff: 1s, 2s, 4s delays
+              if (retryCount > 0) {
+                const delay = Math.pow(2, retryCount - 1) * 1000
+                logger.debug(`🔄 Retrying ${repo.name} (default) after ${delay}ms delay (attempt ${retryCount + 1}/${maxRetries + 1})`)
+                await new Promise(resolve => setTimeout(resolve, delay))
+              }
+
+              const commitPageResponse = await makeTrackedGraphQLRequest(COMMIT_HISTORY_QUERY, {
+                owner: repo.nameWithOwner.split('/')[0],
+                name: repo.name,
+                ref: repo.defaultBranchRef.name,
                 since: sinceDate,
-                first: 1, // Just get this one repository
-                after: null,
-                commitCursor
+                after: commitCursor
               }, 'fetch_additional_commits')
 
-              const repoWithMoreCommits = commitPageResponse.organization.repositories.nodes
-                .find(r => r.name === repo.name)
+              const commitHistory = commitPageResponse.repository?.ref?.target?.history
 
-              if (repoWithMoreCommits?.defaultBranchRef?.target?.history?.nodes) {
-                const newCommits = repoWithMoreCommits.defaultBranchRef.target.history.nodes
+              if (commitHistory?.nodes) {
+                const newCommits = commitHistory.nodes
                 history.nodes.push(...newCommits)
                 totalCommitsFetched += newCommits.length
 
-                const moreHistory = repoWithMoreCommits.defaultBranchRef.target.history
-                history.pageInfo.hasNextPage = moreHistory.pageInfo.hasNextPage
-                commitCursor = moreHistory.pageInfo.endCursor
+                history.pageInfo.hasNextPage = commitHistory.pageInfo.hasNextPage
+                commitCursor = commitHistory.pageInfo.endCursor
 
-                logger.debug(`📈 ${repo.name}: +${newCommits.length} commits (total: ${totalCommitsFetched}/${history.totalCount})`)
+                logger.debug(`📈 ${repo.name} (default): +${newCommits.length} commits (total: ${totalCommitsFetched}/${history.totalCount})`)
+                retryCount = 0 // Reset retry count on success
               } else {
-                break
+                throw new Error('No commit data returned from GraphQL')
               }
             } catch (error) {
-              logger.warn(`⚠️ Failed to fetch additional commits for ${repo.name}: ${error.message}`)
-              break
+              retryCount++
+              if (retryCount > maxRetries) {
+                logger.error(`❌ Failed to fetch additional commits for ${repo.name} (default) after ${maxRetries} retries: ${error.message}`)
+                break
+              } else {
+                logger.warn(`⚠️ Attempt ${retryCount} failed for ${repo.name} (default): ${error.message} - retrying...`)
+              }
+            }
+          }
+        }
+      }
+
+      // Handle all other branches pagination
+      if (repo.refs?.nodes) {
+        for (const ref of repo.refs.nodes) {
+          if (ref.target?.history) {
+            const history = ref.target.history
+            if (history.pageInfo.hasNextPage && history.totalCount > 100) {
+              let commitCursor = history.pageInfo.endCursor
+              let totalCommitsFetched = history.nodes.length
+
+              logger.debug(`📈 ${repo.name} (${ref.name}): Fetching additional commits (${history.totalCount} total, ${totalCommitsFetched} fetched)`)
+
+              // Fetch all commits from this branch with retry logic
+              let branchRetryCount = 0
+              const maxBranchRetries = 3
+
+              while (history.pageInfo.hasNextPage && branchRetryCount <= maxBranchRetries) {
+                try {
+                  // Exponential backoff: 1s, 2s, 4s delays
+                  if (branchRetryCount > 0) {
+                    const delay = Math.pow(2, branchRetryCount - 1) * 1000
+                    logger.debug(`🔄 Retrying ${repo.name} (${ref.name}) after ${delay}ms delay (attempt ${branchRetryCount + 1}/${maxBranchRetries + 1})`)
+                    await new Promise(resolve => setTimeout(resolve, delay))
+                  }
+
+                  const commitPageResponse = await makeTrackedGraphQLRequest(COMMIT_HISTORY_QUERY, {
+                    owner: repo.nameWithOwner.split('/')[0],
+                    name: repo.name,
+                    ref: ref.name,
+                    since: sinceDate,
+                    after: commitCursor
+                  }, 'fetch_additional_commits')
+
+                  const commitHistory = commitPageResponse.repository?.ref?.target?.history
+
+                  if (commitHistory?.nodes) {
+                    const newCommits = commitHistory.nodes
+                    history.nodes.push(...newCommits)
+                    totalCommitsFetched += newCommits.length
+
+                    history.pageInfo.hasNextPage = commitHistory.pageInfo.hasNextPage
+                    commitCursor = commitHistory.pageInfo.endCursor
+
+                    logger.debug(`📈 ${repo.name} (${ref.name}): +${newCommits.length} commits (total: ${totalCommitsFetched}/${history.totalCount})`)
+                    branchRetryCount = 0 // Reset retry count on success
+                  } else {
+                    throw new Error('No commit data returned from GraphQL')
+                  }
+                } catch (error) {
+                  branchRetryCount++
+                  if (branchRetryCount > maxBranchRetries) {
+                    logger.error(`❌ Failed to fetch additional commits for ${repo.name} (${ref.name}) after ${maxBranchRetries} retries: ${error.message}`)
+                    break
+                  } else {
+                    logger.warn(`⚠️ Attempt ${branchRetryCount} failed for ${repo.name} (${ref.name}): ${error.message} - retrying...`)
+                  }
+                }
+              }
             }
           }
         }
@@ -341,7 +489,8 @@ const fetchRepoDataGraphQL = async (owner, name, since = null) => {
   try {
     logger.debug(`🔍 Fetching GraphQL data for repository: ${owner}/${name}`)
     
-    const sinceDate = since || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    // Use since date if provided, otherwise fetch complete history (null = no date filter)
+    const sinceDate = since === null ? null : (since || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
     
     const variables = {
       owner,
@@ -423,44 +572,95 @@ const fetchRepoDataGraphQL = async (owner, name, since = null) => {
 const transformOrgDataToRestFormat = (graphqlData) => {
   const { organization, repositories, sinceDate } = graphqlData
   
-  // Collect all commits across all repositories
+  // Collect all commits across all repositories and branches, with deduplication
   const allCommits = []
+  const commitShaSet = new Set() // For deduplication by SHA
   const repoCommitCounts = []
-  
+
   repositories.forEach(repo => {
-    if (!repo.defaultBranchRef?.target?.history) {
-      return
+    let repoTotalCommits = 0
+    let repoMaxTotalCount = 0
+
+    // Process commits from default branch
+    if (repo.defaultBranchRef?.target?.history) {
+      const commits = repo.defaultBranchRef.target.history.nodes
+      repoMaxTotalCount = Math.max(repoMaxTotalCount, repo.defaultBranchRef.target.history.totalCount)
+
+      commits.forEach(commit => {
+        if (!commitShaSet.has(commit.oid)) {
+          commitShaSet.add(commit.oid)
+          repoTotalCommits++
+          allCommits.push({
+            sha: commit.oid,
+            commit: {
+              author: {
+                name: commit.author.name,
+                email: commit.author.email,
+                date: commit.committedDate
+              },
+              committer: {
+                name: commit.committer.name,
+                email: commit.committer.email,
+                date: commit.committer.date
+              },
+              message: commit.message
+            },
+            html_url: commit.url,
+            repository: {
+              name: repo.name,
+              full_name: repo.nameWithOwner,
+              html_url: repo.url
+            },
+            branch: repo.defaultBranchRef.name
+          })
+        }
+      })
     }
-    
-    const commits = repo.defaultBranchRef.target.history.nodes
-    const repoCommits = commits.map(commit => ({
-      sha: commit.oid,
-      commit: {
-        author: {
-          name: commit.author.name,
-          email: commit.author.email,
-          date: commit.committedDate
-        },
-        committer: {
-          name: commit.committer.name,
-          email: commit.committer.email,
-          date: commit.committer.date
-        },
-        message: commit.message
-      },
-      html_url: commit.url,
-      repository: {
-        name: repo.name,
-        full_name: repo.nameWithOwner,
-        html_url: repo.url
-      }
-    }))
-    
-    allCommits.push(...repoCommits)
+
+    // Process commits from all other branches
+    if (repo.refs?.nodes) {
+      repo.refs.nodes.forEach(ref => {
+        if (ref.target?.history) {
+          const commits = ref.target.history.nodes
+          repoMaxTotalCount = Math.max(repoMaxTotalCount, ref.target.history.totalCount)
+
+          commits.forEach(commit => {
+            if (!commitShaSet.has(commit.oid)) {
+              commitShaSet.add(commit.oid)
+              repoTotalCommits++
+              allCommits.push({
+                sha: commit.oid,
+                commit: {
+                  author: {
+                    name: commit.author.name,
+                    email: commit.author.email,
+                    date: commit.committedDate
+                  },
+                  committer: {
+                    name: commit.committer.name,
+                    email: commit.committer.email,
+                    date: commit.committer.date
+                  },
+                  message: commit.message
+                },
+                html_url: commit.url,
+                repository: {
+                  name: repo.name,
+                  full_name: repo.nameWithOwner,
+                  html_url: repo.url
+                },
+                branch: ref.name
+              })
+            }
+          })
+        }
+      })
+    }
+
     repoCommitCounts.push({
       repo: repo.name,
-      count: commits.length,
-      totalCount: repo.defaultBranchRef.target.history.totalCount
+      count: repoTotalCommits,
+      totalCount: repoMaxTotalCount
     })
   })
   
@@ -502,7 +702,7 @@ const transformOrgDataToRestFormat = (graphqlData) => {
     }
   }
   
-  logger.debug(`📊 Transformed GraphQL data: ${allCommits.length} commits from ${repositories.length} repos`)
+  logger.debug(`📊 Transformed GraphQL data: ${allCommits.length} unique commits from ${repositories.length} repos (across all branches)`)
   
   return result
 }

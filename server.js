@@ -3079,10 +3079,26 @@ async function maintainCommitsCache(resourceId, commits) {
         html_url: htmlUrl
       }
     }).filter(record => record !== null) // Remove invalid commits
-    
+
+    // Deduplicate commits by SHA to prevent PostgreSQL constraint violations
+    const uniqueCommitRecords = []
+    const seenShas = new Set()
+
+    for (const record of commitRecords) {
+      if (!seenShas.has(record.sha)) {
+        uniqueCommitRecords.push(record)
+        seenShas.add(record.sha)
+      }
+    }
+
+    if (commitRecords.length !== uniqueCommitRecords.length) {
+      const duplicateCount = commitRecords.length - uniqueCommitRecords.length
+      console.log(`🔄 ${resourceId}: Deduplicated ${duplicateCount} duplicate commits (${uniqueCommitRecords.length} unique out of ${commitRecords.length} total)`)
+    }
+
     // Insert new commits (duplicates will be ignored due to unique constraint)
-    console.log(`📝 ${resourceId}: Attempting to upsert ${commitRecords.length} commit records to database`)
-    logger.debug(`🔍 ${resourceId}: First few commit records:`, commitRecords.slice(0, 2).map(record => ({
+    console.log(`📝 ${resourceId}: Attempting to upsert ${uniqueCommitRecords.length} commit records to database`)
+    logger.debug(`🔍 ${resourceId}: First few commit records:`, uniqueCommitRecords.slice(0, 2).map(record => ({
       resource_id: record.resource_id,
       sha: record.sha?.substring(0, 8),
       message: record.message?.substring(0, 50),
@@ -3092,7 +3108,7 @@ async function maintainCommitsCache(resourceId, commits) {
     
     const { data: upsertData, error: insertError } = await supabase
       .from('github_commits_cache')
-      .upsert(commitRecords, {
+      .upsert(uniqueCommitRecords, {
         onConflict: 'resource_id,sha'
       })
       .select()
@@ -3225,9 +3241,8 @@ async function populateUpdatesCache(priority = 'all') {
         try {
           logger.debug(`🔍 Processing ${resource.name} (${resource.type})...`)
           
-          // Get fresh commit data directly from GraphQL (not via getRecentActivity cache)
-          const timeWindow = 28 // 4 weeks to match cache alignment
-          const since = new Date(Date.now() - timeWindow * 24 * 60 * 60 * 1000).toISOString()
+          // Get complete commit history (no date filtering for historical data collection)
+          const since = null // Fetch complete history instead of limiting to 4 weeks
           
           let rawCommits = []
           try {
