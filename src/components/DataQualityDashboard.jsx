@@ -744,9 +744,9 @@ const ApiHealthPanel = ({ status, apiMetrics, backfillOperations }) => {
           <div className="text-xs text-blue-300 font-mono">
             SUCCESS_RATE: {apiMetrics?.restApi?.successRate || 0}%
           </div>
-          {apiMetrics?.rateLimitRemaining && (
+          {apiMetrics?.restApi?.rateLimitRemaining !== undefined && (
             <div className="text-xs text-blue-300 font-mono mt-1">
-              REMAINING: {apiMetrics.rateLimitRemaining} / 5000
+              REMAINING: {apiMetrics.restApi.rateLimitRemaining} / 5000
             </div>
           )}
         </div>
@@ -762,9 +762,9 @@ const ApiHealthPanel = ({ status, apiMetrics, backfillOperations }) => {
           <div className="text-xs text-purple-300 font-mono">
             SUCCESS_RATE: {apiMetrics?.graphqlApi?.successRate || 0}%
           </div>
-          {apiMetrics?.rateLimitRemaining && (
+          {apiMetrics?.graphqlApi?.rateLimitRemaining !== undefined && (
             <div className="text-xs text-purple-300 font-mono mt-1">
-              REMAINING: {apiMetrics.rateLimitRemaining} / 5000
+              REMAINING: {apiMetrics.graphqlApi.rateLimitRemaining} / 5000
             </div>
           )}
         </div>
