@@ -59,10 +59,22 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
-// Initialize Supabase client
+// Initialize Supabase client with connection pool limits for backfills
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey, {
+  db: {
+    pool: {
+      max: 5,        // Reduced from default ~20 to save memory
+      min: 1,        // Keep minimum connections low
+      idle: 10000,   // Close idle connections after 10s
+      acquire: 30000 // Wait max 30s for connection
+    }
+  },
+  auth: {
+    persistSession: false // Don't persist auth sessions to save memory
+  }
+}) : null
 
 // GitHub API configuration
 const GITHUB_API_BASE = 'https://api.github.com'
@@ -3080,46 +3092,60 @@ async function maintainCommitsCache(resourceId, commits) {
       }
     }).filter(record => record !== null) // Remove invalid commits
 
-    // Deduplicate commits by SHA to prevent PostgreSQL constraint violations
-    const uniqueCommitRecords = []
-    const seenShas = new Set()
+    // Process commits in chunks to reduce memory usage
+    const CHUNK_SIZE = 100
+    let totalUpserted = 0
+    let totalDuplicates = 0
 
-    for (const record of commitRecords) {
-      if (!seenShas.has(record.sha)) {
-        uniqueCommitRecords.push(record)
-        seenShas.add(record.sha)
+    console.log(`📝 ${resourceId}: Processing ${commitRecords.length} commits in chunks of ${CHUNK_SIZE}`)
+
+    for (let i = 0; i < commitRecords.length; i += CHUNK_SIZE) {
+      const chunk = commitRecords.slice(i, i + CHUNK_SIZE)
+
+      // Deduplicate within this chunk only (smaller memory footprint)
+      const uniqueChunk = []
+      const chunkShas = new Set()
+
+      for (const record of chunk) {
+        if (!chunkShas.has(record.sha)) {
+          uniqueChunk.push(record)
+          chunkShas.add(record.sha)
+        }
+      }
+
+      const chunkDuplicates = chunk.length - uniqueChunk.length
+      totalDuplicates += chunkDuplicates
+
+      if (chunkDuplicates > 0) {
+        console.log(`🔄 ${resourceId}: Chunk ${Math.ceil((i + CHUNK_SIZE) / CHUNK_SIZE)}: Deduplicated ${chunkDuplicates} duplicates`)
+      }
+
+      // Insert chunk (database will handle cross-chunk duplicates with unique constraint)
+      if (uniqueChunk.length > 0) {
+        const { data: chunkUpsertData, error: chunkInsertError } = await supabase
+          .from('github_commits_cache')
+          .upsert(uniqueChunk, {
+            onConflict: 'resource_id,sha'
+          })
+          .select()
+
+        if (chunkInsertError) {
+          logger.error(`❌ ${resourceId}: Database upsert failed for chunk ${Math.ceil((i + CHUNK_SIZE) / CHUNK_SIZE)}:`, chunkInsertError)
+          console.error(`❌ Error inserting chunk for ${resourceId}:`, chunkInsertError)
+          continue // Continue with next chunk
+        }
+
+        totalUpserted += chunkUpsertData?.length || 0
+        console.log(`✅ ${resourceId}: Chunk ${Math.ceil((i + CHUNK_SIZE) / CHUNK_SIZE)} processed: ${uniqueChunk.length} commits upserted`)
+      }
+
+      // Small delay between chunks to allow garbage collection
+      if (i + CHUNK_SIZE < commitRecords.length) {
+        await new Promise(resolve => setTimeout(resolve, 100))
       }
     }
 
-    if (commitRecords.length !== uniqueCommitRecords.length) {
-      const duplicateCount = commitRecords.length - uniqueCommitRecords.length
-      console.log(`🔄 ${resourceId}: Deduplicated ${duplicateCount} duplicate commits (${uniqueCommitRecords.length} unique out of ${commitRecords.length} total)`)
-    }
-
-    // Insert new commits (duplicates will be ignored due to unique constraint)
-    console.log(`📝 ${resourceId}: Attempting to upsert ${uniqueCommitRecords.length} commit records to database`)
-    logger.debug(`🔍 ${resourceId}: First few commit records:`, uniqueCommitRecords.slice(0, 2).map(record => ({
-      resource_id: record.resource_id,
-      sha: record.sha?.substring(0, 8),
-      message: record.message?.substring(0, 50),
-      commit_date: record.commit_date,
-      hasAllFields: !!(record.resource_id && record.sha && record.message && record.commit_date)
-    })))
-    
-    const { data: upsertData, error: insertError } = await supabase
-      .from('github_commits_cache')
-      .upsert(uniqueCommitRecords, {
-        onConflict: 'resource_id,sha'
-      })
-      .select()
-    
-    if (insertError) {
-      logger.error(`❌ ${resourceId}: Database upsert failed:`, insertError)
-      console.error(`❌ Error inserting commits for ${resourceId}:`, insertError)
-      return
-    }
-    
-    console.log(`✅ ${resourceId}: Successfully cached ${commitRecords.length} commits to database. Upserted: ${upsertData?.length || 'unknown'} records`)
+    console.log(`✅ ${resourceId}: Successfully cached ${commitRecords.length} commits to database. Upserted: ${totalUpserted} records, Deduplicated: ${totalDuplicates} duplicates`)
     
     // Manually maintain rolling cache (keep only latest 30)
     const { error: cleanupError } = await supabase.rpc('cleanup_commits_cache', {
@@ -3210,15 +3236,69 @@ async function maintainReleasesCache(resourceId, releases) {
  * Populate updates cache for ALL resources (no priority filtering)
  * @param {string} priority - Kept for backward compatibility, but always processes all resources
  */
+// Memory circuit breaker
+function checkMemoryUsage() {
+  const memUsage = process.memoryUsage()
+  const heapUsedMB = memUsage.heapUsed / 1024 / 1024
+  const maxMemoryMB = 400 // Threshold for 512MB server (leaving headroom)
+
+  return {
+    heapUsedMB: Math.round(heapUsedMB),
+    maxMemoryMB,
+    isOverThreshold: heapUsedMB > maxMemoryMB,
+    percentage: Math.round((heapUsedMB / maxMemoryMB) * 100)
+  }
+}
+
+async function waitForMemoryToClear(resourceName = 'unknown') {
+  const memStats = checkMemoryUsage()
+
+  if (memStats.isOverThreshold) {
+    console.log(`🔴 ${resourceName}: Memory usage high (${memStats.heapUsedMB}MB/${memStats.maxMemoryMB}MB - ${memStats.percentage}%), waiting for GC...`)
+
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc()
+      console.log(`🗑️ ${resourceName}: Triggered manual garbage collection`)
+    }
+
+    // Wait for memory to decrease
+    let attempts = 0
+    const maxAttempts = 10
+
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      const newMemStats = checkMemoryUsage()
+
+      console.log(`⏳ ${resourceName}: Memory check ${attempts + 1}/${maxAttempts}: ${newMemStats.heapUsedMB}MB (${newMemStats.percentage}%)`)
+
+      if (!newMemStats.isOverThreshold) {
+        console.log(`🟢 ${resourceName}: Memory usage normalized (${newMemStats.heapUsedMB}MB)`)
+        break
+      }
+
+      attempts++
+    }
+
+    if (attempts >= maxAttempts) {
+      console.log(`⚠️ ${resourceName}: Memory still high after ${maxAttempts} attempts, continuing with caution`)
+    }
+  }
+}
+
 async function populateUpdatesCache(priority = 'all') {
   if (!supabase) {
     logger.warn('⚠️ Supabase not configured, skipping updates cache population')
     return
   }
-  
+
   // Set background refresh flag to prioritize cache for user requests
   backgroundRefreshInProgress = true
   logger.debug(`🔄 Populating updates cache for ALL resources... [Background mode enabled]`)
+
+  // Initial memory check
+  const initialMem = checkMemoryUsage()
+  console.log(`🧠 Starting cache population with ${initialMem.heapUsedMB}MB memory usage (${initialMem.percentage}%)`)
   
   try {
     const resources = await loadResources()
@@ -3232,13 +3312,17 @@ async function populateUpdatesCache(priority = 'all') {
     let successCount = 0
     let errorCount = 0
     
-    // Process in larger batches for GraphQL efficiency - GraphQL can handle more concurrent requests
-    const batchSize = 12
-    for (let i = 0; i < resourcesToProcess.length; i += batchSize) {
-      const batch = resourcesToProcess.slice(i, i + batchSize)
-      
-      await Promise.all(batch.map(async (resource) => {
+    // Process organizations sequentially to avoid memory spikes, repositories in small batches
+    const organizations = resourcesToProcess.filter(r => r.type === 'organization')
+    const repositories = resourcesToProcess.filter(r => r.type !== 'organization')
+
+    // Process organizations sequentially (memory-intensive)
+    console.log(`🔄 Processing ${organizations.length} organizations sequentially...`)
+    for (const resource of organizations) {
         try {
+          // Check memory before processing heavy organizations
+          await waitForMemoryToClear(resource.name)
+
           logger.debug(`🔍 Processing ${resource.name} (${resource.type})...`)
           
           // Get complete commit history (no date filtering for historical data collection)
@@ -3349,10 +3433,81 @@ async function populateUpdatesCache(priority = 'all') {
           errorCount++
           console.warn(`❌ Error processing resource ${resource.name}:`, error.message)
         }
+
+        // Add small delay between organizations to allow GC
+        if (resource !== organizations[organizations.length - 1]) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      }
+
+    // Process repositories in small batches (less memory intensive)
+    console.log(`🔄 Processing ${repositories.length} repositories in batches...`)
+    const batchSize = 3 // Smaller batches for safety
+    for (let i = 0; i < repositories.length; i += batchSize) {
+      const batch = repositories.slice(i, i + batchSize)
+
+      await Promise.all(batch.map(async (resource) => {
+        try {
+          logger.debug(`🔍 Processing ${resource.name} (${resource.type})...`)
+
+          // Get complete commit history (no date filtering for historical data collection)
+          const since = null // Fetch complete history instead of limiting to 4 weeks
+
+          let rawCommits = []
+          try {
+            // For repositories or unknown resources with GitHub URLs
+            const repoPath = resource.social.github.replace('https://github.com/', '')
+            logger.debug(`🔄 ${resource.name}: Fetching raw commits for repository ${repoPath}`)
+            rawCommits = await fetchRepoDataWithGraphQL(repoPath, since)
+          } catch (error) {
+            logger.warn(`⚠️ ${resource.name}: Failed to fetch raw commits: ${error.message}`)
+            rawCommits = []
+          }
+
+          // Update commits cache with raw commit data
+          if (rawCommits && rawCommits.length > 0) {
+            console.log(`🔄 ${resource.name}: Calling maintainCommitsCache with ${rawCommits.length} raw commits`)
+            await maintainCommitsCache(resource.name, rawCommits)
+            console.log(`✅ ${resource.name}: Updated ${rawCommits.length} commits in database`)
+
+            // Aggregate commits into weekly data and store in github_activity
+            console.log(`🔄 ${resource.name}: Aggregating ${rawCommits.length} commits into weekly data`)
+            const weeklyData = aggregateCommitsToWeeklyData(rawCommits)
+            if (weeklyData && weeklyData.length > 0) {
+              console.log(`🔄 ${resource.name}: Storing ${weeklyData.length} weekly records in github_activity`)
+              await supabaseService.storeWeeklyActivity(resource, weeklyData)
+            } else {
+              logger.debug(`ℹ️ ${resource.name}: No weekly data to store (all commits filtered out)`)
+            }
+          } else {
+            logger.debug(`ℹ️ ${resource.name}: No recent commits found - rawCommits is ${rawCommits ? 'empty array' : 'null/undefined'}`)
+          }
+
+          // Get and update releases cache
+          let releases = []
+          try {
+            const repoPath = resource.social.github.replace('https://github.com/', '')
+            releases = await fetchRepoReleases(repoPath, 30)
+
+            if (releases && releases.length > 0) {
+              await maintainReleasesCache(resource.name, releases)
+              logger.debug(`✅ ${resource.name}: Updated ${releases.length} releases`)
+            } else {
+              logger.debug(`ℹ️ ${resource.name}: No releases found`)
+            }
+          } catch (error) {
+            console.warn(`⚠️ Error processing releases for ${resource.name}:`, error.message)
+          }
+
+          successCount++
+        } catch (error) {
+          errorCount++
+          console.warn(`❌ Error processing resource ${resource.name}:`, error.message)
+        }
       }))
-      
+
       // Add delay between batches to respect rate limits
-      if (i + batchSize < resourcesToProcess.length) {
+      if (i + batchSize < repositories.length) {
         logger.debug(`⏳ Batch ${Math.ceil((i + batchSize) / batchSize)} completed, waiting 2s...`)
         await new Promise(resolve => setTimeout(resolve, 2000))
       }
@@ -3362,7 +3517,17 @@ async function populateUpdatesCache(priority = 'all') {
     logger.debug(`   📊 Processed: ${successCount + errorCount} resources`)
     logger.debug(`   ✅ Successful: ${successCount}`)
     logger.debug(`   ❌ Errors: ${errorCount}`)
-    
+
+    // Final memory cleanup
+    const finalMem = checkMemoryUsage()
+    console.log(`🧠 Cache population completed with ${finalMem.heapUsedMB}MB memory usage (${finalMem.percentage}%)`)
+
+    if (global.gc) {
+      global.gc()
+      const postGCMem = checkMemoryUsage()
+      console.log(`🗑️ Post-GC memory usage: ${postGCMem.heapUsedMB}MB (${postGCMem.percentage}%)`)
+    }
+
     // Log database stats
     if (supabase) {
       try {
