@@ -21,43 +21,91 @@ const injectGraphQLTracking = (stats, errorTracker) => {
 const GITHUB_GRAPHQL_ENDPOINT = 'https://api.github.com/graphql'
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 
-// Initialize GraphQL client
+// Organizations that require smaller batch sizes due to complexity/size
+const KNOWN_LARGE_ORGS = ['cardano-foundation']
+
+// Initialize GraphQL client with timeout
 const graphqlClient = new GraphQLClient(GITHUB_GRAPHQL_ENDPOINT, {
   headers: {
     authorization: `Bearer ${GITHUB_TOKEN}`,
     'User-Agent': 'ADAdev-GraphQL-Client/1.0'
-  }
+  },
+  timeout: 30000 // 30 second timeout
 })
 
-// Tracked GraphQL request wrapper
+// Helper function to check if error is retryable server error
+const isRetryableServerError = (error) => {
+  if (!error?.response?.status) return false
+  const status = error.response.status
+  return status === 502 || status === 503 || status === 504
+}
+
+// Helper function to check if error is a timeout
+const isTimeoutError = (error) => {
+  return error?.code === 'ETIMEDOUT' ||
+         error?.message?.includes('timeout') ||
+         error?.name === 'TimeoutError'
+}
+
+// Helper function to extract status code from GraphQL error
+const getErrorStatusCode = (error) => {
+  if (error?.response?.status) return error.response.status
+  if (error?.response?.error?.includes('502 Bad Gateway')) return 502
+  if (error?.response?.error?.includes('503 Service Unavailable')) return 503
+  if (error?.response?.error?.includes('504 Gateway Timeout')) return 504
+  return null
+}
+
+// Tracked GraphQL request wrapper with exponential backoff for server errors
 const makeTrackedGraphQLRequest = async (query, variables = {}, operation = 'graphql_request') => {
-  try {
-    const response = await graphqlClient.request(query, variables)
-    
-    // Track successful request
-    if (GRAPHQL_STATS) {
-      GRAPHQL_STATS.successfulRequests++
-      
-      // Update rate limit info if available
-      if (response.rateLimit?.remaining !== undefined) {
-        GRAPHQL_STATS.lastRateLimitRemaining = response.rateLimit.remaining
+  const maxRetries = 3
+  const baseDelay = 1000 // 1 second
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await graphqlClient.request(query, variables)
+
+      // Track successful request
+      if (GRAPHQL_STATS) {
+        GRAPHQL_STATS.successfulRequests++
+
+        // Update rate limit info if available
+        if (response.rateLimit?.remaining !== undefined) {
+          GRAPHQL_STATS.lastRateLimitRemaining = response.rateLimit.remaining
+        }
       }
+
+      return response
+    } catch (error) {
+      const statusCode = getErrorStatusCode(error)
+      const isLastAttempt = attempt === maxRetries
+      const isServerError = isRetryableServerError(error)
+
+      // Track failed request
+      if (GRAPHQL_STATS) {
+        GRAPHQL_STATS.failedRequests++
+      }
+
+      // Track detailed error if tracker available
+      if (trackGraphQLError) {
+        const resource = variables.orgLogin || (variables.owner && variables.name) ? `${variables.owner}/${variables.name}` : 'unknown'
+        trackGraphQLError(error, resource, operation, statusCode)
+      }
+
+      // Retry logic for server errors (502, 503, 504) and timeouts
+      const isTimeout = isTimeoutError(error)
+      if ((isServerError || isTimeout) && !isLastAttempt) {
+        const delay = baseDelay * Math.pow(2, attempt) // Exponential backoff: 1s, 2s, 4s
+        const errorType = isTimeout ? 'timeout' : `server error ${statusCode}`
+        logger.warn(`🔄 GraphQL ${errorType}, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
+
+        await new Promise(resolve => setTimeout(resolve, delay))
+        continue
+      }
+
+      // For final attempt or non-server errors, throw immediately
+      throw error
     }
-    
-    return response
-  } catch (error) {
-    // Track failed request
-    if (GRAPHQL_STATS) {
-      GRAPHQL_STATS.failedRequests++
-    }
-    
-    // Track detailed error if tracker available
-    if (trackGraphQLError) {
-      const resource = variables.orgLogin || (variables.owner && variables.name) ? `${variables.owner}/${variables.name}` : 'unknown'
-      trackGraphQLError(error, resource, operation)
-    }
-    
-    throw error
   }
 }
 
@@ -159,7 +207,7 @@ const ORG_ACTIVITY_QUERY = gql`
               }
             }
           }
-          refs(refPrefix: "refs/heads/", first: 45) {
+          refs(refPrefix: "refs/heads/", first: 10) {
             nodes {
               name
               target {
@@ -268,7 +316,7 @@ const REPO_ACTIVITY_QUERY = gql`
  * Fetch organization repositories and commits using GraphQL
  * @param {string} orgLogin - GitHub organization login/name
  * @param {string} since - ISO date string for filtering commits
- * @param {number} maxRepos - Maximum number of repositories to fetch (default: 500)
+ * @param {number} maxRepos - Maximum number of repositories to fetch (default: 1000)
  * @returns {Promise<Object>} Structured data with repositories and commits
  */
 const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 1000) => {
@@ -287,8 +335,25 @@ const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 1000) => {
     // Handle pagination to get all repositories
     while (hasNextPage && totalFetched < maxRepos) {
       const remainingRepos = maxRepos - totalFetched
-      const pageSize = Math.min(100, remainingRepos) // GitHub GraphQL max is 100
-      
+
+      // Adaptive page sizing - check known large orgs first, then detected size
+      let maxPageSize = 100 // GitHub GraphQL max
+
+      if (KNOWN_LARGE_ORGS.includes(orgLogin)) {
+        maxPageSize = 20 // Small batches for known problematic orgs
+      } else if (orgMetadata?.isVeryLargeOrg) {
+        maxPageSize = 25 // Smaller batches for very large orgs
+      } else if (orgMetadata?.isLargeOrg) {
+        maxPageSize = 50 // Medium batches for large orgs
+      }
+
+      const pageSize = Math.min(maxPageSize, remainingRepos)
+
+      // Log special handling for known large orgs
+      if (KNOWN_LARGE_ORGS.includes(orgLogin) && totalFetched === 0) {
+        logger.info(`🎯 Using small batches (${maxPageSize} repos) for known large org: ${orgLogin}`)
+      }
+
       logger.debug(`📄 Fetching page of ${pageSize} repos for ${orgLogin} (cursor: ${cursor ? 'present' : 'null'})`)
       
       const variables = {
@@ -308,13 +373,23 @@ const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 1000) => {
       const { organization, rateLimit } = response
       const { repositories } = organization
       
-      // Capture organization metadata from first response
+      // Capture organization metadata from first response and detect size
       if (!orgMetadata) {
+        const totalRepoCount = repositories.totalCount
+        const isLargeOrg = totalRepoCount > 200
+        const isVeryLargeOrg = totalRepoCount > 500
+
         orgMetadata = {
           name: organization.name,
           login: organization.login,
-          url: organization.url
+          url: organization.url,
+          totalRepoCount,
+          isLargeOrg,
+          isVeryLargeOrg
         }
+
+        // Log organization size for monitoring
+        logger.info(`📊 Organization size: ${totalRepoCount} repos (${isVeryLargeOrg ? 'very large' : isLargeOrg ? 'large' : 'normal'})`)
       }
       
       // Log rate limit status and optimize usage
@@ -333,6 +408,21 @@ const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 1000) => {
       cursor = repositories.pageInfo.endCursor
       
       logger.debug(`📦 Fetched ${publicRepos.length} repos, total: ${totalFetched}/${repositories.totalCount}`)
+
+      // Add progressive delays for large organizations to prevent overwhelming GitHub
+      if (hasNextPage && orgMetadata) {
+        let delay = 0
+        if (orgMetadata.isVeryLargeOrg) {
+          delay = 1000 // 1 second delay for very large orgs
+        } else if (orgMetadata.isLargeOrg) {
+          delay = 500  // 500ms delay for large orgs
+        }
+
+        if (delay > 0) {
+          logger.debug(`⏱️ Adding ${delay}ms delay before next request (org size optimization)`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+        }
+      }
     }
     
     logger.debug(`✅ GraphQL fetch complete for ${orgLogin}: ${allRepositories.length} repositories`)

@@ -412,7 +412,12 @@ const classifyError = (error, statusCode) => {
   
   // Server errors - should retry
   if (statusCode >= 500) {
-    return { type: 'server_error', severity: 'error', shouldRetry: true }
+    let subType = 'server_error'
+    if (statusCode === 502) subType = 'bad_gateway'
+    else if (statusCode === 503) subType = 'service_unavailable'
+    else if (statusCode === 504) subType = 'gateway_timeout'
+
+    return { type: subType, severity: 'error', shouldRetry: true }
   }
   
   // Client errors (400-499 except handled above)
@@ -652,7 +657,11 @@ const fetchOrgDataWithGraphQL = async (orgName, since) => {
       return restFormatData.commits // Return commits in REST format
       
     } catch (error) {
-      logger.warn(`❌ GraphQL failed for ${orgName}, falling back to REST: ${error.message}`)
+      const statusCode = error?.response?.status || 'unknown'
+      const errorType = error?.response?.status === 502 ? 'Bad Gateway' :
+                       error?.response?.status === 503 ? 'Service Unavailable' :
+                       error?.response?.status === 504 ? 'Gateway Timeout' : 'Error'
+      logger.warn(`❌ GraphQL ${errorType} (${statusCode}) for ${orgName}, falling back to REST: ${error.message}`)
       // Fall through to REST implementation below
     }
   }
@@ -680,7 +689,11 @@ const fetchRepoDataWithGraphQL = async (repoPath, since) => {
       return restFormatData.commits // Return commits in REST format
       
     } catch (error) {
-      logger.warn(`❌ GraphQL failed for ${repoPath}, falling back to REST: ${error.message}`)
+      const statusCode = error?.response?.status || 'unknown'
+      const errorType = error?.response?.status === 502 ? 'Bad Gateway' :
+                       error?.response?.status === 503 ? 'Service Unavailable' :
+                       error?.response?.status === 504 ? 'Gateway Timeout' : 'Error'
+      logger.warn(`❌ GraphQL ${errorType} (${statusCode}) for ${repoPath}, falling back to REST: ${error.message}`)
       // Fall through to REST implementation below
     }
   }
