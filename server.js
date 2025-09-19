@@ -40,6 +40,7 @@ const OpenAI = require('openai')
 const { createClient } = require('@supabase/supabase-js')
 const { getISOWeekNumber, getWeekStart, getCurrentWeekStart, isCurrentWeek } = require('./utils/weekCalculation.js')
 const supabaseService = require('./src/services/supabase.js')
+const { getDailyStorageStats } = require('./src/services/supabase.js')
 const { 
   fetchOrgDataGraphQL, 
   fetchRepoDataGraphQL, 
@@ -985,8 +986,9 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
     }
   }
 
-  // Add database fallback for getRecentActivity (skip for daily processing periods that need granular data)
+  // Add database fallback for getRecentActivity
   if (!useDailyProcessing) {
+    // Weekly data fallback for non-daily periods
     let dbData = []
     
     try {
@@ -1026,8 +1028,43 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
       setCachedData(cacheKey, result)
       return result
     }
+  } else if (useDailyProcessing && period === 'current') {
+    // Daily data fallback for 7-day view
+    try {
+      const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
+      const resourceId = repoPath
+
+      if (resourceId) {
+        const dailyData = await supabaseService.getDailyActivity(resourceId, repoPath, 10, resource)
+
+        if (dailyData && dailyData.length > 0) {
+          logger.debug(`✅ Using daily database fallback for ${resource.name} (${dailyData.length} days)`)
+          CACHE.stats.databaseHits++
+
+          const mappedData = dailyData.map(row => ({
+            weekStart: row.date,
+            count: row.commit_count,
+            year: new Date(row.date).getFullYear(),
+            week: 1,
+            isCurrentWeek: false
+          }))
+
+          const result = {
+            commits: [],
+            commitsPerWeek: mappedData.reduce((sum, day) => sum + day.count, 0),
+            weeklyData: mappedData,
+            repoInfo: null
+          }
+
+          setCachedData(cacheKey, result)
+          return result
+        }
+      }
+    } catch (error) {
+      console.warn(`Database daily fallback failed for ${resource.name}:`, error.message)
+    }
   }
-  
+
   let commits = []
   let repoInfo = null
   
@@ -3383,6 +3420,31 @@ async function populateUpdatesCache(priority = 'all') {
             } else {
               logger.debug(`ℹ️ ${resource.name}: No weekly data to store (all commits filtered out)`)
             }
+
+            // Also store daily data for 7-day view fallbacks (rolling 10-day cache)
+            try {
+              if (rawCommits && rawCommits.length > 0) {
+                const dailyCommitData = rawCommits.map(commit => ({
+                  date: commit.commit?.author?.date || commit.authored_date || commit.committed_date
+                })).filter(c => c.date)
+
+                const dailyAggregates = processCommitsToDaily(dailyCommitData)
+                const dailyData = dailyAggregates.map(d => ({
+                  date: d.weekStart, // Fix field name mismatch
+                  count: d.count
+                }))
+
+                if (dailyData.length > 0) {
+                  const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
+                  const resourceId = repoPath
+
+                  console.log(`📅 ${resource.name}: Storing ${dailyData.length} daily records (10-day rolling cache)`)
+                  await supabaseService.storeDailyActivity(resourceId, repoPath, dailyData, resource)
+                }
+              }
+            } catch (error) {
+              console.warn(`⚠️ ${resource.name}: Daily storage failed (non-critical):`, error.message)
+            }
           } else {
             logger.debug(`ℹ️ ${resource.name}: No recent commits found - rawCommits is ${rawCommits ? 'empty array' : 'null/undefined'}`)
           }
@@ -3478,6 +3540,31 @@ async function populateUpdatesCache(priority = 'all') {
               await supabaseService.storeWeeklyActivity(resource, weeklyData)
             } else {
               logger.debug(`ℹ️ ${resource.name}: No weekly data to store (all commits filtered out)`)
+            }
+
+            // Also store daily data for 7-day view fallbacks (rolling 10-day cache)
+            try {
+              if (rawCommits && rawCommits.length > 0) {
+                const dailyCommitData = rawCommits.map(commit => ({
+                  date: commit.commit?.author?.date || commit.authored_date || commit.committed_date
+                })).filter(c => c.date)
+
+                const dailyAggregates = processCommitsToDaily(dailyCommitData)
+                const dailyData = dailyAggregates.map(d => ({
+                  date: d.weekStart, // Fix field name mismatch
+                  count: d.count
+                }))
+
+                if (dailyData.length > 0) {
+                  const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
+                  const resourceId = repoPath
+
+                  console.log(`📅 ${resource.name}: Storing ${dailyData.length} daily records (10-day rolling cache)`)
+                  await supabaseService.storeDailyActivity(resourceId, repoPath, dailyData, resource)
+                }
+              }
+            } catch (error) {
+              console.warn(`⚠️ ${resource.name}: Daily storage failed (non-critical):`, error.message)
             }
           } else {
             logger.debug(`ℹ️ ${resource.name}: No recent commits found - rawCommits is ${rawCommits ? 'empty array' : 'null/undefined'}`)
@@ -4215,6 +4302,16 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
           recentErrors: GRAPHQL_STATS.recentErrors.slice(0, 10)
         }
       },
+      dailyStorageMetrics: {
+        // Daily storage health metrics
+        successRate: 0,          // Percentage of successful daily storage operations
+        failedWrites: 0,         // Number of failed storage operations in last hour
+        cacheUtilization: 0,     // How much of the 10-day rolling cache is used
+        fallbackUsage: 0,        // Times daily fallback was used instead of API
+        averageResponseTime: 0,  // Average response time when using daily fallback
+        lastCleanupTime: null,   // Last successful cleanup operation
+        totalDailyRecords: 0     // Current number of daily records stored
+      },
       pipelineIssues: [],
       recentActivity: [],
       systemStatus: {
@@ -4357,12 +4454,104 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
       }
     } catch (dbError) {
       dashboardMetrics.pipelineIssues.push({
-        type: 'db_error', 
+        type: 'db_error',
         stage: 'Database',
         resourceName: 'Supabase',
         description: `Database error: ${dbError.message}`,
         timestamp: new Date().toISOString(),
         severity: 'high'
+      })
+    }
+
+    // Calculate daily storage metrics (with background refresh awareness)
+    try {
+      // Skip expensive monitoring queries during background refresh to prevent interference
+      if (backgroundRefreshInProgress) {
+        console.log('⚡ Skipping daily storage metrics during background refresh')
+        dashboardMetrics.dailyStorageMetrics = {
+          successRate: 0,
+          failedWrites: 0,
+          cacheUtilization: 0,
+          fallbackUsage: 0,
+          averageResponseTime: 0,
+          lastCleanupTime: null,
+          totalDailyRecords: 0,
+          sevenDayPerformance: 0,
+          sevenDayReadiness: 0
+        }
+      } else {
+        // Query daily storage statistics
+        const dailyStats = await getDailyStorageStats()
+
+        if (dailyStats && dailyStats.length > 0) {
+        const stats = dailyStats[0]
+        dashboardMetrics.dailyStorageMetrics = {
+          successRate: stats.success_rate || 0,
+          failedWrites: stats.failed_writes_last_hour || 0,
+          cacheUtilization: stats.cache_utilization || 0,
+          fallbackUsage: stats.fallback_usage_today || 0,
+          averageResponseTime: stats.avg_response_time || 0,
+          lastCleanupTime: stats.last_cleanup_time,
+          totalDailyRecords: stats.total_records || 0,
+          sevenDayPerformance: stats.seven_day_performance || 0,
+          sevenDayReadiness: stats.seven_day_readiness || 0
+        }
+
+        // Add daily storage issues to pipeline problems
+        if (stats.success_rate < 85) {
+          dashboardMetrics.pipelineIssues.push({
+            type: 'daily_storage_error',
+            stage: 'Daily Storage',
+            resourceName: 'Daily Activity Cache',
+            description: `Low daily storage success rate: ${stats.success_rate}%`,
+            timestamp: new Date().toISOString(),
+            severity: stats.success_rate < 50 ? 'high' : 'medium'
+          })
+        }
+
+        if (stats.failed_writes_last_hour > 10) {
+          dashboardMetrics.pipelineIssues.push({
+            type: 'daily_storage_error',
+            stage: 'Daily Storage',
+            resourceName: 'Daily Activity Cache',
+            description: `High daily storage failures: ${stats.failed_writes_last_hour} in last hour`,
+            timestamp: new Date().toISOString(),
+            severity: stats.failed_writes_last_hour > 25 ? 'high' : 'medium'
+          })
+        }
+
+        if (stats.cache_utilization > 90) {
+          dashboardMetrics.pipelineIssues.push({
+            type: 'daily_cache_full',
+            stage: 'Daily Storage',
+            resourceName: 'Daily Activity Cache',
+            description: `Daily cache utilization high: ${Math.round(stats.cache_utilization)}%`,
+            timestamp: new Date().toISOString(),
+            severity: 'medium'
+          })
+        }
+
+        if (stats.seven_day_performance < 70) {
+          dashboardMetrics.pipelineIssues.push({
+            type: 'seven_day_performance',
+            stage: '7-Day Views',
+            resourceName: '7-Day View Performance',
+            description: `7-day view readiness low: ${stats.seven_day_performance}% (${stats.seven_day_readiness} records available)`,
+            timestamp: new Date().toISOString(),
+            severity: stats.seven_day_performance < 40 ? 'high' : 'medium'
+          })
+        }
+        }
+      }
+    } catch (dailyStorageError) {
+      console.warn('Failed to fetch daily storage metrics:', dailyStorageError.message)
+      dashboardMetrics.pipelineIssues.push({
+        type: 'daily_storage_error',
+        stage: 'Daily Storage',
+        resourceName: 'Daily Activity Cache',
+        description: `Failed to fetch daily storage metrics: ${dailyStorageError.message}`,
+        timestamp: new Date().toISOString(),
+        severity: 'medium'
       })
     }
 

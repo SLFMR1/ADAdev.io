@@ -283,7 +283,10 @@ const DataQualityDashboard = () => {
               {/* Pipeline Health Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <PipelinePerformanceChart data={dashboardData.pipelineMetrics} />
-                <CacheHealthChart data={dashboardData.cacheMetrics} />
+                <CacheHealthChart
+                  data={dashboardData.cacheMetrics}
+                  dailyStorageMetrics={dashboardData.dailyStorageMetrics}
+                />
               </div>
 
               {/* Pipeline Issues & API Health */}
@@ -293,10 +296,13 @@ const DataQualityDashboard = () => {
                   onResourceSelect={setSelectedResource}
                   onTriggerBackfill={triggerBackfill}
                 />
-                <ApiHealthPanel 
+                <ApiHealthPanel
                   status={dashboardData.systemStatus}
                   apiMetrics={dashboardData.apiMetrics}
                   backfillOperations={backfillOperations}
+                />
+                <DailyStorageHealthPanel
+                  dailyStorageMetrics={dashboardData.dailyStorageMetrics}
                 />
               </div>
 
@@ -523,9 +529,9 @@ const PipelinePerformanceChart = ({ data }) => {
 }
 
 /**
- * Cache Health Chart
+ * Enhanced Cache Health Chart with Daily Storage Metrics
  */
-const CacheHealthChart = ({ data }) => {
+const CacheHealthChart = ({ data, dailyStorageMetrics }) => {
   if (!data) {
     return (
       <div className="bg-black border border-green-400/30 rounded-lg p-6 font-mono">
@@ -550,29 +556,32 @@ const CacheHealthChart = ({ data }) => {
       isCount: true
     },
     {
+      label: 'DAILY_FALLBACKS',
+      value: dailyStorageMetrics?.fallbackUsage || 0,
+      icon: RefreshCw,
+      description: '7DAY_VIEW_FALLBACKS_TODAY',
+      isCount: true,
+      isDailyMetric: true
+    },
+    {
       label: 'CACHE_MISSES',
       value: data.apiCalls || 0,
       icon: Clock,
       description: 'REQUIRED_API_CALLS',
       isCount: true
-    },
-    {
-      label: 'TOTAL_REQUESTS',
-      value: data.totalRequests || 0,
-      icon: Activity,
-      description: 'REQUESTS_THIS_HOUR',
-      isCount: true
     }
   ]
 
-  const getStatusColor = (metric, value) => {
+  const getStatusColor = (metric, value, isDailyMetric) => {
     switch (metric) {
       case 'OVERALL_HIT_RATE':
         return value >= 80 ? 'text-green-400' : value >= 60 ? 'text-yellow-400' : 'text-red-400'
+      case 'DAILY_FALLBACKS':
+        return value > 0 ? 'text-cyan-400' : 'text-gray-400' // Cyan for active daily fallbacks
       case 'CACHE_MISSES':
         return 'text-blue-400' // Neutral color for cache misses count
       default:
-        return 'text-blue-400'
+        return isDailyMetric ? 'text-cyan-400' : 'text-blue-400'
     }
   }
 
@@ -581,18 +590,26 @@ const CacheHealthChart = ({ data }) => {
       <h3 className="text-lg font-semibold text-green-400 mb-4 tracking-wide">CACHE.HEALTH</h3>
       
       <div className="grid grid-cols-2 gap-4">
-        {cacheMetrics.map(({ label, value, icon: Icon, description, isCount }) => (
-          <div key={label} className="p-3 bg-green-400/5 border border-green-400/20 rounded-lg">
+        {cacheMetrics.map(({ label, value, icon: Icon, description, isCount, isDailyMetric }) => (
+          <div key={label} className={`p-3 border rounded-lg ${
+            isDailyMetric
+              ? 'bg-cyan-400/5 border-cyan-400/20'
+              : 'bg-green-400/5 border-green-400/20'
+          }`}>
             <div className="flex items-center space-x-2 mb-2">
-              <Icon size={16} className="text-green-500" />
-              <span className="text-sm font-medium text-green-500 font-mono">{label}</span>
+              <Icon size={16} className={isDailyMetric ? 'text-cyan-500' : 'text-green-500'} />
+              <span className={`text-sm font-medium font-mono ${
+                isDailyMetric ? 'text-cyan-500' : 'text-green-500'
+              }`}>{label}</span>
             </div>
             <div className="flex items-baseline space-x-1">
-              <span className={`text-xl font-semibold font-mono ${getStatusColor(label, value)}`}>
+              <span className={`text-xl font-semibold font-mono ${getStatusColor(label, value, isDailyMetric)}`}>
                 {isCount ? value : `${value}%`}
               </span>
             </div>
-            <p className="text-xs text-green-600 mt-1 font-mono">{'>>>'} {description}</p>
+            <p className={`text-xs mt-1 font-mono ${
+              isDailyMetric ? 'text-cyan-600' : 'text-green-600'
+            }`}>{'>>>'} {description}</p>
           </div>
         ))}
       </div>
@@ -622,6 +639,11 @@ const CacheHealthChart = ({ data }) => {
         {data.hitRate >= 80 && (
           <p className="text-xs text-green-400 font-mono">
             {'>>>'} EXCELLENT HIT RATE ({data.hitRate}%) - CACHE PERFORMING WELL
+          </p>
+        )}
+        {dailyStorageMetrics?.fallbackUsage > 0 && (
+          <p className="text-xs text-cyan-400 font-mono mt-1">
+            {'>>>'} DAILY STORAGE ACTIVE: {dailyStorageMetrics.fallbackUsage} FALLBACKS TODAY (7-DAY VIEW OPTIMIZATION)
           </p>
         )}
       </div>
@@ -843,6 +865,130 @@ const ApiHealthPanel = ({ status, apiMetrics, backfillOperations }) => {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Daily Storage Health Panel
+ */
+const DailyStorageHealthPanel = ({ dailyStorageMetrics }) => {
+  if (!dailyStorageMetrics) return null;
+
+  return (
+    <div className="bg-black border border-cyan-400/30 rounded-lg p-6 font-mono">
+      <h3 className="text-lg font-semibold text-cyan-400 mb-4 tracking-wide">DAILY.STORAGE.CACHE</h3>
+
+      {/* Storage Health Overview */}
+      <div className="space-y-3 mb-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-cyan-500 font-mono">STORAGE_SUCCESS_RATE</span>
+          <span className={`text-xs px-2 py-1 rounded border font-mono ${
+            dailyStorageMetrics.successRate >= 95
+              ? 'bg-green-400/10 text-green-400 border-green-400/30'
+              : dailyStorageMetrics.successRate >= 80
+              ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30'
+              : 'bg-red-400/10 text-red-400 border-red-400/30'
+          }`}>
+            {dailyStorageMetrics.successRate}%
+          </span>
+        </div>
+
+        {/* Cache Utilization */}
+        <div className="p-3 bg-cyan-400/5 border border-cyan-400/20 rounded">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-cyan-400 font-mono font-semibold">10DAY_ROLLING_CACHE</span>
+            <span className="text-xs text-cyan-400 font-mono">
+              {dailyStorageMetrics.totalDailyRecords} records
+            </span>
+          </div>
+          <div className="text-xs text-cyan-300 font-mono mb-1">
+            UTILIZATION: {dailyStorageMetrics.cacheUtilization}%
+          </div>
+          <div className="w-full bg-gray-700 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full ${
+                dailyStorageMetrics.cacheUtilization > 90 ? 'bg-red-400' :
+                dailyStorageMetrics.cacheUtilization > 70 ? 'bg-yellow-400' :
+                'bg-cyan-400'
+              }`}
+              style={{ width: `${Math.min(100, dailyStorageMetrics.cacheUtilization)}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Fallback Usage */}
+        <div className="p-3 bg-purple-400/5 border border-purple-400/20 rounded">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-purple-400 font-mono font-semibold">7DAY_FALLBACK_USAGE</span>
+            <span className="text-xs text-purple-400 font-mono">
+              {dailyStorageMetrics.fallbackUsage} times today
+            </span>
+          </div>
+          <div className="text-xs text-purple-300 font-mono">
+            AVG_RESPONSE: {dailyStorageMetrics.averageResponseTime}ms
+          </div>
+          {dailyStorageMetrics.fallbackUsage > 0 && (
+            <div className="text-xs text-purple-300 font-mono mt-1">
+              {'>>>'} RATE_LIMIT_BYPASS_ACTIVE
+            </div>
+          )}
+        </div>
+
+        {/* 7-Day View Performance */}
+        <div className="p-3 bg-indigo-400/5 border border-indigo-400/20 rounded">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-indigo-400 font-mono font-semibold">7DAY_VIEW_PERFORMANCE</span>
+            <span className={`text-xs px-2 py-1 rounded border font-mono ${
+              dailyStorageMetrics.sevenDayPerformance >= 80
+                ? 'bg-green-400/10 text-green-400 border-green-400/30'
+                : dailyStorageMetrics.sevenDayPerformance >= 60
+                ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30'
+                : 'bg-red-400/10 text-red-400 border-red-400/30'
+            }`}>
+              {dailyStorageMetrics.sevenDayPerformance}%
+            </span>
+          </div>
+          <div className="text-xs text-indigo-300 font-mono">
+            READINESS: {dailyStorageMetrics.sevenDayReadiness} records available
+          </div>
+          <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
+            <div
+              className={`h-2 rounded-full ${
+                dailyStorageMetrics.sevenDayPerformance >= 80 ? 'bg-green-400' :
+                dailyStorageMetrics.sevenDayPerformance >= 60 ? 'bg-yellow-400' :
+                'bg-red-400'
+              }`}
+              style={{ width: `${Math.min(100, dailyStorageMetrics.sevenDayPerformance)}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Storage Issues Warning */}
+        {(dailyStorageMetrics.failedWrites > 10 || dailyStorageMetrics.successRate < 85) && (
+          <div className="mt-2 p-2 bg-red-400/10 border border-red-400/30 rounded">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle size={14} className="text-red-400" />
+              <span className="text-xs text-red-400 font-mono">
+                {'>>>'} STORAGE ISSUES DETECTED
+                <span className="block mt-1">
+                  FAILED_WRITES: {dailyStorageMetrics.failedWrites}
+                </span>
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Last Cleanup Time */}
+        {dailyStorageMetrics.lastCleanupTime && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-cyan-600 font-mono">LAST_CLEANUP</span>
+            <span className="text-cyan-400 font-mono">
+              {new Date(dailyStorageMetrics.lastCleanupTime).toLocaleString()}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
