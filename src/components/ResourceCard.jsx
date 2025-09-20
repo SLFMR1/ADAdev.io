@@ -320,6 +320,12 @@ const ResourceCard = ({ resource, onViewResource }) => {
           // Don't collapse if clicking on another card - let the new card handle its own expansion
           return
         }
+
+        // Check if the click target is an external link (like GitHub button)
+        if (event.target.closest('a[target="_blank"]')) {
+          // Don't collapse if clicking on external links
+          return
+        }
         
         // Add small delay to prevent immediate collapse when opening new cards
         setTimeout(() => {
