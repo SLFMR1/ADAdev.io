@@ -33,9 +33,10 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     return !preloadedData || preloadedData.error
   })
   const [error, setError] = useState(null)
-  const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '' })
+  const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, value: 0, label: '', githubUrl: '' })
   const [containerWidth, setContainerWidth] = useState(0)
   const containerRef = useRef(null)
+  const tooltipTimeoutRef = useRef(null)
   
   // Use centralized period configuration - removed duplicate mapping
   
@@ -68,6 +69,10 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
         resizeObserver.disconnect()
       } else {
         window.removeEventListener('resize', updateContainerWidth)
+      }
+      // Clean up tooltip timeout
+      if (tooltipTimeoutRef.current) {
+        clearTimeout(tooltipTimeoutRef.current)
       }
     }
   }, [])
@@ -375,19 +380,69 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       const rect = e.target.getBoundingClientRect();
       const viewportX = rect.left;
       const viewportY = rect.top;
-      
+
+      // Generate GitHub URL for 7-day chart only (exclude organizations)
+      let githubUrl = '';
+      if (selectedPeriod === 'current' && resource.social?.github && value > 0) {
+        try {
+          // Clean up the GitHub URL to get owner/repo path
+          let githubPath = resource.social.github.replace('https://github.com/', '').replace(/\/$/, '');
+
+          // Handle case where URL might have .git suffix
+          if (githubPath.endsWith('.git')) {
+            githubPath = githubPath.slice(0, -4);
+          }
+
+          // Check if this is an organization (no slash in path = organization)
+          const isOrganization = !githubPath.includes('/');
+
+          // Only create GitHub URL for individual repositories, not organizations
+          if (!isOrganization) {
+            // Format dates properly - use the exact date without time
+            const dateStr = weekStartDate.toISOString().split('T')[0];
+            const nextDay = new Date(weekStartDate);
+            nextDay.setDate(weekStartDate.getDate() + 1);
+            const nextDateStr = nextDay.toISOString().split('T')[0];
+
+            githubUrl = `https://github.com/${githubPath}/commits?since=${dateStr}&until=${nextDateStr}`;
+          }
+          // For organizations, githubUrl remains empty, so no button will be shown
+        } catch (error) {
+          console.warn('Failed to generate GitHub URL:', error);
+        }
+      }
+
       setTooltip({
         show: true,
         x: viewportX,
         y: viewportY,
         value,
-        label
+        label,
+        githubUrl
       });
     } catch (error) {
       console.warn(`Error in tooltip handler for week ${weekIdx}:`, error);
     }
   }
-  const handleNodeMouseOut = () => setTooltip({ show: false, x: 0, y: 0, value: 0, label: '' })
+  const handleNodeMouseOut = () => {
+    // Add delay before hiding tooltip to allow moving to the tooltip
+    tooltipTimeoutRef.current = setTimeout(() => {
+      setTooltip({ show: false, x: 0, y: 0, value: 0, label: '', githubUrl: '' })
+    }, 100)
+  }
+
+  const handleTooltipMouseEnter = () => {
+    // Clear any pending timeout when entering tooltip
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current)
+      tooltipTimeoutRef.current = null
+    }
+  }
+
+  const handleTooltipMouseLeave = () => {
+    // Hide tooltip immediately when leaving it
+    setTooltip({ show: false, x: 0, y: 0, value: 0, label: '', githubUrl: '' })
+  }
 
 
 
@@ -814,21 +869,38 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
           {tooltip.show && (
             <Portal>
               <div
-                className="fixed z-[9999] px-4 py-3 rounded-lg bg-gray-900/95 backdrop-blur-sm text-white text-sm shadow-xl pointer-events-none max-w-xs"
-                style={{ 
-                  left: Math.min(tooltip.x + 10, window.innerWidth - 280), 
+                className="fixed z-[9999] px-4 py-3 rounded-lg bg-gray-900/95 backdrop-blur-sm text-white text-sm shadow-xl max-w-xs"
+                style={{
+                  left: Math.min(tooltip.x + 10, window.innerWidth - 280),
                   top: Math.max(tooltip.y - 60, 10),
-                  boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4)`
+                  boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4)`,
+                  pointerEvents: tooltip.githubUrl ? 'auto' : 'none'
                 }}
+                onMouseEnter={handleTooltipMouseEnter}
+                onMouseLeave={handleTooltipMouseLeave}
               >
                 {tooltip.label ? (
                   <>
                     <div className="font-semibold mb-1" style={{ color: accentColor.hex }}>
                       {tooltip.value} commits
                     </div>
-                    <div className="text-gray-300 text-xs leading-relaxed">
+                    <div className="text-gray-300 text-xs leading-relaxed mb-2">
                       {tooltip.label}
                     </div>
+                    {tooltip.githubUrl && tooltip.value > 0 && (
+                      <a
+                        href={tooltip.githubUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center space-x-1.5 bg-gray-800/80 hover:bg-gray-700/80 border border-gray-600/50 hover:border-gray-500 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 text-white hover:text-gray-200"
+                        style={{ color: accentColor.hex }}
+                      >
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 0C5.374 0 0 5.373 0 12 0 17.302 3.438 21.8 8.207 23.387c.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        <span>View on GitHub</span>
+                      </a>
+                    )}
                   </>
                 ) : (
                   <div className="text-gray-300 text-xs leading-relaxed">
@@ -940,10 +1012,15 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                   x: rect.right,
                   y: rect.top,
                   value: 'Historical maximum may include the current incomplete week',
-                  label: ''
+                  label: '',
+                  githubUrl: ''
                 });
               }}
-              onMouseLeave={() => setTooltip({ show: false, x: 0, y: 0, value: 0, label: '' })}
+              onMouseLeave={() => {
+                tooltipTimeoutRef.current = setTimeout(() => {
+                  setTooltip({ show: false, x: 0, y: 0, value: 0, label: '', githubUrl: '' })
+                }, 100)
+              }}
             >
               {(() => {
                 const isLongerPeriod = selectedPeriod !== 'current';
