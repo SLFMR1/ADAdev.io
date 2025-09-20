@@ -22,7 +22,7 @@ const GITHUB_GRAPHQL_ENDPOINT = 'https://api.github.com/graphql'
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 
 // Organizations that require smaller batch sizes due to complexity/size
-const KNOWN_LARGE_ORGS = ['cardano-foundation']
+const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost']
 
 // Initialize GraphQL client with timeout
 const graphqlClient = new GraphQLClient(GITHUB_GRAPHQL_ENDPOINT, {
@@ -340,7 +340,7 @@ const fetchOrgDataGraphQL = async (orgLogin, since = null, maxRepos = 1000) => {
       let maxPageSize = 100 // GitHub GraphQL max
 
       if (KNOWN_LARGE_ORGS.includes(orgLogin)) {
-        maxPageSize = 20 // Small batches for known problematic orgs
+        maxPageSize = 5 // Ultra-small batches for known problematic orgs
       } else if (orgMetadata?.isVeryLargeOrg) {
         maxPageSize = 25 // Smaller batches for very large orgs
       } else if (orgMetadata?.isLargeOrg) {
