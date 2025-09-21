@@ -163,6 +163,7 @@ const findResourceInBulkCache = (chartData, targetResource) => {
 let requestCount = 0
 let lastRequestTime = 0
 let consecutiveFailures = 0
+let lastSuccessTime = Date.now() // Track last successful API call for backoff reset
 
 // Background refresh control to prevent blocking user requests
 let backgroundRefreshInProgress = false
@@ -173,6 +174,13 @@ const rateLimitedFetch = async (url, options = {}) => {
   
   // Exponential backoff delay based on consecutive failures
   const backoffDelay = Math.min(1000 * Math.pow(2, consecutiveFailures), 30000) // Max 30 seconds
+
+  // MEMORY LEAK FIX: Reset excessive backoff to prevent infinite accumulation
+  if (consecutiveFailures > 8 || (Date.now() - lastSuccessTime) > 300000) { // 8 failures OR 5min
+    console.log(`🔄 Resetting backoff: failures=${consecutiveFailures}, lastSuccess=${Date.now() - lastSuccessTime}ms ago`)
+    consecutiveFailures = Math.min(3, consecutiveFailures) // Soft reset to 3, not 0
+  }
+
   const minInterval = Math.max(REQUEST_INTERVAL, backoffDelay)
   
   if (timeSinceLastRequest < minInterval) {
@@ -238,6 +246,7 @@ const rateLimitedFetch = async (url, options = {}) => {
     
     // Track successful request and rate limit info
     consecutiveFailures = 0
+    lastSuccessTime = Date.now() // Update last success time for backoff reset
     API_STATS.successfulRequests++
     
     const remaining = response.headers.get('x-ratelimit-remaining')
@@ -3859,9 +3868,16 @@ const ensureHistoricalDataCompleteness = async () => {
           // Check if we're currently rate limited before attempting fetch
           if (isRateLimited && rateLimitResetTime && Date.now() < rateLimitResetTime.getTime()) {
             const waitTimeMs = rateLimitResetTime.getTime() - Date.now()
+
+            // MEMORY LEAK FIX: Validate timeout before creating promise
+            if (isNaN(waitTimeMs) || waitTimeMs <= 0 || waitTimeMs > 3600000) { // Max 1 hour
+              console.log(`⚠️ Invalid rate limit wait (${waitTimeMs}ms) for ${resource?.name || 'unknown'}, skipping`)
+              continue
+            }
+
             console.log(`⏳ Rate limited - waiting ${Math.ceil(waitTimeMs / 60000)} minutes until ${rateLimitResetTime.toLocaleString()}`)
             console.log(`🔄 Will resume processing ${resourcesNeedingData.length - processedCount + 1} remaining resources after rate limit resets`)
-            
+
             // Wait for rate limit to reset
             await new Promise(resolve => setTimeout(resolve, waitTimeMs))
             
