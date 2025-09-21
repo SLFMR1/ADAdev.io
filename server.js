@@ -491,9 +491,15 @@ const fetchRepoCommits = async (repoPath, since = null) => {
         await new Promise(resolve => setTimeout(resolve, 50))
       }
       
-      // Removed 500-page limit to ensure full history. Add a much larger safety break for bugs.
-      if (page > 2000) { // Safety break for truly massive repos (> 200k commits)
-        logger.error(`[CRITICAL] Reached maximum page limit (2000) for ${repoPath}, stopping pagination to prevent server overload.`)
+      // Safety break for truly massive repos to prevent server overload
+      if (page > 500) { // Reasonable safety limit (500 pages × 100 commits = 50k max commits)
+        logger.info(`Reached maximum page limit (500) for ${repoPath}, stopping to prevent server overload.`)
+        break
+      }
+
+      // Additional safety break based on commit count
+      if (allCommits.length > 50000) {
+        logger.info(`Reached commit limit (50,000) for ${repoPath}, stopping for performance.`)
         break
       }
     }
@@ -3070,7 +3076,7 @@ function aggregateCommitsToWeeklyData(commits) {
 }
 
 /**
- * Maintain rolling cache of latest commits for a resource (30 max)
+ * Maintain rolling cache of recent commits for a resource (7 days max)
  */
 async function maintainCommitsCache(resourceId, commits) {
   logger.debug(`🔄 maintainCommitsCache called for ${resourceId} with ${commits?.length || 0} commits`)
@@ -3214,28 +3220,20 @@ async function maintainCommitsCache(resourceId, commits) {
 
     console.log(`✅ ${resourceId}: Successfully cached ${commitRecords.length} commits to database. Upserted: ${totalUpserted} records, Deduplicated: ${totalDuplicates} duplicates`)
     
-    // Manually maintain rolling cache (keep only latest 30)
-    const { error: cleanupError } = await supabase.rpc('cleanup_commits_cache', {
-      p_resource_id: resourceId,
-      p_limit: 30
-    })
-    
+    // Maintain 7-day rolling cache to match frontend usage patterns
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+    // Delete commits older than 7 days for this resource
+    const { error: cleanupError } = await supabase
+      .from('github_commits_cache')
+      .delete()
+      .eq('resource_id', resourceId)
+      .lt('commit_date', sevenDaysAgo)
+
     if (cleanupError) {
-      // If RPC doesn't exist, do manual cleanup
-      const { data: excessCommits, error: selectError } = await supabase
-        .from('github_commits_cache')
-        .select('id')
-        .eq('resource_id', resourceId)
-        .order('commit_date', { ascending: false })
-        .range(30, 1000) // Get everything beyond the 30 latest
-      
-      if (!selectError && excessCommits && excessCommits.length > 0) {
-        const idsToDelete = excessCommits.map(c => c.id)
-        await supabase
-          .from('github_commits_cache')
-          .delete()
-          .in('id', idsToDelete)
-      }
+      logger.warn(`⚠️ ${resourceId}: Failed to cleanup old commits from cache: ${cleanupError.message}`)
+    } else {
+      logger.debug(`🧹 ${resourceId}: Cleaned up commits older than 7 days (${sevenDaysAgo})`)
     }
     
     logger.debug(`✅ Updated commits cache for ${resourceId}: ${commitRecords.length} new commits`)
