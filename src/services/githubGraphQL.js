@@ -24,6 +24,11 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 // Organizations that require smaller batch sizes due to complexity/size
 const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost']
 
+// Repositories to exclude due to excessive size/memory usage
+const EXCLUDED_REPOS = [
+  'cardano-foundation/cardano-token-registry'  // Massive repo causing memory issues
+]
+
 // Initialize GraphQL client with timeout
 const graphqlClient = new GraphQLClient(GITHUB_GRAPHQL_ENDPOINT, {
   headers: {
@@ -920,6 +925,13 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
       // Process each repo immediately to avoid memory buildup
       for (const repository of repositories) {
         try {
+          // MEMORY LEAK FIX: Skip excluded repositories that cause memory issues
+          if (EXCLUDED_REPOS.includes(repository.nameWithOwner)) {
+            logger.warn(`⚠️ Skipping excluded repo: ${repository.nameWithOwner} (known memory issue)`)
+            processedRepos++
+            continue
+          }
+
           // Extract commits from this repository
           const repoCommits = []
 
@@ -997,5 +1009,7 @@ module.exports = {
   transformRepoDataToRestFormat,
   injectGraphQLTracking,
   ORG_ACTIVITY_QUERY,
-  REPO_ACTIVITY_QUERY
+  REPO_ACTIVITY_QUERY,
+  KNOWN_LARGE_ORGS,
+  EXCLUDED_REPOS
 }

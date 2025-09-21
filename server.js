@@ -1149,7 +1149,14 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
         console.warn(`⚠️ No organization name found for ${resource.name}`);
         commits = [];
       } else {
-        commits = await fetchOrgDataWithGraphQL(orgName, since);
+        // MEMORY LEAK FIX: Use chunked processing for known large orgs
+        const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost'];
+        if (KNOWN_LARGE_ORGS.includes(orgName)) {
+          console.log(`🎯 ${orgName}: Using memory-safe chunked processing (getResourceData)`);
+          commits = await fetchLargeOrgDataChunked(orgName, since, resource, processCommitsToWeekly, supabaseService);
+        } else {
+          commits = await fetchOrgDataWithGraphQL(orgName, since);
+        }
       }
     } else if (resource.type === 'repository' || resource.social?.github) {
       // For repositories or unknown resources with GitHub URLs
@@ -3403,7 +3410,15 @@ async function populateUpdatesCache(priority = 'all') {
               
               if (orgName) {
                 logger.debug(`🔄 ${resource.name}: Fetching raw commits for organization ${orgName}`)
-                rawCommits = await fetchOrgDataWithGraphQL(orgName, since)
+
+                // MEMORY LEAK FIX: Use chunked processing for known large orgs
+                const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost'];
+                if (KNOWN_LARGE_ORGS.includes(orgName)) {
+                  console.log(`🎯 ${orgName}: Using memory-safe chunked processing (backgroundPreloading)`);
+                  rawCommits = await fetchLargeOrgDataChunked(orgName, since, resource, processCommitsToWeekly, supabaseService);
+                } else {
+                  rawCommits = await fetchOrgDataWithGraphQL(orgName, since)
+                }
               }
             } else if (resource.type === 'repository' || resource.social?.github) {
               // For repositories or unknown resources with GitHub URLs
