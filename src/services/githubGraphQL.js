@@ -863,9 +863,136 @@ const transformRepoDataToRestFormat = (graphqlData) => {
   return result
 }
 
+/**
+ * Process large organization data in chunks to prevent memory overflow
+ * @param {string} orgLogin - GitHub organization login/name
+ * @param {string} since - ISO date string for filtering commits
+ * @param {Object} resource - Resource object for database storage
+ * @param {Function} processCommitsToWeekly - Function to process commits to weekly format
+ * @param {Object} supabaseService - Service for database operations
+ * @returns {Promise<Array>} Summary commits data (not full data to save memory)
+ */
+const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null, processCommitsToWeekly = null, supabaseService = null) => {
+  try {
+    logger.info(`🎯 Processing large org ${orgLogin} in memory-safe chunks`)
+
+    let allCommits = []
+    let totalRepos = 0
+    let processedRepos = 0
+    let cursor = null
+    let hasNextPage = true
+
+    while (hasNextPage) {
+      // Check memory before each chunk
+      const memUsage = process.memoryUsage()
+      const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024)
+
+      if (heapUsedMB > 400) {
+        logger.warn(`⚠️ ${orgLogin}: Breaking at ${processedRepos} repos due to memory (${heapUsedMB}MB)`)
+        break
+      }
+
+      logger.debug(`📦 ${orgLogin}: Fetching chunk starting at cursor: ${cursor ? 'present' : 'null'} (heap: ${heapUsedMB}MB)`)
+
+      // Fetch small chunk (3 repos max for large orgs)
+      const variables = {
+        orgLogin,
+        since,
+        first: 3,
+        after: cursor,
+        commitCursor: null
+      }
+
+      const response = await makeTrackedGraphQLRequest(ORG_ACTIVITY_QUERY, variables, 'fetch_large_org_chunk')
+
+      if (!response.organization) {
+        throw new Error(`Organization '${orgLogin}' not found`)
+      }
+
+      const { organization, rateLimit } = response
+      const repositories = organization.repositories.nodes || []
+      totalRepos = organization.repositories.totalCount
+      hasNextPage = organization.repositories.pageInfo.hasNextPage
+      cursor = organization.repositories.pageInfo.endCursor
+
+      logger.debug(`📊 ${orgLogin}: Processing ${repositories.length} repos from chunk`)
+
+      // Process each repo immediately to avoid memory buildup
+      for (const repository of repositories) {
+        try {
+          // Extract commits from this repository
+          const repoCommits = []
+
+          // Get commits from default branch
+          if (repository.defaultBranchRef?.target?.history?.nodes) {
+            repoCommits.push(...repository.defaultBranchRef.target.history.nodes.map(commit => ({
+              ...commit,
+              repository: repository.nameWithOwner
+            })))
+          }
+
+          // Get commits from other branches
+          if (repository.refs?.nodes) {
+            for (const ref of repository.refs.nodes) {
+              if (ref.target?.history?.nodes) {
+                repoCommits.push(...ref.target.history.nodes.map(commit => ({
+                  ...commit,
+                  repository: repository.nameWithOwner,
+                  branch: ref.name
+                })))
+              }
+            }
+          }
+
+          logger.debug(`📈 ${repository.nameWithOwner}: Found ${repoCommits.length} commits`)
+
+          // Process commits to weekly format immediately
+          if (repoCommits.length > 0 && processCommitsToWeekly) {
+            const weeklyData = processCommitsToWeekly(repoCommits)
+
+            // Store immediately if resource provided
+            if (resource && weeklyData.length > 0 && supabaseService) {
+              await supabaseService.storeWeeklyActivity(resource, weeklyData)
+              logger.debug(`✅ ${repository.nameWithOwner}: Stored ${weeklyData.length} weeks to database`)
+            }
+
+            // Keep only summary for return (not full commit data)
+            allCommits.push(...repoCommits.map(commit => ({
+              sha: commit.oid,
+              commit: {
+                message: commit.message,
+                committer: { date: commit.committedDate }
+              },
+              repository: commit.repository
+            })))
+          }
+
+          processedRepos++
+
+        } catch (error) {
+          logger.error(`❌ Error processing repo ${repository.nameWithOwner}: ${error.message}`)
+        }
+      }
+
+      logger.info(`📊 ${orgLogin}: Processed ${processedRepos}/${totalRepos} repos (chunk complete)`)
+
+      // Small delay between chunks
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+
+    logger.info(`✅ ${orgLogin}: Completed chunked processing - ${processedRepos} repos, ${allCommits.length} commits`)
+    return allCommits
+
+  } catch (error) {
+    logger.error(`❌ Chunked processing failed for ${orgLogin}:`, error)
+    throw error
+  }
+}
+
 module.exports = {
   fetchOrgDataGraphQL,
   fetchRepoDataGraphQL,
+  fetchLargeOrgDataChunked,
   transformOrgDataToRestFormat,
   transformRepoDataToRestFormat,
   injectGraphQLTracking,

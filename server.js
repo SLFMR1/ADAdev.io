@@ -41,10 +41,11 @@ const { createClient } = require('@supabase/supabase-js')
 const { getISOWeekNumber, getWeekStart, getCurrentWeekStart, isCurrentWeek } = require('./utils/weekCalculation.js')
 const supabaseService = require('./src/services/supabase.js')
 const { getDailyStorageStats } = require('./src/services/supabase.js')
-const { 
-  fetchOrgDataGraphQL, 
-  fetchRepoDataGraphQL, 
-  transformOrgDataToRestFormat, 
+const {
+  fetchOrgDataGraphQL,
+  fetchRepoDataGraphQL,
+  fetchLargeOrgDataChunked,
+  transformOrgDataToRestFormat,
   transformRepoDataToRestFormat,
   injectGraphQLTracking
 } = require('./src/services/githubGraphQL.js')
@@ -3892,7 +3893,20 @@ const ensureHistoricalDataCompleteness = async () => {
           let commits = []
           if (resource.type === 'organization') {
             const orgName = resource.social.github.replace('https://github.com/', '');
-            commits = await fetchOrgDataWithGraphQL(orgName, since);
+
+            // MEMORY LEAK FIX: Use chunked processing for known large orgs
+            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost'];
+            if (KNOWN_LARGE_ORGS.includes(orgName)) {
+              console.log(`🎯 ${orgName}: Using memory-safe chunked processing`);
+              commits = await fetchLargeOrgDataChunked(orgName, since, resource, processCommitsToWeekly, supabaseService);
+
+              // Skip normal processing since chunked function already stored data
+              console.log(`✅ ${orgName}: Chunked processing completed - data already stored in database`);
+              successCount++;
+              continue;
+            } else {
+              commits = await fetchOrgDataWithGraphQL(orgName, since);
+            }
           } else {
             const repoPath = resource.social.github.replace('https://github.com/', '')
             commits = await fetchRepoDataWithGraphQL(repoPath, since)
