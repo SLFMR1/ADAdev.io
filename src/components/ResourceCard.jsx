@@ -841,7 +841,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
                       {/* Accent Color Picker Dot */}
                       <button
                         onClick={handleAccentColorChange}
-                        className="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-gray-800/30"
+                        className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200"
                         title={`Current accent color: ${currentAccentColor.name}`}
                       >
                         <div 
