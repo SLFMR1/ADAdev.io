@@ -882,6 +882,7 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
     logger.info(`🎯 Processing large org ${orgLogin} in memory-safe chunks`)
 
     let allCommits = []
+    let allDailyCommitData = [] // Track all commits for org-level daily aggregation
     let totalRepos = 0
     let processedRepos = 0
     let cursor = null
@@ -969,31 +970,14 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
             }
           }
 
-          // Process commits to daily format immediately (for KNOWN_LARGE_ORGS)
+          // Collect commit dates for org-level daily aggregation (for KNOWN_LARGE_ORGS)
           if (repoCommits.length > 0 && resource && supabaseService) {
-            const dailyCommitData = repoCommits.map(commit => ({
+            const repoDaily = repoCommits.map(commit => ({
               date: commit.committedDate ? commit.committedDate.split('T')[0] : new Date().toISOString().split('T')[0],
               count: 1
             }))
-
-            // Aggregate by date
-            const dailyData = dailyCommitData.reduce((acc, d) => {
-              const date = d.date
-              const existing = acc.find(item => item.date === date)
-              if (existing) {
-                existing.count += 1
-              } else {
-                acc.push({ date, count: 1 })
-              }
-              return acc
-            }, [])
-
-            if (dailyData.length > 0) {
-              const repoPath = repository.nameWithOwner
-              const resourceId = repoPath
-              await supabaseService.storeDailyActivity(resourceId, repoPath, dailyData, resource)
-              logger.debug(`✅ ${repository.nameWithOwner}: Stored ${dailyData.length} daily records to database`)
-            }
+            allDailyCommitData.push(...repoDaily)
+            logger.debug(`📅 ${repository.nameWithOwner}: Added ${repoDaily.length} commits to org-level daily data`)
           }
 
           if (repoCommits.length > 0 && processCommitsToWeekly) {
@@ -1019,6 +1003,28 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
 
       // Small delay between chunks
       await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+
+    // Store organization-level daily data after processing all repositories
+    if (allDailyCommitData.length > 0 && resource && supabaseService) {
+      // Aggregate all commits by date at organization level
+      const orgDailyData = allDailyCommitData.reduce((acc, d) => {
+        const date = d.date
+        const existing = acc.find(item => item.date === date)
+        if (existing) {
+          existing.count += 1
+        } else {
+          acc.push({ date, count: 1 })
+        }
+        return acc
+      }, [])
+
+      if (orgDailyData.length > 0) {
+        const resourceId = orgLogin // Use org name as resource ID
+        const repoPath = orgLogin   // Use org name as repo path
+        await supabaseService.storeDailyActivity(resourceId, repoPath, orgDailyData, resource)
+        logger.info(`✅ ${orgLogin}: Stored ${orgDailyData.length} org-level daily records from ${allDailyCommitData.length} total commits`)
+      }
     }
 
     logger.info(`✅ ${orgLogin}: Completed chunked processing - ${processedRepos} repos, ${allCommits.length} commits`)
