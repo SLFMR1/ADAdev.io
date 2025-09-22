@@ -3458,28 +3458,37 @@ async function populateUpdatesCache(priority = 'all') {
             }
 
             // Also store daily data for 7-day view fallbacks (rolling 10-day cache)
-            try {
-              if (rawCommits && rawCommits.length > 0) {
-                const dailyCommitData = rawCommits.map(commit => ({
-                  date: commit.commit?.author?.date || commit.authored_date || commit.committed_date
-                })).filter(c => c.date)
+            // Skip for KNOWN_LARGE_ORGS as they handle daily data internally
+            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost'];
+            const orgName = resource.social?.github?.replace('https://github.com/', '');
+            const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
 
-                const dailyAggregates = processCommitsToDaily(dailyCommitData)
-                const dailyData = dailyAggregates.map(d => ({
-                  date: d.weekStart, // Fix field name mismatch
-                  count: d.count
-                }))
+            if (!isKnownLargeOrg) {
+              try {
+                if (rawCommits && rawCommits.length > 0) {
+                  const dailyCommitData = rawCommits.map(commit => ({
+                    date: commit.commit?.author?.date || commit.authored_date || commit.committed_date
+                  })).filter(c => c.date)
 
-                if (dailyData.length > 0) {
-                  const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
-                  const resourceId = repoPath
+                  const dailyAggregates = processCommitsToDaily(dailyCommitData)
+                  const dailyData = dailyAggregates.map(d => ({
+                    date: d.weekStart, // Fix field name mismatch
+                    count: d.count
+                  }))
 
-                  console.log(`📅 ${resource.name}: Storing ${dailyData.length} daily records (10-day rolling cache)`)
-                  await supabaseService.storeDailyActivity(resourceId, repoPath, dailyData, resource)
+                  if (dailyData.length > 0) {
+                    const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
+                    const resourceId = repoPath
+
+                    console.log(`📅 ${resource.name}: Storing ${dailyData.length} daily records (10-day rolling cache)`)
+                    await supabaseService.storeDailyActivity(resourceId, repoPath, dailyData, resource)
+                  }
                 }
+              } catch (error) {
+                console.warn(`⚠️ ${resource.name}: Daily storage failed (non-critical):`, error.message)
               }
-            } catch (error) {
-              console.warn(`⚠️ ${resource.name}: Daily storage failed (non-critical):`, error.message)
+            } else {
+              console.log(`📅 ${resource.name}: Skipping daily processing (handled internally by chunked function)`)
             }
           } else {
             logger.debug(`ℹ️ ${resource.name}: No recent commits found - rawCommits is ${rawCommits ? 'empty array' : 'null/undefined'}`)
@@ -3579,28 +3588,37 @@ async function populateUpdatesCache(priority = 'all') {
             }
 
             // Also store daily data for 7-day view fallbacks (rolling 10-day cache)
-            try {
-              if (rawCommits && rawCommits.length > 0) {
-                const dailyCommitData = rawCommits.map(commit => ({
-                  date: commit.commit?.author?.date || commit.authored_date || commit.committed_date
-                })).filter(c => c.date)
+            // Skip for KNOWN_LARGE_ORGS as they handle daily data internally
+            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost'];
+            const orgName = resource.social?.github?.replace('https://github.com/', '');
+            const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
 
-                const dailyAggregates = processCommitsToDaily(dailyCommitData)
-                const dailyData = dailyAggregates.map(d => ({
-                  date: d.weekStart, // Fix field name mismatch
-                  count: d.count
-                }))
+            if (!isKnownLargeOrg) {
+              try {
+                if (rawCommits && rawCommits.length > 0) {
+                  const dailyCommitData = rawCommits.map(commit => ({
+                    date: commit.commit?.author?.date || commit.authored_date || commit.committed_date
+                  })).filter(c => c.date)
 
-                if (dailyData.length > 0) {
-                  const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
-                  const resourceId = repoPath
+                  const dailyAggregates = processCommitsToDaily(dailyCommitData)
+                  const dailyData = dailyAggregates.map(d => ({
+                    date: d.weekStart, // Fix field name mismatch
+                    count: d.count
+                  }))
 
-                  console.log(`📅 ${resource.name}: Storing ${dailyData.length} daily records (10-day rolling cache)`)
-                  await supabaseService.storeDailyActivity(resourceId, repoPath, dailyData, resource)
+                  if (dailyData.length > 0) {
+                    const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
+                    const resourceId = repoPath
+
+                    console.log(`📅 ${resource.name}: Storing ${dailyData.length} daily records (10-day rolling cache)`)
+                    await supabaseService.storeDailyActivity(resourceId, repoPath, dailyData, resource)
+                  }
                 }
+              } catch (error) {
+                console.warn(`⚠️ ${resource.name}: Daily storage failed (non-critical):`, error.message)
               }
-            } catch (error) {
-              console.warn(`⚠️ ${resource.name}: Daily storage failed (non-critical):`, error.message)
+            } else {
+              console.log(`📅 ${resource.name}: Skipping daily processing (handled internally by chunked function)`)
             }
           } else {
             logger.debug(`ℹ️ ${resource.name}: No recent commits found - rawCommits is ${rawCommits ? 'empty array' : 'null/undefined'}`)
