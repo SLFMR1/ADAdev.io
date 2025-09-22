@@ -2348,7 +2348,7 @@ app.get('/api/development-activity', async (req, res) => {
               
               if (periodKey === 'current') {
                 // For 7-day period, use getRecentActivity with daily processing
-                const recentData = await getRecentActivity(resource, true);
+                const recentData = await getRecentActivity(resource, true, 'current');
                 activityData = recentData.weeklyData;
               } else {
                 // For other periods, use getHistoricalActivity

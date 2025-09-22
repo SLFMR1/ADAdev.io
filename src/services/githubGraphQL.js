@@ -986,8 +986,9 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
               sha: commit.oid,
               commit: {
                 message: commit.message,
-                committer: { date: commit.committedDate }
+                author: { date: commit.committedDate }
               },
+              date: commit.committedDate,
               repository: commit.repository
             })))
           }
