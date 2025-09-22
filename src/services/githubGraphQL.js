@@ -1007,25 +1007,36 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
     }
 
     // Store organization-level daily data after processing all repositories (last 7 days only)
-    if (allDailyCommitData.length > 0 && resource && supabaseService) {
-      // Filter to last 7 days
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-      const cutoffDate = sevenDaysAgo.toISOString().split('T')[0]
+    if (resource && supabaseService) {
+      // Initialize all 7 days with zero counts (same logic as processCommitsToDaily)
+      const nowUTC = new Date()
+      const orgDailyData = []
+      for (let i = 6; i >= 0; i--) {
+        const utcDate = new Date(Date.UTC(
+          nowUTC.getUTCFullYear(),
+          nowUTC.getUTCMonth(),
+          nowUTC.getUTCDate() - i
+        ))
+        const dateKey = utcDate.toISOString().slice(0, 10)
+        orgDailyData.push({ date: dateKey, count: 0 })
+      }
 
-      const recentCommitData = allDailyCommitData.filter(d => d.date >= cutoffDate)
+      // Add actual commit counts to the initialized days
+      if (allDailyCommitData.length > 0) {
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+        const cutoffDate = sevenDaysAgo.toISOString().split('T')[0]
 
-      // Aggregate recent commits by date at organization level
-      const orgDailyData = recentCommitData.reduce((acc, d) => {
-        const date = d.date
-        const existing = acc.find(item => item.date === date)
-        if (existing) {
-          existing.count += 1
-        } else {
-          acc.push({ date, count: 1 })
-        }
-        return acc
-      }, [])
+        const recentCommitData = allDailyCommitData.filter(d => d.date >= cutoffDate)
+
+        // Count commits for each day
+        recentCommitData.forEach(d => {
+          const existing = orgDailyData.find(item => item.date === d.date)
+          if (existing) {
+            existing.count += 1
+          }
+        })
+      }
 
       if (orgDailyData.length > 0) {
         const resourceId = orgLogin // Use org name as resource ID
