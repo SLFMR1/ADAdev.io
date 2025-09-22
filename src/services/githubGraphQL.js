@@ -1005,10 +1005,17 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
 
-    // Store organization-level daily data after processing all repositories
+    // Store organization-level daily data after processing all repositories (last 10 days only)
     if (allDailyCommitData.length > 0 && resource && supabaseService) {
-      // Aggregate all commits by date at organization level
-      const orgDailyData = allDailyCommitData.reduce((acc, d) => {
+      // Filter to last 10 days
+      const tenDaysAgo = new Date()
+      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10)
+      const cutoffDate = tenDaysAgo.toISOString().split('T')[0]
+
+      const recentCommitData = allDailyCommitData.filter(d => d.date >= cutoffDate)
+
+      // Aggregate recent commits by date at organization level
+      const orgDailyData = recentCommitData.reduce((acc, d) => {
         const date = d.date
         const existing = acc.find(item => item.date === date)
         if (existing) {
@@ -1023,7 +1030,7 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
         const resourceId = orgLogin // Use org name as resource ID
         const repoPath = orgLogin   // Use org name as repo path
         await supabaseService.storeDailyActivity(resourceId, repoPath, orgDailyData, resource)
-        logger.info(`✅ ${orgLogin}: Stored ${orgDailyData.length} org-level daily records from ${allDailyCommitData.length} total commits`)
+        logger.info(`✅ ${orgLogin}: Stored ${orgDailyData.length} org-level daily records (last 10 days) from ${recentCommitData.length} recent commits`)
       }
     }
 
