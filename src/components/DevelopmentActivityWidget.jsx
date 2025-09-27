@@ -7,14 +7,15 @@ import AggregatedActivityChart from './AggregatedActivityChart';
 import Portal from './Portal';
 import PeriodDropdown from './PeriodDropdown';
 import brandingLogo from '/adadev_io.svg';
-import { 
-  svgToPngBlob, 
-  createIsolatedScreenshot, 
-  mergeImagesWithGap, 
-  shareToX, 
-  generateTweetText, 
-  getTop5HandlesOrNames 
+import {
+  svgToPngBlob,
+  createIsolatedScreenshot,
+  mergeImagesWithGap,
+  shareToX,
+  generateTweetText,
+  getTop5HandlesOrNames
 } from '../utils/screenshotUtils';
+import { shouldShowShareButton, getShareUnavailableReason } from '../utils/deviceUtils';
 import { getWeekStart, getCurrentWeekStart } from '../utils/weekCalculation';
 import { 
   PERIOD_OPTIONS,
@@ -599,6 +600,7 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   // Share functionality
   const [shareMessage, setShareMessage] = useState('');
   const [shareMessageType, setShareMessageType] = useState('success');
+  const [showUnavailableMessage, setShowUnavailableMessage] = useState(false);
 
   const showShareSuccess = (message) => {
     setShareMessage(message);
@@ -1073,25 +1075,26 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
               {/* Mobile action buttons */}
               <div className="flex items-center gap-3">
                 {/* Mobile Share Button - Icon Only */}
-                <div className="relative">
-                  <button
-                    className={`share-button text-white hover:text-gray-300 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-gray-800/50 ${
-                      isSharing ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    onClick={() => {
-                      if (!isSharing) {
-                        setShareMenuOpen(v => !v);
-                      }
-                    }}
-                    title="Share Development Activity"
-                    disabled={isSharing}
-                  >
-                    {isSharing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Share2 className="w-4 h-4" />
-                    )}
-                  </button>
+                {shouldShowShareButton() ? (
+                  <div className="relative">
+                    <button
+                      className={`share-button text-white hover:text-gray-300 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-gray-800/50 ${
+                        isSharing ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      onClick={() => {
+                        if (!isSharing) {
+                          setShareMenuOpen(v => !v);
+                        }
+                      }}
+                      title="Share Development Activity"
+                      disabled={isSharing}
+                    >
+                      {isSharing ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Share2 className="w-4 h-4" />
+                      )}
+                    </button>
                   {shareMenuOpen && !screenshotMode && (
                     <div className="share-menu-container absolute right-0 top-full mt-1 w-48 bg-gray-800/40 backdrop-blur-sm border border-gray-600/50 rounded-lg shadow-lg z-50">
                       <div className="px-3 py-2 border-b border-gray-700">
@@ -1135,7 +1138,26 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                       </div>
                     </div>
                   )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <button
+                      className="share-button text-gray-600 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 opacity-50 cursor-not-allowed"
+                      title={getShareUnavailableReason()}
+                      onClick={() => {
+                        setShowUnavailableMessage(true);
+                        setTimeout(() => setShowUnavailableMessage(false), 3000);
+                      }}
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                    {showUnavailableMessage && (
+                      <div className="absolute right-0 top-full mt-1 w-64 bg-gray-800/90 backdrop-blur-sm border border-gray-600/50 rounded-lg shadow-lg z-50 p-3">
+                        <div className="text-xs text-gray-300">{getShareUnavailableReason()}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 {/* Mobile Color Picker - Dot Only */}
                 <button
@@ -1245,25 +1267,26 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                           />
                           
                           {/* Desktop action buttons - directly next to dropdowns */}
-                          <div className="relative"> 
-                            <button
-                              className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10 ${
-                                isSharing ? 'opacity-50 cursor-not-allowed' : ''
-                              }`}
-                              onClick={() => {
-                                if (!isSharing) {
-                                  setShareMenuOpen(v => !v);
-                                }
-                              }}
-                              title="Share Development Activity"
-                              disabled={isSharing}
-                            >
-                              {isSharing ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Share2 className="w-4 h-4" />
-                              )}
-                            </button>
+                          {shouldShowShareButton() ? (
+                            <div className="relative">
+                              <button
+                                className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 py-1.5 transition-all duration-200 text-sm touch-target hover:border-gray-500 hover:bg-white/10 ${
+                                  isSharing ? 'opacity-50 cursor-not-allowed' : ''
+                                }`}
+                                onClick={() => {
+                                  if (!isSharing) {
+                                    setShareMenuOpen(v => !v);
+                                  }
+                                }}
+                                title="Share Development Activity"
+                                disabled={isSharing}
+                              >
+                                {isSharing ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Share2 className="w-4 h-4" />
+                                )}
+                              </button>
                             {shareMenuOpen && !screenshotMode && (
                               <div className="share-menu-container absolute left-0 top-full mt-1 w-64 bg-gray-800/40 backdrop-blur-sm border border-gray-600/50 rounded-lg shadow-lg z-50">
                                 <div className="px-3 py-2 border-b border-gray-700">
@@ -1307,7 +1330,26 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 </div>
                               </div>
                             )}
-                          </div>
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <button
+                                className="text-gray-600 bg-gray-800/20 border border-gray-600/30 rounded-md px-3 py-1.5 transition-all duration-200 text-sm opacity-50 cursor-not-allowed"
+                                title={getShareUnavailableReason()}
+                                onClick={() => {
+                                  setShowUnavailableMessage(true);
+                                  setTimeout(() => setShowUnavailableMessage(false), 3000);
+                                }}
+                              >
+                                <Share2 className="w-4 h-4" />
+                              </button>
+                              {showUnavailableMessage && (
+                                <div className="absolute left-0 top-full mt-1 w-64 bg-gray-800/90 backdrop-blur-sm border border-gray-600/50 rounded-lg shadow-lg z-50 p-3">
+                                  <div className="text-xs text-gray-300">{getShareUnavailableReason()}</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                           
                           {/* Desktop Accent Color Picker Dot */}
                           <div className="relative">

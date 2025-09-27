@@ -233,7 +233,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
   // Chart configuration - responsive to container width, force desktop size for screenshots
   const chartWidth = screenshotMode ? 920 : (containerWidth || (window.innerWidth < 1024 ? 300 : 850))
   const chartHeight = screenshotMode ? 280 : Math.max(175, Math.min(400, chartWidth * 0.4)) // Responsive height based on width - reduced by 5px for label space
-  const chartPadding = screenshotMode ? 50 : (window.innerWidth < 1024 ? 15 : 25)
+  const chartPadding = screenshotMode ? 50 : (window.innerWidth < 1024 ? 25 : 25) // Increased mobile left padding for y-axis labels
   const bottomPadding = screenshotMode ? 45 : (window.innerWidth < 1024 ? 25 : 30)
   
   // Validate and sanitize weekly data with enhanced error handling
@@ -287,7 +287,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
     let effectiveRightPadding = chartPadding
     
     if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-      effectivePadding = Math.max(10, chartPadding * 0.4)
+      effectivePadding = Math.max(window.innerWidth < 1024 ? 25 : 10, chartPadding * 0.4)
       effectiveRightPadding = Math.max(8, chartPadding * 0.4)
     } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
       effectivePadding = chartPadding * 0.8
@@ -598,7 +598,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               let effectiveRightPadding = chartPadding;
               
               if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-                effectivePadding = Math.max(10, chartPadding * 0.4);
+                effectivePadding = Math.max(window.innerWidth < 1024 ? 25 : 10, chartPadding * 0.4);
                 effectiveRightPadding = Math.max(8, chartPadding * 0.4);
               } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
                 effectivePadding = chartPadding * 0.8;
@@ -635,7 +635,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               let areaRightX = chartWidth - chartPadding;
               
               if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-                areaLeftX = Math.max(10, chartPadding * 0.4);
+                areaLeftX = Math.max(window.innerWidth < 1024 ? 25 : 10, chartPadding * 0.4);
                 areaRightX = chartWidth - Math.max(8, chartPadding * 0.4);
               } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
                 areaLeftX = chartPadding * 0.8;
@@ -661,7 +661,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               let effectiveRightPadding = chartPadding
               
               if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-                effectivePadding = Math.max(10, chartPadding * 0.4)
+                effectivePadding = Math.max(window.innerWidth < 1024 ? 25 : 10, chartPadding * 0.4)
                 effectiveRightPadding = Math.max(8, chartPadding * 0.4)
               } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
                 effectivePadding = chartPadding * 0.8
@@ -719,7 +719,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               let effectiveRightPadding = chartPadding
               
               if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-                effectivePadding = Math.max(10, chartPadding * 0.4)
+                effectivePadding = Math.max(window.innerWidth < 1024 ? 25 : 10, chartPadding * 0.4)
                 effectiveRightPadding = Math.max(8, chartPadding * 0.4)
               } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
                 effectivePadding = chartPadding * 0.8
@@ -797,7 +797,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
                 let effectiveRightPadding = chartPadding;
                 
                 if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-                  effectivePadding = Math.max(10, chartPadding * 0.4);
+                  effectivePadding = Math.max(window.innerWidth < 1024 ? 25 : 10, chartPadding * 0.4);
                   effectiveRightPadding = Math.max(8, chartPadding * 0.4);
                 } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
                   effectivePadding = chartPadding * 0.8;
@@ -837,7 +837,7 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
               // Calculate effective padding for Y-axis label positioning
               let yAxisLabelPadding = chartPadding
               if (selectedPeriod === 'current' && validWeeklyData.length === 7) {
-                yAxisLabelPadding = Math.max(10, chartPadding * 0.4)
+                yAxisLabelPadding = Math.max(window.innerWidth < 1024 ? 25 : 10, chartPadding * 0.4)
               } else if (selectedPeriod === '3years' && validWeeklyData.length > 100) {
                 yAxisLabelPadding = chartPadding * 0.8
               }

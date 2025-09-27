@@ -12,6 +12,7 @@ import PeriodDropdown from './PeriodDropdown'
 import * as htmlToImage from 'html-to-image'
 import { createGlobalGradientBackground } from '../utils/logger-frontend.js'
 import { createIsolatedScreenshot, shareToX, generateTweetText } from '../utils/screenshotUtils'
+import { shouldShowShareButton, getShareUnavailableReason } from '../utils/deviceUtils'
 import { fetchGitHubUpdates } from '../services/github'
 import logger from '../utils/logger-frontend'
 import brandingLogo from '/adadev_io.svg'
@@ -111,6 +112,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
   const [selectedPeriod, setSelectedPeriod] = useState('3months')
   const [shareMessage, setShareMessage] = useState('')
   const [shareMessageType, setShareMessageType] = useState('success')
+  const [showUnavailableMessage, setShowUnavailableMessage] = useState(false)
   
   // Accent color state - defaults to Cyber Lime (index 8)
   const [accentColorIndex, setAccentColorIndex] = useState(() => {
@@ -826,18 +828,38 @@ const ResourceCard = ({ resource, onViewResource }) => {
                   />
                   {!screenshotMode && (
                     <div className="flex items-center space-x-3 mobile:space-x-2">
-                      <button
-                        onClick={handleShareActivityChart}
-                        className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 mobile:px-2 py-1.5 mobile:py-1 transition-all duration-200 text-sm mobile:text-xs touch-target hover:border-gray-500 hover:bg-white/10 ${isSharing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        title="Share Activity Chart"
-                        disabled={isSharing}
-                      >
-                        {isSharing ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Share2 className="w-4 h-4" />
-                        )}
-                      </button>
+                      {shouldShowShareButton() ? (
+                        <button
+                          onClick={handleShareActivityChart}
+                          className={`share-button text-white hover:text-gray-300 bg-gray-800/30 backdrop-blur-sm border border-gray-600/50 rounded-md px-3 mobile:px-2 py-1.5 mobile:py-1 transition-all duration-200 text-sm mobile:text-xs touch-target hover:border-gray-500 hover:bg-white/10 ${isSharing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title="Share Activity Chart"
+                          disabled={isSharing}
+                        >
+                          {isSharing ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Share2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      ) : (
+                        <div className="relative">
+                          <button
+                            className="text-gray-600 bg-gray-800/20 border border-gray-600/30 rounded-md px-3 mobile:px-2 py-1.5 mobile:py-1 transition-all duration-200 text-sm mobile:text-xs opacity-50 cursor-not-allowed"
+                            title={getShareUnavailableReason()}
+                            onClick={() => {
+                              setShowUnavailableMessage(true);
+                              setTimeout(() => setShowUnavailableMessage(false), 3000);
+                            }}
+                          >
+                            <Share2 className="w-4 h-4" />
+                          </button>
+                          {showUnavailableMessage && (
+                            <div className="absolute right-0 top-full mt-1 w-64 bg-gray-800/90 backdrop-blur-sm border border-gray-600/50 rounded-lg shadow-lg z-50 p-3">
+                              <div className="text-xs text-gray-300">{getShareUnavailableReason()}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {/* Accent Color Picker Dot */}
                       <button
                         onClick={handleAccentColorChange}

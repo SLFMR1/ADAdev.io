@@ -307,7 +307,7 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
             >
               <span className="text-xl sm:text-2xl font-bold leading-none">×</span>
             </button>
-            <div className="w-full h-full p-4 sm:p-8 overflow-auto" style={{ maxHeight: '95vh', minHeight: '500px' }}>
+            <div className="w-full h-full pt-12 pb-4 px-4 sm:p-8 overflow-auto" style={{ maxHeight: '95vh', minHeight: '500px' }}>
               {/* Main Heading */}
               <div className="mb-4 sm:mb-6 flex items-center justify-between">
                 <div className="flex items-center space-x-2 sm:space-x-3">
