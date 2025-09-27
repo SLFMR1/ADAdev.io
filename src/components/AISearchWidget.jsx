@@ -298,7 +298,11 @@ const AISearchWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, anima
       ) : (
         /* Expanded Centered Widget */
         <Portal>
-          <div className="fixed z-[9999] flex items-center justify-center left-1/2 top-1/2 w-[95vw] sm:w-[90vw] max-w-[1200px] max-h-[95vh] sm:max-h-[90vh] min-w-[320px] sm:min-w-[900px] min-h-[500px] sm:min-h-[600px] border-radius-[32px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden p-0 widget-crossfade-enter-active" style={{ borderRadius: '32px' }}
+          <div className="fixed z-[9999] flex items-center justify-center left-1/2 w-[95vw] sm:w-[90vw] max-w-[1200px] max-h-[95vh] sm:max-h-[90vh] min-w-[320px] sm:min-w-[900px] min-h-[500px] sm:min-h-[600px] border-radius-[32px] bg-card-bg/40 border border-gray-800 rounded-xl shadow-lg overflow-hidden p-0 widget-crossfade-enter-active"
+            style={{
+              borderRadius: '32px',
+              top: (activeTab === 'plan' || activeTab === 'results') ? 'calc(50% + 15px)' : '50%'
+            }}
             data-widget="ai-search">
             <button
               className="absolute top-3 right-3 sm:top-6 sm:right-6 z-50 text-gray-400 hover:text-white transition-all duration-200 p-2 touch-target"
