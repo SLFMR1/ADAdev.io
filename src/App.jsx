@@ -625,9 +625,16 @@ function App() {
       filtered = filtered.filter((resource) => resource.category === selectedCategory);
     }
     
-    // Type filter (organization/repository/misc)
+    // Type filter (organization/repository/misc/founding_entity)
     if (filterBy !== 'all') {
-      filtered = filtered.filter((resource) => resource.type === filterBy);
+      if (filterBy === 'founding_entity') {
+        filtered = filtered.filter((resource) => resource.founding_entity === true);
+      } else {
+        filtered = filtered.filter((resource) => resource.type === filterBy && !resource.founding_entity);
+      }
+    } else {
+      // When showing all types, exclude founding entities unless specifically filtered for
+      filtered = filtered.filter((resource) => !resource.founding_entity);
     }
     
     // Search term filter

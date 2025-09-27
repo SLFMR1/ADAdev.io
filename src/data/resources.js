@@ -804,12 +804,67 @@ export const cardanoResources = {
       },
       category: "Education & Documentation",
       type: "organization",
+      founding_entity: true,
       organization: "cardano-foundation",
       repository: null,
       repo_path: "cardano-foundation"
     },
     {
       id: 67,
+      name: "Input Output Global (IOG)",
+      logo: "https://pbs.twimg.com/profile_images/1688730191043153920/amcNzVcf_400x400.jpg",
+      description: "Input Output Global is a leading blockchain research and development company, and the founding entity behind Cardano.",
+      fullDescription: "Input Output Global (IOG), formerly known as IOHK (Input Output Hong Kong), is a technology company focused on peer-to-peer innovations to provide more inclusive, fair and transparent financial services for all. IOG was founded in 2015 by Charles Hoskinson and Jeremy Wood, and is the technology company behind Cardano.",
+      keySolutions: [
+        "Blockchain research",
+        "Cardano development",
+        "Smart contracts",
+        "Academic research",
+        "Open source",
+        "Peer review"
+      ],
+      website: "https://iohk.io/",
+      social: {
+        github: "https://github.com/input-output-hk",
+        x: "https://x.com/inputoutputHK",
+        youtube: "https://www.youtube.com/c/IohkIo"
+      },
+      category: "Education & Documentation",
+      type: "organization",
+      founding_entity: true,
+      organization: "input-output-hk",
+      repository: null,
+      repo_path: "input-output-hk"
+    },
+    {
+      id: 68,
+      name: "EMURGO",
+      logo: "https://emurgo.io/assets/images/emurgo-logo.svg",
+      description: "EMURGO is the official commercial and ventures arm of Cardano, providing enterprise blockchain solutions.",
+      fullDescription: "EMURGO is a global blockchain technology company providing solutions for developers, startups, enterprises, and governments. As a founding entity of Cardano, EMURGO develops, supports, and incubates commercial opportunities and helps integrate businesses into the Cardano ecosystem.",
+      keySolutions: [
+        "Enterprise solutions",
+        "Venture capital",
+        "Business development",
+        "Commercial adoption",
+        "Ecosystem growth",
+        "Strategic partnerships"
+      ],
+      website: "https://www.emurgo.io/",
+      social: {
+        github: "https://github.com/Emurgo",
+        x: "https://x.com/emurgo_io",
+        youtube: "https://www.youtube.com/channel/UCgFQ0hHuPO1QDcyP6t9KZTQ"
+      },
+      category: "Education & Documentation",
+      type: "organization",
+      founding_entity: true,
+      organization: "Emurgo",
+      repository: null,
+      repo_path: "Emurgo"
+    },
+    {
+      id: 69,
       name: "Cardano Docs",
       logo: "https://docs.cardano.org/assets/cardano-logo.svg",
       description: "Dive into Cardano's fundamentals, from beginner explainers to in-depth coverage of core concepts, architecture and networking, and the platform's evolution.",

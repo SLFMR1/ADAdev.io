@@ -70,7 +70,8 @@ const SearchBar = ({
               { key: 'all', label: 'All Types' },
               { key: 'organization', label: 'Organization' },
               { key: 'repository', label: 'Repository' },
-              { key: 'misc', label: 'Misc' }
+              { key: 'misc', label: 'Misc' },
+              { key: 'founding_entity', label: 'Founding Entity' }
             ]}
             placeholder="Filter by..."
             className="w-full"

@@ -165,7 +165,8 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
   // View mode options for dropdown
   const viewModeOptions = [
     { key: 'repository', label: 'Repository', description: 'Show individual repositories' },
-    { key: 'organization', label: 'Organization', description: 'Show aggregated data by organization' }
+    { key: 'organization', label: 'Organization', description: 'Show aggregated data by organization' },
+    { key: 'founding_entity', label: 'Founding Entity', description: 'Show founding entities only' }
   ];
 
   // Load activity data with server-side cache optimization

@@ -2276,8 +2276,9 @@ app.get('/api/development-activity', async (req, res) => {
       const isOrganization = resource.type === 'organization';
       const isRepository = resource.type === 'repository';
       
-      if (viewMode === 'organization' && !isOrganization) return false;
-      if (viewMode === 'repository' && !isRepository) return false;
+      if (viewMode === 'organization' && (!isOrganization || resource.founding_entity)) return false;
+      if (viewMode === 'repository' && (!isRepository || resource.founding_entity)) return false;
+      if (viewMode === 'founding_entity' && !resource.founding_entity) return false;
       
       // For organizations, check if we have a valid identifier
       if (isOrganization) {
