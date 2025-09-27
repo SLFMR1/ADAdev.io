@@ -1156,7 +1156,7 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
         commits = [];
       } else {
         // MEMORY LEAK FIX: Use chunked processing for known large orgs
-        const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost'];
+        const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost', 'input-output-hk', 'emurgo'];
         if (KNOWN_LARGE_ORGS.includes(orgName)) {
           console.log(`🎯 ${orgName}: Using memory-safe chunked processing (getResourceData)`);
           commits = await fetchLargeOrgDataChunked(orgName, since, resource, processCommitsToWeekly, supabaseService);
@@ -3411,7 +3411,7 @@ async function populateUpdatesCache(priority = 'all') {
                 logger.debug(`🔄 ${resource.name}: Fetching raw commits for organization ${orgName}`)
 
                 // MEMORY LEAK FIX: Use chunked processing for known large orgs
-                const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost'];
+                const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost', 'input-output-hk', 'emurgo'];
                 if (KNOWN_LARGE_ORGS.includes(orgName)) {
                   console.log(`🎯 ${orgName}: Using memory-safe chunked processing (backgroundPreloading)`);
                   rawCommits = await fetchLargeOrgDataChunked(orgName, since, resource, processCommitsToWeekly, supabaseService);
@@ -3460,7 +3460,7 @@ async function populateUpdatesCache(priority = 'all') {
 
             // Also store daily data for 7-day view fallbacks (rolling 10-day cache)
             // Skip for KNOWN_LARGE_ORGS as they handle daily data internally
-            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost'];
+            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost', 'input-output-hk', 'emurgo'];
             const orgName = resource.social?.github?.replace('https://github.com/', '');
             const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
 
@@ -3590,7 +3590,7 @@ async function populateUpdatesCache(priority = 'all') {
 
             // Also store daily data for 7-day view fallbacks (rolling 10-day cache)
             // Skip for KNOWN_LARGE_ORGS as they handle daily data internally
-            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost'];
+            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost', 'input-output-hk', 'emurgo'];
             const orgName = resource.social?.github?.replace('https://github.com/', '');
             const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
 

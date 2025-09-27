@@ -22,7 +22,7 @@ const GITHUB_GRAPHQL_ENDPOINT = 'https://api.github.com/graphql'
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 
 // Organizations that require smaller batch sizes due to complexity/size
-const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost']
+const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost', 'input-output-hk', 'emurgo']
 
 // Repositories to exclude due to excessive size/memory usage
 const EXCLUDED_REPOS = [
