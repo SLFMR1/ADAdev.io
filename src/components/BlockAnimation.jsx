@@ -66,6 +66,7 @@ const Block = ({ position, color, size, rotationSpeed }) => {
   const materialRef = useRef()
 
   useFrame((state, delta) => {
+    if(!ref.current) return
     ref.current.rotation.x += delta * rotationSpeed.x
     ref.current.rotation.y += delta * rotationSpeed.y
     if(materialRef.current) {
