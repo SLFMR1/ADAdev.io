@@ -812,7 +812,7 @@ export const cardanoResources = {
     {
       id: 67,
       name: "Input Output Global (IOG)",
-      logo: "https://pbs.twimg.com/profile_images/1688730191043153920/amcNzVcf_400x400.jpg",
+      logo: "https://ucarecdn.com/a3d997dc-1781-445f-ad59-ad0e58c24cf3/-/resize/200/-/format/webp/-/quality/best/-/progressive/yes/",
       description: "Input Output Global is a leading blockchain research and development company, and the founding entity behind Cardano.",
       fullDescription: "Input Output Global (IOG), formerly known as IOHK (Input Output Hong Kong), is a technology company focused on peer-to-peer innovations to provide more inclusive, fair and transparent financial services for all. IOG was founded in 2015 by Charles Hoskinson and Jeremy Wood, and is the technology company behind Cardano.",
       keySolutions: [
@@ -839,7 +839,7 @@ export const cardanoResources = {
     {
       id: 68,
       name: "EMURGO",
-      logo: "https://emurgo.io/assets/images/emurgo-logo.svg",
+      logo: "https://www.emurgo.io/logo.svg",
       description: "EMURGO is the official commercial and ventures arm of Cardano, providing enterprise blockchain solutions.",
       fullDescription: "EMURGO is a global blockchain technology company providing solutions for developers, startups, enterprises, and governments. As a founding entity of Cardano, EMURGO develops, supports, and incubates commercial opportunities and helps integrate businesses into the Cardano ecosystem.",
       keySolutions: [

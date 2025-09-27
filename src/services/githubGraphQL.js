@@ -22,7 +22,7 @@ const GITHUB_GRAPHQL_ENDPOINT = 'https://api.github.com/graphql'
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN
 
 // Organizations that require smaller batch sizes due to complexity/size
-const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost', 'input-output-hk', 'emurgo']
+const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo']
 
 // Repositories to exclude due to excessive size/memory usage
 const EXCLUDED_REPOS = [
@@ -900,11 +900,11 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
 
       logger.debug(`📦 ${orgLogin}: Fetching chunk starting at cursor: ${cursor ? 'present' : 'null'} (heap: ${heapUsedMB}MB)`)
 
-      // Fetch small chunk (3 repos max for large orgs)
+      // Fetch ultra-small chunk (1 repo max for large orgs)
       const variables = {
         orgLogin,
         since,
-        first: 3,
+        first: 1,
         after: cursor,
         commitCursor: null
       }
@@ -980,16 +980,25 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
             logger.debug(`📅 ${repository.nameWithOwner}: Added ${repoDaily.length} commits to org-level daily data`)
           }
 
-          if (repoCommits.length > 0 && processCommitsToWeekly) {
-            // Keep only summary for return (not full commit data)
+          // Collect commits for organization-level weekly aggregation
+          if (repoCommits.length > 0) {
+            // Transform to REST API format expected by processCommitsToWeekly
             allCommits.push(...repoCommits.map(commit => ({
               sha: commit.oid,
               commit: {
                 message: commit.message,
-                author: { date: commit.committedDate }
+                author: {
+                  date: commit.committedDate || commit.author?.date
+                },
+                committer: {
+                  date: commit.committer?.date || commit.committedDate
+                }
               },
-              date: commit.committedDate,
-              repository: commit.repository
+              html_url: commit.url,
+              repository: {
+                name: commit.repository?.split('/')[1] || 'unknown',
+                full_name: commit.repository || 'unknown/unknown'
+              }
             })))
           }
 
@@ -1044,6 +1053,16 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
         const repoPath = orgLogin   // Use org name as repo path
         await supabaseService.storeDailyActivity(resourceId, repoPath, orgDailyData, resource)
         logger.info(`✅ ${orgLogin}: Stored ${orgDailyData.length} org-level daily records (last 7 days) from ${recentCommitData.length} recent commits`)
+      }
+
+      // Store organization-level weekly data for github_activity table
+      if (allCommits.length > 0 && processCommitsToWeekly && supabaseService) {
+        logger.info(`📊 ${orgLogin}: Aggregating ${allCommits.length} commits into organization-wide weekly data`)
+        const orgWeeklyData = processCommitsToWeekly(allCommits)
+        if (orgWeeklyData && orgWeeklyData.length > 0) {
+          await supabaseService.storeWeeklyActivity(resource, orgWeeklyData)
+          logger.info(`✅ ${orgLogin}: Stored ${orgWeeklyData.length} organization-wide weekly records in github_activity`)
+        }
       }
     }
 

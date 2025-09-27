@@ -356,7 +356,7 @@ class GitHubActivityService {
     }
   }
 
-  // Store daily activity data in the new table (rolling 10-day cache)
+  // Store daily activity data in the new table (rolling 7-day cache)
   async storeDailyActivity(resourceId, repoPath, dailyData, resource) {
     try {
       // Validate input data
@@ -365,11 +365,11 @@ class GitHubActivityService {
         return false
       }
 
-      // Rolling cache: Clean up data older than 10 days
+      // Rolling cache: Keep exactly 7 days (today + 6 previous days)
       this._cleanupInProgress = true
-      const tenDaysAgo = new Date()
-      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10)
-      const cutoffDate = tenDaysAgo.toISOString().slice(0, 10)
+      const sixDaysAgo = new Date()
+      sixDaysAgo.setDate(sixDaysAgo.getDate() - 6)
+      const cutoffDate = sixDaysAgo.toISOString().slice(0, 10)
 
       try {
         const { error: cleanupError } = await supabase
@@ -619,7 +619,7 @@ class GitHubActivityService {
       const { data: recentRecords, error: recentError } = await supabase
         .from('github_daily_activity')
         .select('fetched_at')
-        .gte('date', new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+        .gte('date', new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
         .order('fetched_at', { ascending: false })
 
       const { data: todayRecords, error: todayError } = await supabase
@@ -635,8 +635,8 @@ class GitHubActivityService {
       const recentCount = recentRecords?.length || 0
       const todayCount = todayRecords?.length || 0
 
-      // Calculate cache utilization (10-day rolling cache)
-      const maxExpectedRecords = 10 * 50 // 10 days * ~50 resources
+      // Calculate cache utilization (7-day rolling cache)
+      const maxExpectedRecords = 7 * 50 // 7 days * ~50 resources
       const cacheUtilization = Math.min(100, (recentCount / maxExpectedRecords) * 100)
 
       // Estimate success rate based on data freshness

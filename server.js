@@ -1156,7 +1156,7 @@ const getRecentActivity = async (resource, useDailyProcessing = false, period = 
         commits = [];
       } else {
         // MEMORY LEAK FIX: Use chunked processing for known large orgs
-        const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost', 'input-output-hk', 'emurgo'];
+        const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
         if (KNOWN_LARGE_ORGS.includes(orgName)) {
           console.log(`🎯 ${orgName}: Using memory-safe chunked processing (getResourceData)`);
           commits = await fetchLargeOrgDataChunked(orgName, since, resource, processCommitsToWeekly, supabaseService);
@@ -3123,7 +3123,7 @@ async function maintainCommitsCache(resourceId, commits) {
       } else if (!htmlUrl) {
         // Final fallback for edge cases
         htmlUrl = `https://github.com/unknown/unknown/commit/${commit.sha || 'unknown'}`
-        logger.warn(`⚠️ ${resourceId}: Using unknown fallback URL for commit ${commit.sha?.substring(0, 8)}`)
+        logger.debug(`${resourceId}: Using unknown fallback URL for commit ${commit.sha?.substring(0, 8)}`)
       }
       
       // Extract repository name with better fallback logic
@@ -3142,15 +3142,15 @@ async function maintainCommitsCache(resourceId, commits) {
                         commit.commit?.committer?.date || 
                         new Date().toISOString()
       
-      // Log issues for debugging
+      // Log issues for debugging (reduced to debug level to avoid noise)
       if (repoName === 'unknown') {
-        console.warn(`⚠️ ${resourceId}: Could not determine repo name for commit ${commit.sha?.substring(0, 8)}`)
+        logger.debug(`${resourceId}: Could not determine repo name for commit ${commit.sha?.substring(0, 8)}`)
       }
       if (authorName === 'Unknown') {
-        console.warn(`⚠️ ${resourceId}: Could not determine author for commit ${commit.sha?.substring(0, 8)}`)
+        logger.debug(`${resourceId}: Could not determine author for commit ${commit.sha?.substring(0, 8)}`)
       }
       if (!message) {
-        console.warn(`⚠️ ${resourceId}: Empty message for commit ${commit.sha?.substring(0, 8)}`)
+        logger.debug(`${resourceId}: Empty message for commit ${commit.sha?.substring(0, 8)}`)
       }
       
       return {
@@ -3411,7 +3411,7 @@ async function populateUpdatesCache(priority = 'all') {
                 logger.debug(`🔄 ${resource.name}: Fetching raw commits for organization ${orgName}`)
 
                 // MEMORY LEAK FIX: Use chunked processing for known large orgs
-                const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost', 'input-output-hk', 'emurgo'];
+                const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
                 if (KNOWN_LARGE_ORGS.includes(orgName)) {
                   console.log(`🎯 ${orgName}: Using memory-safe chunked processing (backgroundPreloading)`);
                   rawCommits = await fetchLargeOrgDataChunked(orgName, since, resource, processCommitsToWeekly, supabaseService);
@@ -3460,7 +3460,7 @@ async function populateUpdatesCache(priority = 'all') {
 
             // Also store daily data for 7-day view fallbacks (rolling 10-day cache)
             // Skip for KNOWN_LARGE_ORGS as they handle daily data internally
-            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost', 'input-output-hk', 'emurgo'];
+            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
             const orgName = resource.social?.github?.replace('https://github.com/', '');
             const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
 
@@ -3481,7 +3481,7 @@ async function populateUpdatesCache(priority = 'all') {
                     const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
                     const resourceId = repoPath
 
-                    console.log(`📅 ${resource.name}: Storing ${dailyData.length} daily records (10-day rolling cache)`)
+                    console.log(`📅 ${resource.name}: Storing ${dailyData.length} daily records (7-day rolling cache)`)
                     await supabaseService.storeDailyActivity(resourceId, repoPath, dailyData, resource)
                   }
                 }
@@ -3590,7 +3590,7 @@ async function populateUpdatesCache(priority = 'all') {
 
             // Also store daily data for 7-day view fallbacks (rolling 10-day cache)
             // Skip for KNOWN_LARGE_ORGS as they handle daily data internally
-            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost', 'input-output-hk', 'emurgo'];
+            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
             const orgName = resource.social?.github?.replace('https://github.com/', '');
             const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
 
@@ -3611,7 +3611,7 @@ async function populateUpdatesCache(priority = 'all') {
                     const repoPath = supabaseService.default.extractRepoPath(resource.social?.github)
                     const resourceId = repoPath
 
-                    console.log(`📅 ${resource.name}: Storing ${dailyData.length} daily records (10-day rolling cache)`)
+                    console.log(`📅 ${resource.name}: Storing ${dailyData.length} daily records (7-day rolling cache)`)
                     await supabaseService.storeDailyActivity(resourceId, repoPath, dailyData, resource)
                   }
                 }
@@ -3927,7 +3927,7 @@ const ensureHistoricalDataCompleteness = async () => {
             const orgName = resource.social.github.replace('https://github.com/', '');
 
             // MEMORY LEAK FIX: Use chunked processing for known large orgs
-            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'opshin', 'blockfrost'];
+            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost'];
             if (KNOWN_LARGE_ORGS.includes(orgName)) {
               console.log(`🎯 ${orgName}: Using memory-safe chunked processing`);
               commits = await fetchLargeOrgDataChunked(orgName, since, resource, processCommitsToWeekly, supabaseService);
@@ -4381,7 +4381,7 @@ app.get('/api/data-quality/dashboard', async (req, res) => {
         // Daily storage health metrics
         successRate: 0,          // Percentage of successful daily storage operations
         failedWrites: 0,         // Number of failed storage operations in last hour
-        cacheUtilization: 0,     // How much of the 10-day rolling cache is used
+        cacheUtilization: 0,     // How much of the 7-day rolling cache is used
         fallbackUsage: 0,        // Times daily fallback was used instead of API
         averageResponseTime: 0,  // Average response time when using daily fallback
         lastCleanupTime: null,   // Last successful cleanup operation
