@@ -1022,12 +1022,13 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
       }
 
       // Add actual commit counts to the initialized days
+      let recentCommitData = []
       if (allDailyCommitData.length > 0) {
         const sevenDaysAgo = new Date()
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
         const cutoffDate = sevenDaysAgo.toISOString().split('T')[0]
 
-        const recentCommitData = allDailyCommitData.filter(d => d.date >= cutoffDate)
+        recentCommitData = allDailyCommitData.filter(d => d.date >= cutoffDate)
 
         // Count commits for each day
         recentCommitData.forEach(d => {
