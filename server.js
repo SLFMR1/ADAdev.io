@@ -3927,7 +3927,7 @@ const ensureHistoricalDataCompleteness = async () => {
             const orgName = resource.social.github.replace('https://github.com/', '');
 
             // MEMORY LEAK FIX: Use chunked processing for known large orgs
-            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost'];
+            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
             if (KNOWN_LARGE_ORGS.includes(orgName)) {
               console.log(`🎯 ${orgName}: Using memory-safe chunked processing`);
               commits = await fetchLargeOrgDataChunked(orgName, since, resource, processCommitsToWeekly, supabaseService);
