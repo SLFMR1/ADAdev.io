@@ -2192,9 +2192,25 @@ app.get('/api/development-activity', async (req, res) => {
             totalCommits = recentData.commitsPerWeek;
           } else {
             // For historical periods, use getHistoricalActivity (with internal bulk cache optimization)
-            activityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
-            totalCommits = Array.isArray(activityData) ? 
+            const rawActivityData = await getHistoricalActivity(targetResource, periodConfig.since, new Date().toISOString());
+
+            // BUGFIX: Limit data to expected number of weeks based on period
+            const periodWeekLimits = {
+              '4weeks': 4,
+              '3months': 12, // 3 months = 12 weeks (matching historical maximums calculation)
+              '52weeks': 52,
+              '3years': 156  // ~3 years
+            };
+
+            const maxWeeks = periodWeekLimits[mappedPeriod] || rawActivityData.length;
+            activityData = Array.isArray(rawActivityData) ?
+              rawActivityData.slice(-maxWeeks) : // Take the most recent maxWeeks
+              [];
+
+            totalCommits = Array.isArray(activityData) ?
               activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
+
+            logger.debug(`🎯 Period limiting for ${targetResource.name}: ${rawActivityData?.length || 0} → ${activityData.length} weeks (${mappedPeriod})`);
           }
         }
         
