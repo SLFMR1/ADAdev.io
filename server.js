@@ -2094,6 +2094,10 @@ app.get('/api/github/org-activity/:orgName', async (req, res) => {
 const VIEW_MODE_CACHE = new Map();
 const VIEW_MODE_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days (immutable data)
 
+// Clear cache to ensure fresh data after fixing founding entity filtering logic
+VIEW_MODE_CACHE.clear();
+logger.info('🧹 Cleared VIEW_MODE_CACHE after fixing founding entity filtering logic');
+
 // **NEW**: Cache for pre-calculated single organization data
 const ORGANIZATION_DATA_CACHE = new Map();
 
@@ -2276,9 +2280,9 @@ app.get('/api/development-activity', async (req, res) => {
       const isOrganization = resource.type === 'organization';
       const isRepository = resource.type === 'repository';
       
+      if (viewMode === 'founding_entity' && !resource.founding_entity) return false;
       if (viewMode === 'organization' && (!isOrganization || resource.founding_entity)) return false;
       if (viewMode === 'repository' && (!isRepository || resource.founding_entity)) return false;
-      if (viewMode === 'founding_entity' && !resource.founding_entity) return false;
       
       // For organizations, check if we have a valid identifier
       if (isOrganization) {
