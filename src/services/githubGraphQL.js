@@ -883,6 +883,7 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
 
     const weeklyTotals = {}; // In-memory aggregator for weekly data
     let allDailyCommitData = [] // Track all commits for org-level daily aggregation
+    let recentCommitsForCache = [] // Collect recent commits (last 7 days) for maintainCommitsCache
     let totalRepos = 0
     let processedRepos = 0
     let cursor = null
@@ -984,6 +985,24 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
                 weeklyTotals[week.weekStart] = (weeklyTotals[week.weekStart] || 0) + week.count;
               });
             }
+
+            // Collect recent commits (last 7 days) for maintainCommitsCache
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+            const recentCommitsFromRepo = transformedCommits.filter(commit => {
+              const commitDate = new Date(commit.date)
+              return commitDate >= sevenDaysAgo
+            }).map(commit => ({
+              ...commit,
+              repository: {
+                name: repository.nameWithOwner.split('/')[1],
+                full_name: repository.nameWithOwner
+              }
+            }))
+
+            if (recentCommitsFromRepo.length > 0) {
+              recentCommitsForCache.push(...recentCommitsFromRepo)
+              logger.debug(`📅 ${repository.nameWithOwner}: Added ${recentCommitsFromRepo.length} recent commits to cache collection`)
+            }
           } else {
             logger.warn(`⚠️ ${repository.nameWithOwner}: Skipping processing - commits: ${repoCommits.length}, processor: ${!!processCommitsToWeekly}`)
           }
@@ -1066,7 +1085,8 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
     }
 
     logger.info(`✅ ${orgLogin}: Completed chunked processing - ${processedRepos} repos processed`)
-    return [] // Return empty array to save memory; data is now in DB
+    logger.info(`📋 ${orgLogin}: Returning ${recentCommitsForCache.length} recent commits (last 7 days) for cache`)
+    return recentCommitsForCache // Return recent commits for maintainCommitsCache
 
   } catch (error) {
     logger.error(`❌ Chunked processing failed for ${orgLogin}:`, error)
