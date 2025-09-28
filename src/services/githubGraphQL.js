@@ -1067,15 +1067,7 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
         logger.info(`✅ ${orgLogin}: Stored ${orgDailyData.length} org-level daily records (last 7 days) from ${recentCommitData.length} recent commits`)
       }
 
-      // Store organization-level weekly data for github_activity table
-      if (allCommits.length > 0 && processCommitsToWeekly && supabaseService) {
-        logger.info(`📊 ${orgLogin}: Aggregating ${allCommits.length} commits into organization-wide weekly data`)
-        const orgWeeklyData = processCommitsToWeekly(allCommits)
-        if (orgWeeklyData && orgWeeklyData.length > 0) {
-          await supabaseService.storeWeeklyActivity(resource, orgWeeklyData)
-          logger.info(`✅ ${orgLogin}: Stored ${orgWeeklyData.length} organization-wide weekly records in github_activity`)
-        }
-      }
+      // Final aggregation removed - periodic aggregation already stored complete organization-wide data
     }
 
     logger.info(`✅ ${orgLogin}: Completed chunked processing - ${processedRepos} repos, ${allCommits.length} commits`)
