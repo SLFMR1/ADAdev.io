@@ -3452,21 +3452,28 @@ async function populateUpdatesCache(priority = 'all') {
             await maintainCommitsCache(resource.name, rawCommits)
             console.log(`✅ ${resource.name}: Updated ${rawCommits.length} commits in database`)
 
+            // Check if this is a KNOWN_LARGE_ORG before doing final weekly aggregation
+            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
+            const orgName = resource.social?.github?.replace('https://github.com/', '');
+            const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
+
             // NEW: Aggregate commits into weekly data and store in github_activity
-            console.log(`🔄 ${resource.name}: Aggregating ${rawCommits.length} commits into weekly data`)
-            const weeklyData = aggregateCommitsToWeeklyData(rawCommits)
-            if (weeklyData && weeklyData.length > 0) {
-              console.log(`🔄 ${resource.name}: Storing ${weeklyData.length} weekly records in github_activity`)
-              await supabaseService.storeWeeklyActivity(resource, weeklyData)
+            // Skip for KNOWN_LARGE_ORGS as they handle weekly data in chunked processing
+            if (!isKnownLargeOrg) {
+              console.log(`🔄 ${resource.name}: Aggregating ${rawCommits.length} commits into weekly data`)
+              const weeklyData = aggregateCommitsToWeeklyData(rawCommits)
+              if (weeklyData && weeklyData.length > 0) {
+                console.log(`🔄 ${resource.name}: Storing ${weeklyData.length} weekly records in github_activity`)
+                await supabaseService.storeWeeklyActivity(resource, weeklyData)
+              } else {
+                logger.debug(`ℹ️ ${resource.name}: No weekly data to store (all commits filtered out)`)
+              }
             } else {
-              logger.debug(`ℹ️ ${resource.name}: No weekly data to store (all commits filtered out)`)
+              console.log(`⏭️ ${resource.name}: Skipping final weekly aggregation (handled by chunked processing)`)
             }
 
             // Also store daily data for 7-day view fallbacks (rolling 10-day cache)
             // Skip for KNOWN_LARGE_ORGS as they handle daily data internally
-            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
-            const orgName = resource.social?.github?.replace('https://github.com/', '');
-            const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
 
             if (!isKnownLargeOrg) {
               try {
@@ -3582,21 +3589,28 @@ async function populateUpdatesCache(priority = 'all') {
             await maintainCommitsCache(resource.name, rawCommits)
             console.log(`✅ ${resource.name}: Updated ${rawCommits.length} commits in database`)
 
+            // Check if this is a KNOWN_LARGE_ORG before doing final weekly aggregation
+            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
+            const orgName = resource.social?.github?.replace('https://github.com/', '');
+            const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
+
             // Aggregate commits into weekly data and store in github_activity
-            console.log(`🔄 ${resource.name}: Aggregating ${rawCommits.length} commits into weekly data`)
-            const weeklyData = aggregateCommitsToWeeklyData(rawCommits)
-            if (weeklyData && weeklyData.length > 0) {
-              console.log(`🔄 ${resource.name}: Storing ${weeklyData.length} weekly records in github_activity`)
-              await supabaseService.storeWeeklyActivity(resource, weeklyData)
+            // Skip for KNOWN_LARGE_ORGS as they handle weekly data in chunked processing
+            if (!isKnownLargeOrg) {
+              console.log(`🔄 ${resource.name}: Aggregating ${rawCommits.length} commits into weekly data`)
+              const weeklyData = aggregateCommitsToWeeklyData(rawCommits)
+              if (weeklyData && weeklyData.length > 0) {
+                console.log(`🔄 ${resource.name}: Storing ${weeklyData.length} weekly records in github_activity`)
+                await supabaseService.storeWeeklyActivity(resource, weeklyData)
+              } else {
+                logger.debug(`ℹ️ ${resource.name}: No weekly data to store (all commits filtered out)`)
+              }
             } else {
-              logger.debug(`ℹ️ ${resource.name}: No weekly data to store (all commits filtered out)`)
+              console.log(`⏭️ ${resource.name}: Skipping final weekly aggregation (handled by chunked processing)`)
             }
 
             // Also store daily data for 7-day view fallbacks (rolling 10-day cache)
             // Skip for KNOWN_LARGE_ORGS as they handle daily data internally
-            const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
-            const orgName = resource.social?.github?.replace('https://github.com/', '');
-            const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
 
             if (!isKnownLargeOrg) {
               try {
