@@ -1011,6 +1011,18 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
 
       logger.info(`📊 ${orgLogin}: Processed ${processedRepos}/${totalRepos} repos (chunk complete)`)
 
+      // Periodically store organization-level weekly data to avoid memory buildup
+      if (allCommits.length > 0 && processedRepos % 10 === 0 && processCommitsToWeekly && supabaseService) {
+        logger.info(`📊 ${orgLogin}: Periodic aggregation - ${allCommits.length} commits into organization weekly data (${processedRepos} repos processed)`)
+        const orgWeeklyData = processCommitsToWeekly(allCommits)
+        if (orgWeeklyData && orgWeeklyData.length > 0) {
+          await supabaseService.storeWeeklyActivity(resource, orgWeeklyData)
+          logger.info(`✅ ${orgLogin}: Stored ${orgWeeklyData.length} organization weekly records in github_activity (periodic)`)
+        }
+        // Clear processed commits to free memory
+        allCommits.length = 0
+      }
+
       // Small delay between chunks
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
