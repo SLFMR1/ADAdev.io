@@ -3591,7 +3591,15 @@ async function populateUpdatesCache(priority = 'all') {
 
             // Check if this is a KNOWN_LARGE_ORG before doing final weekly aggregation
             const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
-            const orgName = resource.social?.github?.replace('https://github.com/', '');
+            // Get org name with proper fallback logic (same as location 1)
+            let orgName;
+            if (resource.repo_path) {
+              orgName = resource.repo_path;
+            } else if (resource.organization) {
+              orgName = resource.organization;
+            } else if (resource.social?.github) {
+              orgName = resource.social.github.replace('https://github.com/', '');
+            }
             const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
 
             // Aggregate commits into weekly data and store in github_activity
@@ -3966,7 +3974,15 @@ const ensureHistoricalDataCompleteness = async () => {
 
           // Check if this is a KNOWN_LARGE_ORG before storing weekly data
           const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
-          const orgName = resource.social?.github?.replace('https://github.com/', '');
+          // Get org name with proper fallback logic (same as location 1)
+          let orgName;
+          if (resource.repo_path) {
+            orgName = resource.repo_path;
+          } else if (resource.organization) {
+            orgName = resource.organization;
+          } else if (resource.social?.github) {
+            orgName = resource.social.github.replace('https://github.com/', '');
+          }
           const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
 
           // Store the newly fetched data in the database
