@@ -3514,7 +3514,14 @@ async function populateUpdatesCache(priority = 'all') {
               releases = await fetchRepoReleases(repoPath, 30)
             } else if (resource.type === 'organization') {
               // For organizations, get releases from their repositories
-              let orgName = resource.social.github.replace('https://github.com/', '')
+              let orgName;
+              if (resource.repo_path) {
+                orgName = resource.repo_path;
+              } else if (resource.organization) {
+                orgName = resource.organization;
+              } else if (resource.social?.github) {
+                orgName = resource.social.github.replace('https://github.com/', '');
+              }
               const repos = await fetchOrgRepos(orgName)
               const allReleases = []
               
@@ -3950,7 +3957,14 @@ const ensureHistoricalDataCompleteness = async () => {
           const since = startDate ? new Date(startDate).toISOString() : null
           let commits = []
           if (resource.type === 'organization') {
-            const orgName = resource.social.github.replace('https://github.com/', '');
+            let orgName;
+            if (resource.repo_path) {
+              orgName = resource.repo_path;
+            } else if (resource.organization) {
+              orgName = resource.organization;
+            } else if (resource.social?.github) {
+              orgName = resource.social.github.replace('https://github.com/', '');
+            }
 
             // MEMORY LEAK FIX: Use chunked processing for known large orgs
             const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
