@@ -3963,9 +3963,19 @@ const ensureHistoricalDataCompleteness = async () => {
           }
 
           const historicalData = processCommitsToWeekly(commits)
-          
+
+          // Check if this is a KNOWN_LARGE_ORG before storing weekly data
+          const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
+          const orgName = resource.social?.github?.replace('https://github.com/', '');
+          const isKnownLargeOrg = orgName && KNOWN_LARGE_ORGS.includes(orgName);
+
           // Store the newly fetched data in the database
-          await supabaseService.storeWeeklyActivity(resource, historicalData)
+          // Skip for KNOWN_LARGE_ORGS as they handle weekly data in chunked processing
+          if (!isKnownLargeOrg) {
+            await supabaseService.storeWeeklyActivity(resource, historicalData)
+          } else {
+            console.log(`⏭️ ${resource.name}: Skipping historical weekly storage (handled by chunked processing)`)
+          }
 
           if (historicalData && historicalData.length > 0) {
             console.log(`📥 ${resource.name}: Fetched and stored ${historicalData.length} weeks of data, now verifying completeness...`)
