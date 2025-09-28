@@ -881,7 +881,7 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
   try {
     logger.info(`🎯 Processing large org ${orgLogin} in memory-safe chunks`)
 
-    let allCommits = []
+    const weeklyTotals = {}; // In-memory aggregator for weekly data
     let allDailyCommitData = [] // Track all commits for org-level daily aggregation
     let totalRepos = 0
     let processedRepos = 0
@@ -961,15 +961,28 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
 
           // Process commits to weekly format immediately
           if (repoCommits.length > 0 && processCommitsToWeekly) {
-            const weeklyData = processCommitsToWeekly(repoCommits)
-            logger.info(`🔍 ${repository.nameWithOwner}: Generated ${weeklyData?.length || 0} weekly records from ${repoCommits.length} commits`)
+            // Transform GraphQL format to format expected by processCommitsToWeekly
+            const transformedCommits = repoCommits.map(commit => ({
+              sha: commit.oid,
+              commit: {
+                message: commit.message,
+                author: {
+                  date: commit.committedDate
+                }
+              },
+              date: commit.committedDate,
+              html_url: commit.url
+            }))
 
-            // Store immediately if resource provided
-            if (resource && weeklyData && weeklyData.length > 0 && supabaseService) {
-              await supabaseService.storeWeeklyActivity(resource, weeklyData)
-              logger.info(`✅ ${repository.nameWithOwner}: Stored ${weeklyData.length} weekly records in github_activity`)
-            } else {
-              logger.warn(`⚠️ ${repository.nameWithOwner}: Skipping storage - resource: ${!!resource}, weeklyData: ${weeklyData?.length || 0}, supabase: ${!!supabaseService}`)
+            const weeklyData = processCommitsToWeekly(transformedCommits)
+            logger.info(`🔍 ${repository.nameWithOwner}: Generated ${weeklyData?.length || 0} weekly records from ${repoCommits.length} commits`)
+            logger.info(`🔍 ${repository.nameWithOwner}: Sample commit date: ${repoCommits[0]?.committedDate}`)
+            
+            // Aggregate weekly data instead of storing it immediately
+            if (weeklyData && weeklyData.length > 0) {
+              weeklyData.forEach(week => {
+                weeklyTotals[week.weekStart] = (weeklyTotals[week.weekStart] || 0) + week.count;
+              });
             }
           } else {
             logger.warn(`⚠️ ${repository.nameWithOwner}: Skipping processing - commits: ${repoCommits.length}, processor: ${!!processCommitsToWeekly}`)
@@ -985,28 +998,6 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
             logger.debug(`📅 ${repository.nameWithOwner}: Added ${repoDaily.length} commits to org-level daily data`)
           }
 
-          // Collect commits for organization-level weekly aggregation
-          if (repoCommits.length > 0) {
-            // Transform to REST API format expected by processCommitsToWeekly
-            allCommits.push(...repoCommits.map(commit => ({
-              sha: commit.oid,
-              commit: {
-                message: commit.message,
-                author: {
-                  date: commit.committedDate || commit.author?.date
-                },
-                committer: {
-                  date: commit.committer?.date || commit.committedDate
-                }
-              },
-              html_url: commit.url,
-              repository: {
-                name: commit.repository?.split('/')[1] || 'unknown',
-                full_name: commit.repository || 'unknown/unknown'
-              }
-            })))
-          }
-
           processedRepos++
 
         } catch (error) {
@@ -1016,16 +1007,21 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
 
       logger.info(`📊 ${orgLogin}: Processed ${processedRepos}/${totalRepos} repos (chunk complete)`)
 
-      // Periodically clear processed commits to free memory (every 10 repos)
-      if (allCommits.length > 0 && processedRepos % 10 === 0) {
-        logger.info(`🧹 ${orgLogin}: Clearing ${allCommits.length} processed commits to free memory (${processedRepos} repos processed)`)
-        allCommits.length = 0
-      }
-
       // Small delay between chunks
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
 
+    // Final storage of aggregated weekly data after all repositories are processed
+    const finalWeeklyData = Object.entries(weeklyTotals).map(([weekStart, count]) => ({
+      weekStart,
+      count
+    }));
+
+    if (resource && finalWeeklyData.length > 0 && supabaseService) {
+      await supabaseService.storeWeeklyActivity(resource, finalWeeklyData);
+      logger.info(`✅ ${orgLogin}: Stored final aggregated data for ${finalWeeklyData.length} weeks.`);
+    }
+    
     // Store organization-level daily data after processing all repositories (last 7 days only)
     if (resource && supabaseService) {
       // Initialize all 7 days with zero counts (same logic as processCommitsToDaily)
@@ -1069,8 +1065,8 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
       // Final aggregation removed - periodic aggregation already stored complete organization-wide data
     }
 
-    logger.info(`✅ ${orgLogin}: Completed chunked processing - ${processedRepos} repos, ${allCommits.length} commits`)
-    return allCommits
+    logger.info(`✅ ${orgLogin}: Completed chunked processing - ${processedRepos} repos processed`)
+    return [] // Return empty array to save memory; data is now in DB
 
   } catch (error) {
     logger.error(`❌ Chunked processing failed for ${orgLogin}:`, error)
