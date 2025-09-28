@@ -962,12 +962,17 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
           // Process commits to weekly format immediately
           if (repoCommits.length > 0 && processCommitsToWeekly) {
             const weeklyData = processCommitsToWeekly(repoCommits)
+            logger.info(`🔍 ${repository.nameWithOwner}: Generated ${weeklyData?.length || 0} weekly records from ${repoCommits.length} commits`)
 
             // Store immediately if resource provided
-            if (resource && weeklyData.length > 0 && supabaseService) {
+            if (resource && weeklyData && weeklyData.length > 0 && supabaseService) {
               await supabaseService.storeWeeklyActivity(resource, weeklyData)
-              logger.debug(`✅ ${repository.nameWithOwner}: Stored ${weeklyData.length} weeks to database`)
+              logger.info(`✅ ${repository.nameWithOwner}: Stored ${weeklyData.length} weekly records in github_activity`)
+            } else {
+              logger.warn(`⚠️ ${repository.nameWithOwner}: Skipping storage - resource: ${!!resource}, weeklyData: ${weeklyData?.length || 0}, supabase: ${!!supabaseService}`)
             }
+          } else {
+            logger.warn(`⚠️ ${repository.nameWithOwner}: Skipping processing - commits: ${repoCommits.length}, processor: ${!!processCommitsToWeekly}`)
           }
 
           // Collect commit dates for org-level daily aggregation (for KNOWN_LARGE_ORGS)
