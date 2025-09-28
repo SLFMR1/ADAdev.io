@@ -2321,175 +2321,210 @@ app.get('/api/development-activity', async (req, res) => {
     
     logger.debug(`🚀 Preloading ALL periods for ${filteredResources.length} filtered resources (was ${resources.length})`);
     
-    const allPeriodsData = new Map();
-
-    // Process resources sequentially to avoid overwhelming the database connection pool,
-    // especially for the 'founding_entity' view which contains very large organizations.
-    for (const resource of filteredResources) {
-      logger.debug(`📦 Processing resource: ${resource.name}`);
-      try {
-        const resourceData = {
-          resource,
-          periods: {}
-        };
-
-        const prioritizedPeriods = [
-          ['current', periods.current],
-          ['4weeks', periods['4weeks']],
-          ['3months', periods['3months']],
-          ['52weeks', periods['52weeks']],
-          ['3years', periods['3years']]
-        ];
-
-        const periodPromises = prioritizedPeriods.map(async ([periodKey, periodConfig]) => {
-          try {
-            if (!periodConfig || !periodConfig.since) {
-              logger.warn(`Skipping period ${periodKey} for ${resource.name} due to invalid config`);
-              return { periodKey, data: { commitsPerWeek: 0, weeklyData: [] } };
-            }
-
-            let activityData;
-            
-            if (periodKey === 'current') {
-              const recentData = await getRecentActivity(resource, true, 'current');
-              activityData = recentData.weeklyData;
-            } else {
-              activityData = await getHistoricalActivity(resource, periodConfig.since, new Date().toISOString());
-            }
-            
-            const totalCommits = Array.isArray(activityData) ? 
-              activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
-            
-            return {
-              periodKey,
-              data: {
-                commitsPerWeek: totalCommits,
-                weeklyData: activityData || []
+    // Process resources in smaller batches to avoid overwhelming the API
+    const BATCH_SIZE = 5;
+    const allPeriodsData = new Map(); // Store data for all periods
+    
+    // Preload data for ALL periods at once
+    for (let i = 0; i < filteredResources.length; i += BATCH_SIZE) {
+      const batch = filteredResources.slice(i, i + BATCH_SIZE);
+      logger.debug(`📦 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(filteredResources.length / BATCH_SIZE)} (${batch.length} resources)`);
+      
+      const batchPromises = batch.map(async (resource) => {
+        try {
+          const resourceData = {
+            resource,
+            periods: {}
+          };
+          
+          // Fetch data with priority: 7-day first, then other periods
+          const prioritizedPeriods = [
+            ['current', periods.current], // 7-day first (highest priority)
+            ['4weeks', periods['4weeks']],
+            ['monthly', periods.monthly],
+            ['3months', periods['3months']],
+            ['52weeks', periods['52weeks']],
+            ['3years', periods['3years']]
+          ];
+          
+          const periodPromises = prioritizedPeriods.map(async ([periodKey, periodConfig]) => {
+            try {
+              let activityData;
+              
+              if (periodKey === 'current') {
+                // For 7-day period, use getRecentActivity with daily processing
+                const recentData = await getRecentActivity(resource, true, 'current');
+                activityData = recentData.weeklyData;
+              } else {
+                // For other periods, use getHistoricalActivity
+                activityData = await getHistoricalActivity(resource, periodConfig.since, new Date().toISOString());
               }
-            };
-          } catch (error) {
-            console.error(`Error fetching ${periodKey} data for ${resource.name}:`, error);
-            return {
-              periodKey,
-              data: { commitsPerWeek: 0, weeklyData: [] }
-            };
-          }
-        });
-
-        const periodResults = await Promise.all(periodPromises);
-        periodResults.forEach(result => {
-          if (result) {
-            resourceData.periods[result.periodKey] = result.data;
-          }
-        });
-
-        allPeriodsData.set(resource.id || resource.name, resourceData);
-      } catch (error) {
-        console.error(`❌ Failed to process resource ${resource.name}:`, error);
+              
+              // Calculate total commits for this period
+              const totalCommits = Array.isArray(activityData) ? 
+                activityData.reduce((sum, week) => sum + (week && typeof week.count === 'number' ? week.count : 0), 0) : 0;
+              
+              return {
+                periodKey,
+                data: {
+                  commitsPerWeek: totalCommits,
+                  weeklyData: activityData || []
+                }
+              };
+            } catch (error) {
+              console.error(`Error fetching ${periodKey} data for ${resource.name}:`, error);
+              return {
+                periodKey,
+                data: { commitsPerWeek: 0, weeklyData: [] }
+              };
+            }
+          });
+          
+          // Wait for all periods to complete
+          const periodResults = await Promise.allSettled(periodPromises);
+          
+          // Process results for each period
+          periodResults.forEach(result => {
+            if (result.status === 'fulfilled') {
+              const { periodKey, data } = result.value;
+              resourceData.periods[periodKey] = data;
+            }
+          });
+          
+          // Log summary for this resource
+          const summaryLog = Object.entries(resourceData.periods)
+            .map(([key, data]) => `${key}:${data.commitsPerWeek}`)
+            .join(', ');
+          logger.debug(`📊 ${resource.name}: ${summaryLog}`);
+          
+          return resourceData;
+        } catch (error) {
+          console.error(`Error processing resource ${resource.name}:`, error);
+          // Return empty data for all periods
+          const emptyPeriods = {};
+          Object.keys(periods).forEach(key => {
+            emptyPeriods[key] = { commitsPerWeek: 0, weeklyData: [] };
+          });
+          return {
+            resource,
+            periods: emptyPeriods
+          };
+        }
+      });
+      
+      const batchResults = await Promise.allSettled(batchPromises);
+      logger.debug(`✅ Batch ${Math.floor(i / BATCH_SIZE) + 1} completed: ${batchResults.length} resources with all periods`);
+      
+      // Store results for all periods
+      batchResults.forEach(result => {
+        if (result.status === 'fulfilled') {
+          const resourceData = result.value;
+          const resourceId = resourceData.resource.id || resourceData.resource.name;
+          allPeriodsData.set(resourceId, resourceData);
+        }
+      });
+      
+      // Small delay between batches
+      if (i + BATCH_SIZE < filteredResources.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
-    
-    // SERVER-SIDE CACHING & DATA TRANSFORMATION
-    // This part transforms the preloaded data into the final format for the client
+    // Extract results for the requested period from preloaded data
     const allResourcesData = Array.from(allPeriodsData.values());
+    const periodData = allResourcesData
+      .map(resourceData => ({
+        resource: resourceData.resource,
+        data: resourceData.periods[period] || { commitsPerWeek: 0, weeklyData: [] },
+        releases: [],
+        commits: []
+      }))
+      .filter(item => item.data && typeof item.data.commitsPerWeek === 'number');
+    
+    logger.debug(`🔍 Extracted ${periodData.length} resources for ${period} period`);
+    
+    const successfulResults = periodData
+      .filter(item => item.data.commitsPerWeek > 0)
+      .sort((a, b) => b.data.commitsPerWeek - a.data.commitsPerWeek);
 
-    // Helper function to build data for a specific period
-    const buildPeriodData = (allData, period) => {
-      const periodData = allData
-        .map(resourceData => {
-          // Ensure we have periods data and the specific period exists
-          if (!resourceData.periods || !resourceData.periods[period]) {
-            return {
-              resource: resourceData.resource,
-              data: { commitsPerWeek: 0, weeklyData: [] },
-              releases: [],
-              commits: []
-            };
-          }
-          return {
-            resource: resourceData.resource,
-            data: resourceData.periods[period],
-            releases: [], // These are not preloaded in this endpoint
-            commits: []   // These are not preloaded in this endpoint
-          };
-        })
-        .filter(item => item.data && typeof item.data.commitsPerWeek === 'number');
+    logger.debug(`Successfully processed ${successfulResults.length} ${viewMode}s with activity for ${period} period`);
 
-      const successfulResults = periodData
-        .filter(item => item.data.commitsPerWeek > 0)
-        .sort((a, b) => b.data.commitsPerWeek - a.data.commitsPerWeek);
-      
-      const chartData = successfulResults.map(item => {
-        const data = Array.isArray(item.data.weeklyData) ? item.data.weeklyData : [];
+    // Calculate metrics based on the selected period
+    const totalActiveRepos = successfulResults.length;
+    const totalCommits = successfulResults.reduce((sum, item) => 
+      sum + (item && item.data && typeof item.data.commitsPerWeek === 'number' ? item.data.commitsPerWeek : 0), 0);
+    const avgCommitsPerRepo = totalActiveRepos > 0 ? Math.round(totalCommits / totalActiveRepos) : 0;
+
+    // Build response with preloaded data for ALL periods
+    const response = {
+      // Current period data (for backward compatibility)
+      dailyLeaderboard: successfulResults.map(item => ({
+        resource: item.resource,
+        totalCommits: item.data.commitsPerWeek
+      })),
+      weeklyLeaderboard: successfulResults.map(item => ({
+        resource: item.resource,
+        totalCommits: item.data.commitsPerWeek
+      })),
+      dailyChartData: successfulResults.map(item => {
+        const chartData = Array.isArray(item.data.weeklyData) ? item.data.weeklyData : [];
         return {
-          resourceId: item.resource.id,
-          resourceName: item.resource.name,
-          logo: item.resource.logo,
-          weeklyData: data,
-          totalCommits: item.data.commitsPerWeek,
-          repoInfo: item.data.repoInfo || null
-        };
-      });
-
-      return {
-        leaderboard: successfulResults.map(item => ({
           resource: item.resource,
-          totalCommits: item.data.commitsPerWeek
-        })),
-        chartData: chartData,
-        metrics: {
-          totalActive: successfulResults.length,
-          totalCommits: successfulResults.reduce((sum, item) => sum + item.data.commitsPerWeek, 0),
-          avgCommits: successfulResults.length > 0 ? Math.round(successfulResults.reduce((sum, item) => sum + item.data.commitsPerWeek, 0) / successfulResults.length) : 0
-        }
-      };
-    };
- 
-     // Calculate metrics based on the selected period
-     const currentPeriodData = buildPeriodData(allResourcesData, period);
-     const totalActiveRepos = currentPeriodData.metrics.totalActive;
-     const totalCommits = currentPeriodData.metrics.totalCommits;
-     const avgCommitsPerRepo = currentPeriodData.metrics.avgCommits;
- 
-     logger.debug(`📊 Final metrics for ${viewMode}/${period}: ${totalActiveRepos} active, ${totalCommits} commits`);
- 
-     // Respond with the new comprehensive data structure
-     const response = {
-       // Current period data (for backward compatibility)
-       dailyLeaderboard: currentPeriodData.leaderboard,
-       weeklyLeaderboard: currentPeriodData.leaderboard,
-       dailyChartData: currentPeriodData.chartData,
-       weeklyChartData: currentPeriodData.chartData,
-       githubUpdates: [], // Not used in this view
-       metrics: {
-         daily: { totalActiveRepos, totalCommits, avgCommitsPerRepo },
-         weekly: { totalActiveRepos, totalCommits, avgCommitsPerRepo }
-       },
-
-       // 🚀 NEW: Preloaded data for ALL periods to enable instant switching
-       preloadedPeriods: {
+          dailyCounts: chartData.map(d => d && typeof d.count === 'number' ? d.count : 0),
+          weeklyData: chartData
+        };
+      }),
+      weeklyChartData: successfulResults.map(item => {
+        const chartData = Array.isArray(item.data.weeklyData) ? item.data.weeklyData : [];
+        return {
+          resource: item.resource,
+          weeklyCounts: chartData.map(w => w && typeof w.count === 'number' ? w.count : 0),
+          weeklyData: chartData
+        };
+      }),
+      githubUpdates: successfulResults.map(item => ({
+        resource: item.resource,
+        commits: item.commits || [],
+        releases: item.releases || [],
+        commitsPerWeek: item.data.commitsPerWeek,
+        weeklyData: item.data.weeklyData || [],
+        repoInfo: item.data.repoInfo
+      })),
+      metrics: {
+        daily: { totalActiveRepos, avgCommitsPerRepo, totalCommits },
+        weekly: { totalActiveRepos, avgCommitsPerRepo, totalCommits }
+      },
+      
+      // 🚀 NEW: Preloaded data for ALL periods to enable instant switching
+      preloadedPeriods: {
         current: buildPeriodData(allResourcesData, 'current'),
         '4weeks': buildPeriodData(allResourcesData, '4weeks'),
+        monthly: buildPeriodData(allResourcesData, 'monthly'),
         '3months': buildPeriodData(allResourcesData, '3months'),
         '52weeks': buildPeriodData(allResourcesData, '52weeks'),
         '3years': buildPeriodData(allResourcesData, '3years')
-       },
-       
-       // Metadata
-       timestamp: new Date().toISOString(),
-       viewMode,
-       periodsPreloaded: Object.keys(periods),
-       totalResourcesProcessed: allResourcesData.length
-     };
- 
-     // Store the full response in the view mode cache
-     VIEW_MODE_CACHE.set(cacheKey, {
-       timestamp: Date.now(),
-       data: response
-     });
- 
-     res.json(response);
-   } catch (error) {
+      },
+      
+      // Meta information
+      period,
+      viewMode,
+      periodsPreloaded: Object.keys(periods),
+      totalResourcesProcessed: allResourcesData.length
+    };
+
+    // Cache the response for future requests
+    VIEW_MODE_CACHE.set(cacheKey, {
+      data: response,
+      timestamp: Date.now()
+    });
+    
+    // Store all views - no cleanup needed for optimal performance
+    // if (VIEW_MODE_CACHE.size > 20) {
+    //   const oldestKey = VIEW_MODE_CACHE.keys().next().value;
+    //   VIEW_MODE_CACHE.delete(oldestKey);
+    // }
+
+    res.json(response);
+  } catch (error) {
     console.error('API error (development-activity):', error);
     res.status(500).json({ error: 'Failed to fetch development activity' });
   }
