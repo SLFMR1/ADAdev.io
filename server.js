@@ -2092,7 +2092,7 @@ app.get('/api/github/org-activity/:orgName', async (req, res) => {
 
 // Server-side cache for view mode results - optimized for fast loading
 const VIEW_MODE_CACHE = new Map();
-const VIEW_MODE_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days (immutable data)
+const VIEW_MODE_CACHE_TTL = 110 * 60 * 1000; // 110 minutes (90 min refresh + 20 min buffer for heavy data processing)
 
 // Clear cache to ensure fresh data after fixing founding entity filtering logic
 VIEW_MODE_CACHE.clear();
@@ -2100,6 +2100,7 @@ logger.info('🧹 Cleared VIEW_MODE_CACHE after fixing founding entity filtering
 
 // **NEW**: Cache for pre-calculated single organization data
 const ORGANIZATION_DATA_CACHE = new Map();
+const ORGANIZATION_DATA_CACHE_TTL = 110 * 60 * 1000; // 110 minutes (90 min refresh + 20 min buffer for heavy data processing)
 
 // Cache for historical maximums - 90 day TTL since they change even less frequently
 const HISTORICAL_MAXIMUMS_CACHE = new Map();
@@ -2176,10 +2177,13 @@ app.get('/api/development-activity', async (req, res) => {
         if (targetResource.type === 'organization') {
           const orgCacheKey = `${targetResource.id || targetResource.name}_${period}`;
           const cachedOrgData = ORGANIZATION_DATA_CACHE.get(orgCacheKey);
-          if (cachedOrgData) {
-            logger.debug(`⚡ Using pre-calculated organization cache for ${targetResource.name} (${period})`);
+          if (cachedOrgData && (Date.now() - cachedOrgData.timestamp < ORGANIZATION_DATA_CACHE_TTL)) {
+            logger.debug(`⚡ Using pre-calculated organization cache for ${targetResource.name} (${period}) (${Math.round((Date.now() - cachedOrgData.timestamp) / 1000)}s old)`);
             activityData = cachedOrgData.weeklyData;
             totalCommits = cachedOrgData.totalCommits;
+          } else if (cachedOrgData) {
+            logger.debug(`🗑️ Expired organization cache for ${targetResource.name} (${period})`);
+            ORGANIZATION_DATA_CACHE.delete(orgCacheKey);
           }
         }
 
@@ -5358,11 +5362,15 @@ const preloadOrganizationDataForAll = async () => {
           activityData = await getHistoricalActivity(org, config.since, new Date().toISOString())
         }
         
-        const totalCommits = Array.isArray(activityData) ? 
+        const totalCommits = Array.isArray(activityData) ?
           activityData.reduce((sum, week) => sum + (week?.count || 0), 0) : 0
 
         const cacheKey = `${org.id || org.name}_${period}`
-        ORGANIZATION_DATA_CACHE.set(cacheKey, { weeklyData: activityData, totalCommits })
+        ORGANIZATION_DATA_CACHE.set(cacheKey, {
+          weeklyData: activityData,
+          totalCommits,
+          timestamp: Date.now()
+        })
       }
       successCount++
     } catch (error) {

@@ -15,7 +15,7 @@ export const PERIOD_CONFIGS = {
     isDaily: true,
     serverPeriod: 'current',
     useHybridData: true, // Only period that uses DB + GitHub API
-    cacheTTL: process.env.NODE_ENV === 'production' ? 2 * 60 * 60 * 1000 : 30 * 60 * 1000 // 2 hours in prod, 30 min in dev
+    cacheTTL: 110 * 60 * 1000 // 110 minutes (90 min refresh + 20 min buffer)
   },
   '4weeks': {
     key: '4weeks',
@@ -24,7 +24,7 @@ export const PERIOD_CONFIGS = {
     isDaily: false,
     serverPeriod: '4weeks', // Maps to server's 4weeks endpoint
     useHybridData: false, // Database only
-    cacheTTL: 30 * 24 * 60 * 60 * 1000 // 30 days for immutable weekly data
+    cacheTTL: 110 * 60 * 1000 // 110 minutes (90 min refresh + 20 min buffer)
   },
   '3months': {
     key: '3months',
@@ -33,7 +33,7 @@ export const PERIOD_CONFIGS = {
     isDaily: false,
     serverPeriod: '3months',
     useHybridData: false, // Database only
-    cacheTTL: 90 * 24 * 60 * 60 * 1000 // 90 days for immutable historical data
+    cacheTTL: 110 * 60 * 1000 // 110 minutes (90 min refresh + 20 min buffer)
   },
   '52weeks': {
     key: '52weeks',
@@ -42,7 +42,7 @@ export const PERIOD_CONFIGS = {
     isDaily: false,
     serverPeriod: '52weeks',
     useHybridData: false, // Database only
-    cacheTTL: 180 * 24 * 60 * 60 * 1000 // 180 days for immutable historical data
+    cacheTTL: 110 * 60 * 1000 // 110 minutes (90 min refresh + 20 min buffer)
   },
   '3years': {
     key: '3years',
@@ -51,7 +51,7 @@ export const PERIOD_CONFIGS = {
     isDaily: false,
     serverPeriod: '3years',
     useHybridData: false, // Database only
-    cacheTTL: 365 * 24 * 60 * 60 * 1000 // 365 days for immutable historical data
+    cacheTTL: 110 * 60 * 1000 // 110 minutes (90 min refresh + 20 min buffer)
   }
 }
 
