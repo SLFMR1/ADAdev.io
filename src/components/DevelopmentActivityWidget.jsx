@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Activity, Share2, Loader2, GitCommit, ClipboardCheck } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { cardanoResources } from '../data/resources';
 import logger from '../utils/logger-frontend';
 import * as htmlToImage from 'html-to-image';
@@ -111,13 +112,14 @@ const accentColors = [
 ];
 
 const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onCollapse, onNavigateToResource, animationState }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activityData, setActivityData] = useState(null);
-  
+
   // Smart loading state - only show loading when no cached data is available
   const [isLoading, setIsLoading] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
   const [hasDataLoadError, setHasDataLoadError] = useState(false);
-  
+
   // Accent color state - defaults to Cyber Lime (index 8)
   const [accentColorIndex, setAccentColorIndex] = useState(() => {
     try {
@@ -127,18 +129,26 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
       return 8;
     }
   });
-  
-  // Load persisted settings from localStorage with fallbacks
+
+  // Load persisted settings: URL params override localStorage
   const [selectedPeriod, setSelectedPeriod] = useState(() => {
     try {
+      const urlPeriod = searchParams.get('period');
+      if (urlPeriod && ['current', '4weeks', '3months', '52weeks', '3years'].includes(urlPeriod)) {
+        return urlPeriod;
+      }
       return localStorage.getItem('developmentActivityWidget.selectedPeriod') || 'current';
     } catch {
       return 'current';
     }
   });
-  
+
   const [viewMode, setViewMode] = useState(() => {
     try {
+      const urlView = searchParams.get('view');
+      if (urlView && ['repository', 'organization', 'founding_entity'].includes(urlView)) {
+        return urlView;
+      }
       return localStorage.getItem('developmentActivityWidget.viewMode') || 'repository';
     } catch {
       return 'repository';
@@ -1216,29 +1226,36 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                             value={selectedPeriod}
                             onChange={(newPeriod) => {
                               console.log(`⚡ INSTANT PERIOD SWITCH: ${selectedPeriod} → ${newPeriod}`);
-                              
+
                               // Always set the new period first
                               setSelectedPeriod(newPeriod);
                               try {
                                 localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
                               } catch {}
-                              
+
+                              // Update URL params if widget is open
+                              if (isExpanded) {
+                                const newParams = new URLSearchParams(searchParams);
+                                newParams.set('period', newPeriod);
+                                setSearchParams(newParams, { replace: true });
+                              }
+
                               // Check centralized cache for instant switching
                               const cachedData = ChartDataCache.get(viewMode, newPeriod);
                               if (cachedData) {
                                 console.log('✅ Using cached data for instant period switch!');
-                                
+
                                 // Update activity data with cached data
                                 const periodData = { ...cachedData, period: newPeriod, viewMode: viewMode };
-                                
+
                                 setActivityData(periodData);
-                                
+
                                 // Dispatch event for other components
                                 const event = new CustomEvent('activityDataUpdated', {
                                   detail: periodData.metrics?.daily || periodData.metrics?.weekly
                                 });
                                 document.dispatchEvent(event);
-                                
+
                                 console.log(`⚡ INSTANT SWITCH COMPLETE: Now showing ${newPeriod} with ${periodData.dailyLeaderboard?.length || periodData.weeklyLeaderboard?.length || 0} resources`);
                               } else {
                                 console.log('⏳ No cached data available, will load from API...');
@@ -1259,6 +1276,13 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 try {
                                   localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
                                 } catch {}
+
+                                // Update URL params if widget is open
+                                if (isExpanded) {
+                                  const newParams = new URLSearchParams(searchParams);
+                                  newParams.set('view', newViewMode);
+                                  setSearchParams(newParams, { replace: true });
+                                }
                               }
                             }}
                             options={viewModeOptions}
@@ -1409,29 +1433,36 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                     value={selectedPeriod}
                     onChange={(newPeriod) => {
                       console.log(`⚡ INSTANT PERIOD SWITCH: ${selectedPeriod} → ${newPeriod}`);
-                      
+
                       // Always set the new period first
                       setSelectedPeriod(newPeriod);
                       try {
                         localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
                       } catch {}
-                      
+
+                      // Update URL params if widget is open
+                      if (isExpanded) {
+                        const newParams = new URLSearchParams(searchParams);
+                        newParams.set('period', newPeriod);
+                        setSearchParams(newParams, { replace: true });
+                      }
+
                       // Check centralized cache for instant switching
                       const cachedData = ChartDataCache.get(viewMode, newPeriod);
                       if (cachedData) {
                         console.log('✅ Using cached data for instant period switch!');
-                        
+
                         // Update activity data with cached data
                         const periodData = { ...cachedData, period: newPeriod, viewMode: viewMode };
-                        
+
                         setActivityData(periodData);
-                        
+
                         // Dispatch event for other components
                         const event = new CustomEvent('activityDataUpdated', {
                           detail: periodData.metrics?.daily || periodData.metrics?.weekly
                         });
                         document.dispatchEvent(event);
-                        
+
                         console.log(`⚡ INSTANT SWITCH COMPLETE: Now showing ${newPeriod} with ${periodData.dailyLeaderboard?.length || periodData.weeklyLeaderboard?.length || 0} resources`);
                       } else {
                         console.log('⏳ No cached data available, will load from API...');
@@ -1452,6 +1483,13 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                         try {
                           localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
                         } catch {}
+
+                        // Update URL params if widget is open
+                        if (isExpanded) {
+                          const newParams = new URLSearchParams(searchParams);
+                          newParams.set('view', newViewMode);
+                          setSearchParams(newParams, { replace: true });
+                        }
                       }
                     }}
                     options={viewModeOptions}

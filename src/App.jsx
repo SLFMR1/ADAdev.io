@@ -17,7 +17,7 @@ import { preloadCache, initializeRateLimit } from './services/github';
 import cacheManager from './services/cacheManager';
 import { Activity, Menu, X, Brain, Bot, TrendingUp, Plus, Users, Database } from 'lucide-react';
 import { useCommitData } from './contexts/CommitDataContext';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, useSearchParams } from 'react-router-dom';
 
 // Unified Background Overlay Component
 const WidgetOverlay = ({ isOpen, onClose, children }) => {
@@ -285,6 +285,7 @@ const MobileNavigation = ({ isOpen, onClose, expanded, setExpanded, handleWidget
 
 function App() {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('category');
@@ -313,6 +314,51 @@ function App() {
       resources.map((resource) => ({ ...resource, category }))
     );
   }, []);
+
+  // Handle URL parameters on mount to auto-open widgets and resource cards
+  useEffect(() => {
+    const widgetParam = searchParams.get('widget');
+    const resourceParam = searchParams.get('resource');
+
+    // Open widget if widget param is present
+    if (widgetParam && ['dev', 'github', 'ai', 'add', 'find'].includes(widgetParam)) {
+      setExpanded(widgetParam);
+    }
+
+    // Open resource card if resource param is present
+    if (resourceParam && allResources.length > 0) {
+      const resource = allResources.find(r =>
+        r.name.toLowerCase().replace(/\s+/g, '-') === resourceParam.toLowerCase() ||
+        r.id?.toString() === resourceParam
+      );
+
+      if (resource) {
+        console.log(`🔗 Opening resource from URL: ${resource.name}`);
+
+        // First scroll to resources section
+        setTimeout(() => {
+          const resourcesSection = document.getElementById('resources');
+          if (resourcesSection) {
+            resourcesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 300);
+
+        // Then open the specific card
+        setTimeout(() => {
+          const event = new CustomEvent('resourceCardTabRequest', {
+            detail: {
+              resourceId: resource.id,
+              resourceName: resource.name,
+              tabName: 'about'
+            }
+          });
+          document.dispatchEvent(event);
+        }, 800);
+      } else {
+        console.warn(`⚠️ Resource not found for URL param: ${resourceParam}`);
+      }
+    }
+  }, [allResources, searchParams]);
 
   // Global scrolling prevention when widgets are active
   useEffect(() => {
@@ -473,11 +519,17 @@ function App() {
       handleWidgetTransition('dev');
       setViewingResourceCard(false);
       setNavigationSource(null);
+      // Update URL to show dev widget
+      const newParams = new URLSearchParams();
+      newParams.set('widget', 'dev');
+      setSearchParams(newParams, { replace: true });
     } else {
       // Close any open widgets and go to dashboard
       setExpanded(null);
       setViewingResourceCard(false);
       setNavigationSource(null);
+      // Clear URL params
+      setSearchParams({}, { replace: true });
       // Don't scroll to top - maintain current scroll position
     }
   };
@@ -487,9 +539,15 @@ function App() {
     if (expanded === widgetKey) {
       setExpanded(null);
       setNavigationSource(null);
+      // Clear URL params when closing widget
+      setSearchParams({}, { replace: true });
     } else {
       handleWidgetTransition(widgetKey);
       setNavigationSource('widget');
+      // Update URL with widget param
+      const newParams = new URLSearchParams();
+      newParams.set('widget', widgetKey);
+      setSearchParams(newParams, { replace: true });
     }
   };
 
@@ -505,17 +563,23 @@ function App() {
 
   const navigateToResourceCard = (resourceId, resourceName) => {
     console.log(`🎯 Navigating to resource: ${resourceName} (ID: ${resourceId})`);
-    
+
     // Close any open widgets first
     setExpanded(null);
-    
+
     // Immediate surgical cleanup of scroll restrictions to prevent race condition
     document.body.style.overflow = '';
-    
+
     // Set viewing state and track navigation source
     setViewingResourceCard(true);
     setNavigationSource('leaderboard');
-    
+
+    // Update URL with resource param
+    const resourceSlug = resourceName.toLowerCase().replace(/\s+/g, '-');
+    const newParams = new URLSearchParams();
+    newParams.set('resource', resourceSlug);
+    setSearchParams(newParams, { replace: true });
+
     // Use the new custom event system for direct navigation to the card
     // Skip the resources section scroll and go directly to the target card
     setTimeout(() => {

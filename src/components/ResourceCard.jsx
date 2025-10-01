@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { 
+import { useSearchParams } from 'react-router-dom'
+import {
   ExternalLink, Github, MessageCircle,
   TerminalSquare, Database, Wallet, Image as ImageIcon, Users,
   ShieldCheck, Zap, BarChart2, Bot, Moon, HardDrive, Building2,
@@ -101,6 +102,7 @@ const getYouTubeEmbedUrl = (url) => {
 }
 
 const ResourceCard = ({ resource, onViewResource }) => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState('about')
   const [isScrolling, setIsScrolling] = useState(false)
@@ -332,6 +334,8 @@ const ResourceCard = ({ resource, onViewResource }) => {
         // Add small delay to prevent immediate collapse when opening new cards
         setTimeout(() => {
           setIsExpanded(false)
+          // Clear URL params when closing card
+          setSearchParams({}, { replace: true })
           // Ensure scroll freedom is restored when card is closed
           document.body.style.overflow = ''
           logger.debug('🔓 Resource card closed - scroll freedom restored')
@@ -419,6 +423,13 @@ const ResourceCard = ({ resource, onViewResource }) => {
     // Only expand if not already expanded
     if (!isExpanded) {
       setIsExpanded(true)
+
+      // Update URL with resource param
+      const resourceSlug = resource.name.toLowerCase().replace(/\s+/g, '-')
+      const newParams = new URLSearchParams()
+      newParams.set('resource', resourceSlug)
+      setSearchParams(newParams, { replace: true })
+
       // Scroll to center the expanded card, especially important for activity tab
       if (activeTab === 'activity') {
         setTimeout(() => scrollToCard(), 400);
