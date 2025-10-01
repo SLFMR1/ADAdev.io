@@ -1086,6 +1086,31 @@ export const cardanoResources = {
       "organization": "vault3-io",
       "repository": null,
       "repo_path": "vault3-io"
+    },
+    {
+      "id": 70,
+      "name": "ADA Handle",
+      "logo": "https://public.koralabs.io/marketing/logo.png",
+      "description": "ADA Handle is the naming standard solution on Cardano.",
+      "fullDescription": "ADA Handle is the naming standard solution on Cardano. An NFT that resolves to an address wherever it resides in. User-friendly, memorable name that acts as a proxy for a complex Cardano wallet address, allowing users to send and receive cryptocurrency on the Cardano blockchain using a simple, human-readable identifier instead of a long string of numbers and letters.",
+      "keySolutions": [
+        "Blockchain",
+        "NFT",
+        "Payment Gateway",
+        "API"
+      ],
+      "website": "https://handle.me",
+      "social": {
+        "github": "https://github.com/koralabs",
+        "discord": "https://discord.com/invite/nwbZxANayw",
+        "x": "https://x.com/adahandle"
+      },
+      "docs": "https://docs.handle.me",
+      "category": "Identity & Authentication",
+      "type": "organization",
+      "organization": "koralabs",
+      "repository": null,
+      "repo_path": "koralabs"
     }
   ],
   "Oracles & External Data": [
