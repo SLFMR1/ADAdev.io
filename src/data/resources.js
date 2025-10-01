@@ -93,7 +93,8 @@ export const cardanoResources = {
       ],
       "website": "https://meshjs.dev/",
       "social": {
-        "github": "https://github.com/meshjs"
+        "github": "https://github.com/meshjs",
+        "x": "https://x.com/meshsdk"
       },
       "docs": "https://docs.meshjs.dev/",
       "category": "Libraries & Languages",

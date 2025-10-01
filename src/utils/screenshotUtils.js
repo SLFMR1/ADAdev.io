@@ -573,14 +573,14 @@ export function generateTweetText(handles = [], shareType = 'chart', activityDat
 export function getTop5HandlesOrNames(activityData) {
   return activityData.slice(0, 5).map(item => {
     const social = item.resource.social || {};
+
+    // Try to extract X/Twitter handle first (with or without @ in URL)
     if (social.x) {
-      const match = social.x.match(/x.com\/(\w+)/i);
+      const match = social.x.match(/(?:x\.com|twitter\.com)\/@?([\w-]+)/i);
       if (match && match[1]) return '@' + match[1];
     }
-    if (social.github) {
-      const match = social.github.match(/github.com\/(?:orgs\/)?([\w-]+)/i);
-      if (match && match[1]) return '@' + match[1];
-    }
+
+    // If no X handle found, just use the resource name without any link extraction
     return item.resource.name.replace(/\s+/g, '');
   });
 } 
