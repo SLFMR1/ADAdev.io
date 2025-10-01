@@ -27,6 +27,7 @@ import {
 } from '../utils/chartDataUtils'
 import { ChartDataCache } from '../utils/cacheUtils'
 import Portal from './Portal'
+import { trackResourceView } from '../utils/analytics'
 
 // No direct Supabase client - using server APIs for single source of truth
 
@@ -424,16 +425,17 @@ const ResourceCard = ({ resource, onViewResource }) => {
     if (!isExpanded) {
       setIsExpanded(true)
 
+      // Track resource view
+      trackResourceView(resource.name, resource.category)
+
       // Update URL with resource param
       const resourceSlug = resource.name.toLowerCase().replace(/\s+/g, '-')
       const newParams = new URLSearchParams()
       newParams.set('resource', resourceSlug)
       setSearchParams(newParams, { replace: true })
 
-      // Scroll to center the expanded card, especially important for activity tab
-      if (activeTab === 'activity') {
-        setTimeout(() => scrollToCard(), 400);
-      }
+      // Scroll to center the expanded card
+      setTimeout(() => scrollToCard(), 400)
     }
     // Do nothing if already expanded (let outside click handler handle collapse)
   }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import GitHubUpdatesWidget from './components/GitHubUpdatesWidget';
@@ -18,6 +18,7 @@ import cacheManager from './services/cacheManager';
 import { Activity, Menu, X, Brain, Bot, TrendingUp, Plus, Users, Database } from 'lucide-react';
 import { useCommitData } from './contexts/CommitDataContext';
 import { Routes, Route, useLocation, useSearchParams } from 'react-router-dom';
+import { trackWidgetOpen, trackURLShare } from './utils/analytics';
 
 // Unified Background Overlay Component
 const WidgetOverlay = ({ isOpen, onClose, children }) => {
@@ -315,14 +316,23 @@ function App() {
     );
   }, []);
 
-  // Handle URL parameters on mount to auto-open widgets and resource cards
+  // Track if this is initial mount to only handle URL params on first load
+  const isInitialMount = useRef(true);
+
+  // Handle URL parameters ONLY on initial page load (not when URL changes from user interaction)
   useEffect(() => {
+    // Only run on initial mount
+    if (!isInitialMount.current) return;
+    isInitialMount.current = false;
+
     const widgetParam = searchParams.get('widget');
     const resourceParam = searchParams.get('resource');
 
     // Open widget if widget param is present
     if (widgetParam && ['dev', 'github', 'ai', 'add', 'find'].includes(widgetParam)) {
       setExpanded(widgetParam);
+      // Track URL share usage
+      trackURLShare('widget', widgetParam);
     }
 
     // Open resource card if resource param is present
@@ -334,16 +344,10 @@ function App() {
 
       if (resource) {
         console.log(`🔗 Opening resource from URL: ${resource.name}`);
+        // Track URL share usage
+        trackURLShare('resource', resource.name);
 
-        // First scroll to resources section
-        setTimeout(() => {
-          const resourcesSection = document.getElementById('resources');
-          if (resourcesSection) {
-            resourcesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 300);
-
-        // Then open the specific card
+        // Open the specific card - let ResourceCard handle scrolling
         setTimeout(() => {
           const event = new CustomEvent('resourceCardTabRequest', {
             detail: {
@@ -353,7 +357,7 @@ function App() {
             }
           });
           document.dispatchEvent(event);
-        }, 800);
+        }, 500);
       } else {
         console.warn(`⚠️ Resource not found for URL param: ${resourceParam}`);
       }
@@ -544,6 +548,8 @@ function App() {
     } else {
       handleWidgetTransition(widgetKey);
       setNavigationSource('widget');
+      // Track widget open
+      trackWidgetOpen(widgetKey);
       // Update URL with widget param
       const newParams = new URLSearchParams();
       newParams.set('widget', widgetKey);

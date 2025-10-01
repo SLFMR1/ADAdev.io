@@ -18,13 +18,14 @@ import {
 } from '../utils/screenshotUtils';
 import { shouldShowShareButton, getShareUnavailableReason } from '../utils/deviceUtils';
 import { getWeekStart, getCurrentWeekStart } from '../utils/weekCalculation';
-import { 
+import {
   PERIOD_OPTIONS,
   transformChartData,
   validateNodeCount,
   getPeriodConfig
 } from '../utils/chartDataUtils';
 import { ChartDataCache } from '../utils/cacheUtils';
+import { trackWidgetPeriodChange, trackWidgetViewChange } from '../utils/analytics';
 
 // Use centralized period options
 const periodOptions = PERIOD_OPTIONS;
@@ -1233,6 +1234,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
                               } catch {}
 
+                              // Track period change
+                              trackWidgetPeriodChange(newPeriod);
+
                               // Update URL params if widget is open
                               if (isExpanded) {
                                 const newParams = new URLSearchParams(searchParams);
@@ -1276,6 +1280,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                                 try {
                                   localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
                                 } catch {}
+
+                                // Track view mode change
+                                trackWidgetViewChange(newViewMode);
 
                                 // Update URL params if widget is open
                                 if (isExpanded) {
@@ -1440,6 +1447,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                         localStorage.setItem('developmentActivityWidget.selectedPeriod', newPeriod);
                       } catch {}
 
+                      // Track period change
+                      trackWidgetPeriodChange(newPeriod);
+
                       // Update URL params if widget is open
                       if (isExpanded) {
                         const newParams = new URLSearchParams(searchParams);
@@ -1483,6 +1493,9 @@ const DevelopmentActivityWidget = ({ isExpanded, isAnyExpanded, onExpand, onColl
                         try {
                           localStorage.setItem('developmentActivityWidget.viewMode', newViewMode);
                         } catch {}
+
+                        // Track view mode change
+                        trackWidgetViewChange(newViewMode);
 
                         // Update URL params if widget is open
                         if (isExpanded) {
