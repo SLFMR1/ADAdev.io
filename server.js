@@ -5014,8 +5014,22 @@ function calculateQualityImprovement(historicalData) {
   }
 }
 
+// Serve llm.txt with proper caching for LLM crawlers
+app.get('/llm.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+  res.setHeader('Cache-Control', 'public, max-age=3600')
+  res.setHeader('X-Frame-Options', 'ALLOWALL')
+  res.sendFile(path.join(__dirname, 'dist', 'llm.txt'))
+})
+
 // Serve static files AFTER API routes to prevent conflicts
-app.use(express.static(path.join(__dirname, 'dist')))
+app.use(express.static(path.join(__dirname, 'dist'), {
+  setHeaders: (res, filepath) => {
+    if (filepath.endsWith('.txt')) {
+      res.setHeader('Cache-Control', 'public, max-age=3600')
+    }
+  }
+}))
 
 // Catch-all handler for client-side routing
 app.get('*', (req, res) => {
