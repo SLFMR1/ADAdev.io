@@ -1034,6 +1034,33 @@ export const cardanoResources = {
       "organization": "TokeoPay",
       "repository": null,
       "repo_path": "TokeoPay"
+    },
+    {
+      "id": 71,
+      "name": "ADAM Cardano App",
+      "logo": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/f8/53/fe/f853fefc-4ef2-22b5-798c-97fe45c6aec7/AppIcon-0-1x_U007epad-0-1-85-220-0.png/460x0w.webp",
+      "description": "Track all your Cardano wallets in one app",
+      "fullDescription": "Are you looking for an efficient way to integrate and track your ADA wallets? Look no further than ADAM! Our app is designed to help track all your Cardano stacking rewards, wallets and funds from a single, cohesive interface. It’s very important for us to not only access the latest Cardano information, but also narrow down your current investment as well.\n\nWhy should you use the ADAM app?\n\nWhen you use the ADAM app, you have access to the latest info like the ADA or Bitcoin prices. You can also see a real time chart with the ADA prices for the past hours, days or months. On top of that, you can ensure you always have a good understanding of your ADA funds right now as well. Plus, there are Cardano epoch countdown and details as well.\n\nWe go even further with the info by adding Cardano tokenomics overviews, along with details about the market cap and volume of the Cardano tokens as well. That way, you always have access to detailed content about your ADA investment, while also getting a prediction of how things might go in then future.\n\nIntegrate your Cardano wallets:\n\nOne of the core advantages of the ADAM app is that it allows you to easily integrate any of your Cardano wallets. That means you can use wallets like Lace, Daedalus, Begin, Tokeo, Yoroi, Eternl, Nufi, AdaLite, Gero, Typhon, Ledger, Trust and many others. You get to see all your funds, and you can access them without any hassle.\n\nADAM gives you the ultimate way to manage your Cardano experience, from stacking rewards to tracking funds and managing your tokens. It’s a great place for any Cardano investor, so we encourage you to try it out today!\n\nFeatures:\n• See the latest ADA prices and track your funds\n• Set custom price alerts and get notifications\n• Check real time charts\n• VIP stake pools\n• Assess your staking rewards, pool metrics and assets\n• Integrate with various Cardano wallets\n• Discover ADAM AI for quick pool summary\n• Home screen & Lock screen widgets",
+      "keySolutions": [
+        "Bitcoin & Cardano Prices",
+        "Wallet Integration",
+        "Mobile Widgets",
+        "Stake Rewards",
+        "Stake Pools",
+        "NFTs",
+        "ROI Calculation",
+        "Block Factory"
+      ],
+      "website": "https://androdevs.de",
+      "social": {
+        "github": "https://github.com/andro-devs",
+        "x": "https://x.com/AndroDevs"
+      },
+      "category": "Wallets & User Tools",
+      "type": "organization",
+      "organization": "andro-devs",
+      "repository": null,
+      "repo_path": "andro-devs"
     }
   ],
   "Identity & Authentication": [
