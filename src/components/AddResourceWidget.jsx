@@ -21,13 +21,26 @@ const initialForm = {
 
 const AddResourceWidget = ({ isExpanded, onExpand, onCollapse, isAnyExpanded, animationState }) => {
   const [collapseTimeout, setCollapseTimeout] = useState(null)
-  const [form, setForm] = useState(initialForm)
+  const [form, setForm] = useState(() => {
+    const saved = localStorage.getItem('addResourceForm')
+    return saved ? JSON.parse(saved) : initialForm
+  })
   const [codeSnippet, setCodeSnippet] = useState('')
-  const [customCategory, setCustomCategory] = useState('')
+  const [customCategory, setCustomCategory] = useState(() => {
+    const saved = localStorage.getItem('addResourceCustomCategory')
+    return saved || ''
+  })
   const [showInstructions, setShowInstructions] = useState(false)
   const [copySuccess, setCopySuccess] = useState(false)
   const modalRef = useRef(null)
 
+  useEffect(() => {
+    localStorage.setItem('addResourceForm', JSON.stringify(form))
+  }, [form])
+
+  useEffect(() => {
+    localStorage.setItem('addResourceCustomCategory', customCategory)
+  }, [customCategory])
 
   // Handle click outside to collapse widget (only when modal is open)
   useEffect(() => {
