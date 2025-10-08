@@ -750,7 +750,7 @@ const ResourceCard = ({ resource, onViewResource }) => {
           </div>
 
           {/* Tab Content */}
-          <div className={`flex-grow text-sm mobile:text-xs text-gray-300 pr-2 mobile:pr-1 ${screenshotMode ? 'overflow-hidden' : activeTab === 'updates' || activeTab === 'activity' ? 'overflow-y-auto' : activeTab === 'solutions' ? 'mobile:overflow-y-auto mobile:max-h-64' : activeTab === 'about' || activeTab === 'links' ? 'mobile:overflow-y-auto mobile:max-h-40' : 'overflow-hidden'}`}>
+          <div className={`flex-grow text-sm mobile:text-xs text-gray-300 pr-2 mobile:pr-1 ${screenshotMode ? 'overflow-hidden' : activeTab === 'updates' || activeTab === 'activity' ? 'overflow-y-auto' : activeTab === 'solutions' ? 'mobile:overflow-y-auto mobile:max-h-64' : activeTab === 'about' || activeTab === 'links' ? 'overflow-y-auto max-h-40 mobile:max-h-40' : 'overflow-hidden'}`}>
             {activeTab === 'about' && <p>{resource.fullDescription || resource.description}</p>}
             {activeTab === 'solutions' && (
               <div className="flex flex-wrap gap-2">
