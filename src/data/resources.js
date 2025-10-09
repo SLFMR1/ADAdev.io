@@ -1053,13 +1053,14 @@ export const cardanoResources = {
       ],
       "website": "https://androdevs.de",
       "social": {
+        "github": "https://github.com/andro-devs",
         "x": "https://x.com/AndroDevs"
       },
       "category": "Wallets & User Tools",
-      "type": "misc",
-      "organization": null,
+      "type": "organization",
+      "organization": "andro-devs",
       "repository": null,
-      "repo_path": null
+      "repo_path": "andro-devs"
     }
   ],
   "Identity & Authentication": [
