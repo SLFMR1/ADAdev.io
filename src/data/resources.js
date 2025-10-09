@@ -522,6 +522,30 @@ export const cardanoResources = {
         x: "https://x.com/tokeo_io"
       },
       category: "Wallets & User Tools"
+    },
+    {
+      id: 63,
+      name: "UVerify",
+      logo: "https://github.com/UVerify-io/uverify-ui/blob/main/public/uverify.png",
+      description: "UVerify makes blockchain technology accessible to everyone, regardless of prior experience. Effortlessly secure your file or text hashes on the Cardano blockchain.",
+      fullDescription: "With UVerify, you can easily store and retrieve data on the Cardano blockchain. The API is straightforward, and the UI is both intuitive and highly customizable. You can deploy your own instance or use the hosted version — whatever fits your needs best. Our main goal is flexibility: UVerify is designed to be a tool anyone can integrate seamlessly into their own projects. It’s more than just a tool; it’s a platform.\n\nHow does it work?\n\nUVerify includes its own scoped chain indexer, a Web3 API key management system, on-chain metadata support, and extension points for both the backend and frontend. The frontend is built with React, while the backend is a Java Spring Boot application that leverages Yaci Store.",
+      keySolutions: [
+        "Digital product passport",
+        "Student certification",
+        "Notary service"
+      ],
+      website: "https://app.uverify.io",
+      social: {
+        github: "https://github.com/UVerify-io",
+        discord: "https://discord.com/invite/Dvqkynn6xc",
+        x: "https://x.com/uver1fy"
+      },
+      category: "Wallets & User Tools",
+      type: "organization",
+      organization: "UVerify-io",
+      repository: null,
+      repo_path: "UVerify-io",
+      docs: "https://docs.uverify.io/"
     }
   ],
   "Identity & Authentication": [
