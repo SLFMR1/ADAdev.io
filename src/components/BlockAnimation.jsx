@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react'
+import React, { useRef, useMemo, useEffect, useState } from 'react'
 import { Canvas, useFrame, extend } from '@react-three/fiber'
 import { EffectComposer, Bloom, Noise } from '@react-three/postprocessing'
 import { shaderMaterial } from '@react-three/drei'
@@ -61,6 +61,42 @@ const VanishingBlockMaterial = shaderMaterial(
 
 extend({ VanishingBlockMaterial })
 
+const hasWebGLSupport = () => {
+  if (typeof window === 'undefined' || !window.WebGLRenderingContext) {
+    return false
+  }
+
+  try {
+    const canvas = document.createElement('canvas')
+    return !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+  } catch {
+    return false
+  }
+}
+
+const prefersReducedMotion = () => {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false
+  }
+
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+const isCompactViewport = () => {
+  if (typeof window === 'undefined') {
+    return true
+  }
+
+  return window.innerWidth < 768
+}
+
+const shouldRenderAnimation = () => {
+  if (!hasWebGLSupport()) return false
+  if (prefersReducedMotion()) return false
+  if (isCompactViewport()) return false
+  return true
+}
+
 const Block = ({ position, color, size, rotationSpeed }) => {
   const ref = useRef()
   const materialRef = useRef()
@@ -103,6 +139,10 @@ const AnimatedGroup = ({ blocks }) => {
 }
 
 const BlockAnimation = () => {
+  const [shouldRender, setShouldRender] = useState(false)
+  const [contextLost, setContextLost] = useState(false)
+  const glRef = useRef(null)
+
   const blocks = useMemo(() => {
     const temp = []
     const colors = ['#666666', '#888888', '#AAAAAA'];
@@ -156,9 +196,50 @@ const BlockAnimation = () => {
     return temp
   }, [])
 
+  useEffect(() => {
+    const evaluate = () => setShouldRender(shouldRenderAnimation())
+
+    evaluate()
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', evaluate)
+      return () => window.removeEventListener('resize', evaluate)
+    }
+
+    return undefined
+  }, [])
+
+  useEffect(() => {
+    if (!shouldRender || contextLost) return undefined
+
+    const gl = glRef.current
+    if (!gl) return undefined
+
+    const canvas = gl.domElement
+    const handleContextLost = event => {
+      event.preventDefault()
+      setContextLost(true)
+    }
+
+    canvas.addEventListener('webglcontextlost', handleContextLost, { passive: false })
+
+    return () => {
+      canvas.removeEventListener('webglcontextlost', handleContextLost)
+    }
+  }, [shouldRender, contextLost])
+
+  if (!shouldRender || contextLost) {
+    return <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#1a1a1a] via-[#111111] to-black" />
+  }
+
   return (
     <div className="absolute inset-0 z-0">
-      <Canvas camera={{ position: [0, 0, 10], fov: 50 }}>
+      <Canvas
+        camera={{ position: [0, 0, 10], fov: 50 }}
+        onCreated={({ gl }) => {
+          glRef.current = gl
+          setContextLost(false)
+        }}
+      >
         {/* Enhanced lighting setup */}
         <ambientLight intensity={0.15} />
         <directionalLight position={[5, 5, 5]} intensity={1.2} castShadow />
