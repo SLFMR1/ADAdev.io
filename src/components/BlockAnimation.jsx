@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react'
+import React, { useRef, useMemo, useEffect, useState } from 'react'
 import { Canvas, useFrame, extend } from '@react-three/fiber'
 import { EffectComposer, Bloom, Noise } from '@react-three/postprocessing'
 import { shaderMaterial } from '@react-three/drei'
@@ -103,6 +103,39 @@ const AnimatedGroup = ({ blocks }) => {
 }
 
 const BlockAnimation = () => {
+  const [isWebGL2Supported, setIsWebGL2Supported] = useState(false)
+  const [hasCheckedSupport, setHasCheckedSupport] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setHasCheckedSupport(true)
+      return
+    }
+
+    let supported = false
+    try {
+      const canvas = document.createElement('canvas')
+      supported = !!canvas.getContext('webgl2')
+    } catch (error) {
+      supported = false
+    }
+
+    setIsWebGL2Supported(supported)
+    setHasCheckedSupport(true)
+  }, [])
+
+  if (!hasCheckedSupport || !isWebGL2Supported) {
+    return (
+      <div
+        className="absolute inset-0 z-0 pointer-events-none"
+        aria-hidden="true"
+        style={{
+          background: 'linear-gradient(135deg, rgba(30,30,30,0.85) 0%, rgba(15,15,15,0.9) 50%, rgba(26,26,26,0.85) 100%)',
+        }}
+      />
+    )
+  }
+
   const blocks = useMemo(() => {
     const temp = []
     const colors = ['#666666', '#888888', '#AAAAAA'];
