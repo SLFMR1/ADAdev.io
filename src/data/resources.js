@@ -300,6 +300,24 @@ export const cardanoResources = {
       },
       category: "Infrastructure & APIs"
     }
+    {
+    id: 63,
+    name: "ODATANO",
+    logo: "https://avatars.githubusercontent.com/u/238743065?s=200&v=4",
+    description: "ODATANO connects SAP systems to the Cardano blockchain via a CAP-based OData V4 API",
+    fullDescription: "ODATANO connects SAP systems to the Cardano blockchain via a CAP-based OData V4 API, enabling secure on-chain data access and blockchain transaction execution. Built with SAP CAP and Cardano SDKs, it provides an unified integration layer that brings Cardano into SAP processes with full enterprise-grade security and auditability.",
+    keySolutions: ["Enterprise-Grade OData V4 Access to Cardano", "Provider-Agnostic Blockchain Connectivity", "SAP CAP–Native Architecture", "Fiori-Ready UI Consumption of Cardano Data"],
+    website: "https://github.com/ODATANO",
+    social: {
+      github: "https://github.com/ODATANO/ODATANO"
+    },
+    category: "Infrastructure & APIs",
+    type: "repository",
+    organization: "ODATANO",
+    repository: "ODATANO",
+    repo_path: "ODATANO/ODATANO",
+    docs: "https://github.com/ODATANO/ODATANO/tree/main/docs"
+    }
   ],
   "Minting and NFTs": [
     {
