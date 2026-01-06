@@ -216,6 +216,38 @@ export const cardanoResources = {
       },
       docs: "https://github.com/FutureFest/NMKR-Studio-Unity-SDK#readme",
       category: "Minting and NFTs"
+    },
+    {
+      id: "63",
+      name: "Scalus",
+      logo: "https://scalus.org/scalus-logo-light.png",
+      description: "Cardano Smart Contracts & dApps Development Platform",
+      fullDescription: "Scalus is a professional Cardano smart contracts and dApps development platform for Scala & JVM developers. Write and test Cardano smart contracts, build transactions, and ship full-stack Cardano applications — all in pure Scala 3 with industry-grade tools and an exceptional developer experience.",
+      keySolutions: [
+        "Smart contracts",
+        "Transaction building",
+        "Off-chain code",
+        "dApp Development",
+        "Scala",
+        "JVM",
+        "Testing"
+      ],
+      website: "https://scalus.org/",
+      social: {
+        github: "https://github.com/scalus3/",
+        discord: "https://discord.gg/B6tXmBzhTn",
+        x: "https://x.com/scalus3"
+      },
+      category: "Libraries & Languages",
+      type: "organization",
+      organization: "scalus3",
+      repository: null,
+      repo_path: "scalus3",
+      docs: "https://scalus.org/",
+      customTab: {
+        title: "Community",
+        content: "Scalus Club - Join our community of pioneers who shape the future of Cardano development. \nhttps://luma.com/scalus"
+      }
     }
   ],
   "Infrastructure & APIs": [
@@ -305,7 +337,7 @@ export const cardanoResources = {
     {
       id: 31,
       name: "NMKR API",
-      logo: "https://cdn.prod.website-files.com/627424a55a80c8659c58943a/66a3dec08c724972d211ca38_Logo.svg",
+      logo: "https://cdn.prod.website-files.com/7424a55a80c8659c58943a/66a3dec08c724972d211ca38_Logo.svg",
       description: "Mint, manage and sell NFTs or digital assets with NMKR Studio's powerful API supporting airdropping and custom metadata.",
       fullDescription: "NMKR Studio provides a powerful API for minting, managing, and selling NFTs and other digital assets on Cardano. It supports features like airdropping, custom metadata, and a built-in payment gateway to simplify the entire NFT lifecycle.",
       keySolutions: ["NFT minting", "Metadata management", "Payment gateway", "Tokenization", "Airdropping"],
