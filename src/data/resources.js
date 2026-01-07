@@ -365,6 +365,58 @@ export const cardanoResources = {
       "organization": "FutureFest",
       "repository": "NMKR-Studio-Unity-SDK",
       "repo_path": "FutureFest/NMKR-Studio-Unity-SDK"
+    },
+    {
+      "id": 72,
+      "name": "Scalus",
+      "logo": "https://scalus.org/scalus-logo-light.png",
+      "description": "Cardano Smart Contracts & dApps Development Platform",
+      "fullDescription": "Scalus is a professional Cardano smart contracts and dApps development platform for Scala & JVM developers. Write and test Cardano smart contracts, build transactions, and ship full-stack Cardano applications — all in pure Scala 3 with industry-grade tools and an exceptional developer experience.",
+      "keySolutions": [
+        "Smart contracts",
+        "Transaction building",
+        "Off-chain code",
+        "dApp Development",
+        "Scala",
+        "JVM",
+        "Testing"
+      ],
+      "website": "https://scalus.org/",
+      "social": {
+        "github": "https://github.com/scalus3/",
+        "discord": "https://discord.gg/B6tXmBzhTn",
+        "x": "https://x.com/scalus3"
+      },
+      "category": "Libraries & Languages",
+      "type": "organization",
+      "organization": "scalus3",
+      "repository": null,
+      "repo_path": "scalus3",
+      "docs": "https://scalus.org/"
+    },
+    {
+      "id": 76,
+      "name": "Kuber",
+      "logo": "https://dquadrant.com/wp-content/uploads/2024/07/Dquadrant-Small-logo-white-orange.webp",
+      "description": "Kuber transaction library/api",
+      "fullDescription": "Javascript and Plutus/Haskell library for simple, CIP-1694 and Hydra transactions (currently under development)",
+      "keySolutions": [
+        "Blockchain integration",
+        "Wallet integration",
+        "Network integration",
+        "Hydra integration",
+        "Transaction management"
+      ],
+      "website": "https://dquadrant.com",
+      "social": {
+        "github": "https://github.com/dQuadrant/kuber"
+      },
+      "docs": "https://github.com/dQuadrant/kuber/#readme",
+      "category": "Libraries & Languages",
+      "type": "repository",
+      "organization": "dQuadrant",
+      "repository": "kuber",
+      "repo_path": "dQuadrant/kuber"
     }
   ],
   "Infrastructure & APIs": [
@@ -511,6 +563,58 @@ export const cardanoResources = {
       "organization": "dcSpark",
       "repository": "carp",
       "repo_path": "dcSpark/carp"
+    },
+    {
+      "id": 73,
+      "name": "ODATANO",
+      "logo": "https://avatars.githubusercontent.com/u/238743065?s=200&v=4",
+      "description": "ODATANO connects SAP systems to the Cardano blockchain via a CAP-based OData V4 API",
+      "fullDescription": "ODATANO connects SAP systems to the Cardano blockchain via a CAP-based OData V4 API, enabling secure on-chain data access and blockchain transaction execution. Built with SAP CAP and Cardano SDKs, it provides an unified integration layer that brings Cardano into SAP processes with full enterprise-grade security and auditability.",
+      "keySolutions": [
+        "Enterprise-Grade OData V4 Access to Cardano",
+        "Provider-Agnostic Blockchain Connectivity",
+        "SAP CAP–Native Architecture",
+        "Fiori-Ready UI Consumption of Cardano Data"
+      ],
+      "website": "https://github.com/ODATANO",
+      "social": {
+        "github": "https://github.com/ODATANO/ODATANO"
+      },
+      "category": "Infrastructure & APIs",
+      "type": "organization",
+      "organization": "ODATANO",
+      "repository": null,
+      "repo_path": "ODATANO",
+      "docs": "https://github.com/ODATANO/ODATANO/tree/main/docs"
+    },
+    {
+      "id": 74,
+      "name": "Cardano Rosetta Java",
+      "logo": "https://avatars.githubusercontent.com/u/37078161?s=200&v=4",
+      "description": "Lightweight Java implementation of the Rosetta API (Mesh) for seamless Cardano blockchain integration",
+      "fullDescription": "Cardano Rosetta Java is a production-ready implementation of Coinbase's Rosetta API specification (now Mesh), developed and maintained by the Cardano Foundation. It provides a standardized interface for exchanges, wallets, and other services to integrate with the Cardano blockchain without needing to understand its unique eUTXO model. Built on the efficient Yaci-Store indexer, it offers lower system requirements compared to other solutions while maintaining full compatibility with the Rosetta CLI and supporting all Cardano-specific features including native tokens, staking, and governance operations.",
+      "keySolutions": [
+        "blockchain integration",
+        "exchange connectivity",
+        "wallet infrastructure",
+        "API standardization",
+        "eUTXO abstraction",
+        "native token support",
+        "staking operations",
+        "governance voting"
+      ],
+      "website": "https://cardano-foundation.github.io/cardano-rosetta-java/",
+      "social": {
+        "github": "https://github.com/cardano-foundation/cardano-rosetta-java",
+        "discord": "https://discord.gg/rrYWYje5BE",
+        "x": "https://twitter.com/Cardano_CF"
+      },
+      "category": "Infrastructure & APIs",
+      "type": "repository",
+      "organization": "cardano-foundation",
+      "repository": "cardano-rosetta-java",
+      "repo_path": "cardano-foundation/cardano-rosetta-java",
+      "docs": "https://cardano-foundation.github.io/cardano-rosetta-java/docs/intro"
     }
   ],
   "Minting and NFTs": [
@@ -614,6 +718,28 @@ export const cardanoResources = {
       "organization": null,
       "repository": null,
       "repo_path": null
+    },
+    {
+      "id": 77,
+      "name": "Autonomous Agent Testing",
+      "logo": "https://dquadrant.com/wp-content/uploads/2024/07/Dquadrant-Small-logo-white-orange.webp",
+      "description": "Solution to test CIP-1694 at scale to catch issues early",
+      "fullDescription": "Agent based solution for testing Cardano governance",
+      "keySolutions": [
+        "Blockchain integration",
+        "CIP-1694 integration",
+        "Agents"
+      ],
+      "website": "https://agents.cardanoapi.io/",
+      "social": {
+        "github": "https://github.com/cardanoapi/autonomous-agents"
+      },
+      "docs": "https://github.com/cardanoapi/autonomous-agents/#readme",
+      "category": "Security & Auditing",
+      "type": "repository",
+      "organization": "cardanoapi",
+      "repository": "autonomous-agents",
+      "repo_path": "cardanoapi/autonomous-agents"
     }
   ],
   "Analytics & Data": [
@@ -1040,7 +1166,7 @@ export const cardanoResources = {
       "name": "ADAM Cardano App",
       "logo": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/f8/53/fe/f853fefc-4ef2-22b5-798c-97fe45c6aec7/AppIcon-0-1x_U007epad-0-1-85-220-0.png/460x0w.webp",
       "description": "Track all your Cardano wallets in one app",
-      "fullDescription": "Are you looking for an efficient way to integrate and track your ADA wallets? Look no further than ADAM! Our app is designed to help track all your Cardano staking rewards, wallets and funds from a single, cohesive interface. It’s very important for us to not only access the latest Cardano information, but also narrow down your current investment as well.\n\nWhy should you use the ADAM app?\n\nWhen you use the ADAM app, you have access to the latest info like the ADA or Bitcoin prices. You can also see a real time chart with the ADA prices for the past hours, days or months. On top of that, you can ensure you always have a good understanding of your ADA funds right now as well. Plus, there are Cardano epoch countdown and details as well.\n\nWe go even further with the info by adding Cardano tokenomics overviews, along with details about the market cap and volume of the Cardano tokens as well. That way, you always have access to detailed content about your ADA investment, while also getting a prediction of how things might go in then future.\n\nIntegrate your Cardano wallets:\n\nOne of the core advantages of the ADAM app is that it allows you to easily integrate any of your Cardano wallets. That means you can use wallets like Lace, Daedalus, Begin, Tokeo, Yoroi, Eternl, Nufi, AdaLite, Gero, Typhon, Ledger, Trust and many others. You get to see all your funds, and you can access them without any hassle.\n\nADAM gives you the ultimate way to manage your Cardano experience, from stacking rewards to tracking funds and managing your tokens. It’s a great place for any Cardano investor, so we encourage you to try it out today!\n\nFeatures:\n• See the latest ADA prices and track your funds\n• Set custom price alerts and get notifications\n• Check real time charts\n• VIP stake pools\n• Assess your staking rewards, pool metrics and assets\n• Integrate with various Cardano wallets\n• Discover ADAM AI for quick pool summary\n• Home screen & Lock screen widgets",
+      "fullDescription": "Are you looking for an efficient way to integrate and track your ADA wallets? Look no further than ADAM! Our app is designed to help track all your Cardano staking rewards, wallets and funds from a single, cohesive interface. It's very important for us to not only access the latest Cardano information, but also narrow down your current investment as well. Why should you use the ADAM app? When you use the ADAM app, you have access to the latest info like the ADA or Bitcoin prices. You can also see a real time chart with the ADA prices for the past hours, days or months. On top of that, you can ensure you always have a good understanding of your ADA funds right now as well. Plus, there are Cardano epoch countdown and details as well. We go even further with the info by adding Cardano tokenomics overviews, along with details about the market cap and volume of the Cardano tokens as well. That way, you always have access to detailed content about your ADA investment, while also getting a prediction of how things might go in then future. Integrate your Cardano wallets: One of the core advantages of the ADAM app is that it allows you to easily integrate any of your Cardano wallets. That means you can use wallets like Lace, Daedalus, Begin, Tokeo, Yoroi, Eternl, Nufi, AdaLite, Gero, Typhon, Ledger, Trust and many others. You get to see all your funds, and you can access them without any hassle. ADAM gives you the ultimate way to manage your Cardano experience, from stacking rewards to tracking funds and managing your tokens. It's a great place for any Cardano investor, so we encourage you to try it out today! Features: • See the latest ADA prices and track your funds • Set custom price alerts and get notifications • Check real time charts • VIP stake pools • Assess your staking rewards, pool metrics and assets • Integrate with various Cardano wallets • Discover ADAM AI for quick pool summary • Home screen & Lock screen widgets",
       "keySolutions": [
         "Bitcoin & Cardano Prices",
         "Wallet Integration",
@@ -1061,6 +1187,30 @@ export const cardanoResources = {
       "organization": "andro-devs",
       "repository": null,
       "repo_path": "andro-devs"
+    },
+    {
+      "id": 75,
+      "name": "UVerify",
+      "logo": "https://github.com/UVerify-io/uverify-ui/blob/main/public/uverify.png",
+      "description": "UVerify makes blockchain technology accessible to everyone, regardless of prior experience. Effortlessly secure your file or text hashes on the Cardano blockchain.",
+      "fullDescription": "With UVerify, you can easily store and retrieve data on the Cardano blockchain. The API is straightforward, and the UI is both intuitive and highly customizable. You can deploy your own instance or use the hosted version — whatever fits your needs best. Our main goal is flexibility: UVerify is designed to be a tool anyone can integrate seamlessly into their own projects. It's more than just a tool; it's a platform. How does it work? UVerify includes its own scoped chain indexer, a Web3 API key management system, on-chain metadata support, and extension points for both the backend and frontend. The frontend is built with React, while the backend is a Java Spring Boot application that leverages Yaci Store.",
+      "keySolutions": [
+        "Digital product passport",
+        "Student certification",
+        "Notary service"
+      ],
+      "website": "https://app.uverify.io",
+      "social": {
+        "github": "https://github.com/UVerify-io",
+        "discord": "https://discord.com/invite/Dvqkynn6xc",
+        "x": "https://x.com/uver1fy"
+      },
+      "category": "Wallets & User Tools",
+      "type": "organization",
+      "organization": "UVerify-io",
+      "repository": null,
+      "repo_path": "UVerify-io",
+      "docs": "https://docs.uverify.io/"
     }
   ],
   "Identity & Authentication": [
@@ -1393,6 +1543,30 @@ export const cardanoResources = {
       "organization": "txpipe",
       "repository": null,
       "repo_path": "txpipe"
+    },
+    {
+      "id": 78,
+      "name": "KuberIDE",
+      "logo": "https://dquadrant.com/wp-content/uploads/2024/07/Dquadrant-Small-logo-white-orange.webp",
+      "description": "KuberIDE Plutus/Haskell based smart contract development platform",
+      "fullDescription": "Web-based development environment similar like Remix to build, test and deploy smart contracts",
+      "keySolutions": [
+        "Blockchain integration",
+        "Wallet integration",
+        "Network integration",
+        "Hydra integration",
+        "Transaction management"
+      ],
+      "website": "https://kuberide.com",
+      "social": {
+        "github": "https://github.com/dQuadrant/kuber-playground"
+      },
+      "docs": "https://github.com/dQuadrant/kuber-playground/#readme",
+      "category": "Development Platforms",
+      "type": "repository",
+      "organization": "dQuadrant",
+      "repository": "kuber-playground",
+      "repo_path": "dQuadrant/kuber-playground"
     }
   ],
   "Community & Engagement": [
@@ -1468,6 +1642,52 @@ export const cardanoResources = {
       "organization": "CardanoSolutions",
       "repository": "ogmios",
       "repo_path": "CardanoSolutions/ogmios"
+    },
+    {
+      "id": 79,
+      "name": "Acropolis",
+      "logo": "https://raw.githubusercontent.com/input-output-hk/acropolis/main/logo.png",
+      "description": "Acropolis modular Cardano node in Rust",
+      "fullDescription": "A modular, message-based architecture for creating new Cardano core services, including nodes, indexers and application platforms",
+      "keySolutions": [
+        "Cardano node",
+        "Data node",
+        "BlockFrost API"
+      ],
+      "website": "https://github.com/input-output-hk/acropolis/",
+      "social": {
+        "github": "https://github.com/input-output-hk/acropolis/"
+      },
+      "category": "Core Infrastructure",
+      "type": "repository",
+      "organization": "input-output-hk",
+      "repository": "acropolis",
+      "repo_path": "input-output-hk/acropolis",
+      "docs": "https://github.com/input-output-hk/acropolis/tree/main/docs"
+    },
+    {
+      "id": 80,
+      "name": "Dingo",
+      "logo": "https://blinklabs.io/static/media/blink-labs-logo.478f51c57fbda2b8924e1739a3bb47ae.svg",
+      "description": "A Cardano blockchain data node written in Go",
+      "fullDescription": "A Cardano blockchain data node written in Go which actively participates in network communications on the Cardano blockchain using the Ouroboros Network Node-to-Node family of mini-protocols.",
+      "keySolutions": [
+        "data node",
+        "Direct blockchain access",
+        "Chain sync"
+      ],
+      "website": "https://blinklabs.io/",
+      "social": {
+        "github": "https://github.com/blinklabs-io/dingo",
+        "discord": "https://discord.gg/5fPRZnX4qW",
+        "x": "https://twitter.com/blinklabs_io"
+      },
+      "category": "Core Infrastructure",
+      "type": "repository",
+      "organization": "blinklabs-io",
+      "repository": "dingo",
+      "repo_path": "blinklabs-io/dingo",
+      "docs": "https://docs.blinklabs.io/home/"
     }
   ],
   "Layer 2 Scaling Solutions": [
