@@ -726,6 +726,24 @@ export const cardanoResources = {
         github: "https://github.com/CardanoSolutions/ogmios"
       },
       category: "Core Infrastructure"
+    },
+    {
+      id: 63,
+      name: "Acropolis",
+      logo: "https://raw.githubusercontent.com/input-output-hk/acropolis/main/logo.png",
+      description: "Acropolis modular Cardano node in Rust",
+      fullDescription: "A modular, message-based architecture for creating new Cardano core services, including nodes, indexers and application platforms",
+      keySolutions: [ "Cardano node", "Data node", "BlockFrost API"  ],
+      website: "https://github.com/input-output-hk/acropolis/",
+      social: {
+         github: "https://github.com/input-output-hk/acropolis/"
+      },
+      category: "Core Infrastructure",
+      type: "repository",
+      organization: "input-output-hk",
+      repository: "acropolis",
+      repo_path: "input-output-hk/acropolis",
+      docs: "https://github.com/input-output-hk/acropolis/tree/main/docs"
     }
   ],
   "Layer 2 Scaling Solutions": [
