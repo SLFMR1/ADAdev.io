@@ -342,6 +342,29 @@ export const cardanoResources = {
       website: "https://docs.cardano.org/cardano-testnet/security/",
       social: {},
       category: "Security & Auditing"
+    },
+    {
+      id: "63",
+      name: "No Witness Labs",
+      logo: "https://nowitnesslabs.com/favicon.ico",
+      description: "Smart contract development, security audit services, and open source tools",
+      fullDescription: "We deliver world-class smart contract development, security audit services and open source developer tools to power secure blockchain development.",
+      keySolutions: [
+        "Smart contract development",
+        "Security audit services",
+        "Open source tools"
+      ],
+      website: "https://nowitnesslabs.com/",
+      social: {
+        github: "https://github.com/no-witness-labs",
+        discord: "https://discord.com/invite/eqZDvHvW6k",
+        x: "https://x.com/nowitnesslabs"
+      },
+      category: "Security & Auditing",
+      type: "organization",
+      organization: "no-witness-labs",
+      repository: null,
+      repo_path: "no-witness-labs"
     }
   ],
   "Analytics & Data": [
