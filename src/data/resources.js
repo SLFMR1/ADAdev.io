@@ -744,7 +744,7 @@ export const cardanoResources = {
     {
       "id": 81,
       "name": "Jolt TLA+",
-      "logo": "https://avatars.githubusercontent.com/u/1830865",
+      "logo": "",
       "description": "Machine-checkable TLA+ formal specification for Jolt zkVM continuation semantics.",
       "fullDescription": "A formal verification tool providing a machine-checkable TLA+ specification for Jolt zkVM continuation semantics. This specification enables exhaustive model checking of the Jolt protocol, ensuring correctness of zkVM implementations through formal methods. The repository includes an executable Lean 4 specification and Oracle CLI for conformance testing.",
       "keySolutions": [
