@@ -299,6 +299,21 @@ export const cardanoResources = {
         github: "https://github.com/dcSpark/carp"
       },
       category: "Infrastructure & APIs"
+    },
+    {
+      id: 63,
+      name: "Andamio",
+      logo: "https://www.andamio.io/andamio-logo.svg",
+      description: "Andamio is a set of protocols that support collaboration and allow anyone to create and earn credentials.",
+      fullDescription: "The Andamio ecosystem consists of a foundational layer—the core Andamio Protocol—that provides universal identity through access tokens and tamper-proof state management, plus application protocols that build specific functionality on top of this foundation.\n\nThe first application protocols are Course (for learning and credentialing) and Project (for collaborative work). Like the internet's layered architecture, these protocols leverage the foundational layer without needing to solve identity and state management independently.",
+      keySolutions: ["Andamio Platform", "Andamio SDK+API", "Andamio Protocol"],
+      website: "https://www.andamio.io/",
+      social: {
+        github: "https://github.com/Andamio-Platform",
+        discord: "https://discord.gg/mkSBHDmzPB",
+        x: "https://x.com/andamio_teams"
+      },
+      category: "Infrastructure & APIs",
     }
   ],
   "Minting and NFTs": [
