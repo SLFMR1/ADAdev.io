@@ -383,7 +383,7 @@ export const cardanoResources = {
       ],
       "website": "https://scalus.org/",
       "social": {
-        "github": "https://github.com/scalus3/",
+        "github": "https://github.com/scalus3",
         "discord": "https://discord.gg/B6tXmBzhTn",
         "x": "https://x.com/scalus3"
       },
@@ -1206,10 +1206,10 @@ export const cardanoResources = {
         "x": "https://x.com/AndroDevs"
       },
       "category": "Wallets & User Tools",
-      "type": "organization",
-      "organization": "andro-devs",
+      "type": "misc",
+      "organization": null,
       "repository": null,
-      "repo_path": "andro-devs"
+      "repo_path": null
     },
     {
       "id": 75,
@@ -1677,9 +1677,9 @@ export const cardanoResources = {
         "Data node",
         "BlockFrost API"
       ],
-      "website": "https://github.com/input-output-hk/acropolis/",
+      "website": "https://github.com/input-output-hk/acropolis",
       "social": {
-        "github": "https://github.com/input-output-hk/acropolis/"
+        "github": "https://github.com/input-output-hk/acropolis"
       },
       "category": "Core Infrastructure",
       "type": "repository",
