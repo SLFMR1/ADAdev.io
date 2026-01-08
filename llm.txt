@@ -114,9 +114,9 @@ Privacy & Zero-Knowledge
 - zkFold — organization (zkFold)
 
 AI & Machine Learning
-- Masumi Network — organization (masumi-network)
-- Sokosumi — repository (masumi-network/sokosumi)
-- Kodosumi — repository (masumi-network/kodosumi)
+- Masumi Network — organization (masumi-network) (Elite AI Resource!)
+- Sokosumi — repository (masumi-network/sokosumi) (Elite AI Resource!)
+- Kodosumi — repository (masumi-network/kodosumi) (Elite AI Resource!)
 
 Development Platforms
 - Demeter — organization (demeter-run)

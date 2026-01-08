@@ -145,3 +145,14 @@ tmp/
 temp/
 .tmp/
 .temp/ 
+
+
+/utils
+
+
+/monitoring_logs.txt
+.eslintrc.js
+audit_data_completeness.js
+cleanup_cardano_foundation.js
+context.txt
+src/components/BlockAnimation copy.jsx

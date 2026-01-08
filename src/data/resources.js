@@ -740,6 +740,29 @@ export const cardanoResources = {
       "organization": "cardanoapi",
       "repository": "autonomous-agents",
       "repo_path": "cardanoapi/autonomous-agents"
+    },
+    {
+      "id": 81,
+      "name": "Jolt TLA+",
+      "logo": "https://avatars.githubusercontent.com/u/1830865",
+      "description": "Machine-checkable TLA+ formal specification for Jolt zkVM continuation semantics.",
+      "fullDescription": "A formal verification tool providing a machine-checkable TLA+ specification for Jolt zkVM continuation semantics. This specification enables exhaustive model checking of the Jolt protocol, ensuring correctness of zkVM implementations through formal methods. The repository includes an executable Lean 4 specification and Oracle CLI for conformance testing.",
+      "keySolutions": [
+        "Formal verification",
+        "TLA+ specification",
+        "Model checking",
+        "zkVM verification"
+      ],
+      "website": "https://github.com/CharlesHoskinson/jolt-tla",
+      "social": {
+        "github": "https://github.com/CharlesHoskinson/jolt-tla"
+      },
+      "docs": "https://github.com/CharlesHoskinson/jolt-tla#readme",
+      "category": "Security & Auditing",
+      "type": "repository",
+      "organization": "CharlesHoskinson",
+      "repository": "jolt-tla",
+      "repo_path": "CharlesHoskinson/jolt-tla"
     }
   ],
   "Analytics & Data": [
