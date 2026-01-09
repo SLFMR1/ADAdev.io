@@ -388,10 +388,10 @@ export const cardanoResources = {
         "x": "https://x.com/scalus3"
       },
       "category": "Libraries & Languages",
-      "type": "organization",
+      "type": "repository",
       "organization": "scalus3",
-      "repository": null,
-      "repo_path": "scalus3",
+      "repository": "scalus",
+      "repo_path": "scalus3/scalus",
       "docs": "https://scalus.org/"
     },
     {
