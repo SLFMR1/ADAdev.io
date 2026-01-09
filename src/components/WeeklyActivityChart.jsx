@@ -452,7 +452,11 @@ const WeeklyActivityChart = ({ resource, showThreeYearOption = true, hidePeriodS
       <div className={`bg-gray-800/50 rounded-lg ${screenshotMode ? 'p-6' : 'p-4 sm:p-6'}`} style={{ minHeight: Math.max(280, chartHeight + 100) }}>
         <div className={`flex items-center justify-between ${screenshotMode ? 'mb-6' : 'mb-3'}`}>
           <span className={`text-gray-400 ${screenshotMode ? 'text-base' : 'text-xs'}`}>
-            {selectedPeriod === '52weeks' ? 'Last 52 Weeks' : selectedPeriod === '3years' ? 'Last 3 Years' : selectedPeriod === '3months' ? 'Last 3 Months' : 'Last 4 Weeks'} (Incl. current Week since Sun.)
+            {selectedPeriod === 'current' ? 'Last 7 Days' : 
+             selectedPeriod === '52weeks' ? 'Last 52 Weeks' : 
+             selectedPeriod === '3years' ? 'Last 3 Years' : 
+             selectedPeriod === '3months' ? 'Last 3 Months' : 
+             'Last 4 Weeks'} {selectedPeriod !== 'current' && '(Incl. current Week since Sun.)'}
           </span>
           <div className={`flex items-baseline ${screenshotMode ? 'space-x-2 mr-8' : 'space-x-2'}`}>
             <GitCommit size={screenshotMode ? 16 : 12} style={{ color: accentColor.hex }} />
