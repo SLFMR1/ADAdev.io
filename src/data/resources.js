@@ -615,6 +615,29 @@ export const cardanoResources = {
       "repository": "cardano-rosetta-java",
       "repo_path": "cardano-foundation/cardano-rosetta-java",
       "docs": "https://cardano-foundation.github.io/cardano-rosetta-java/docs/intro"
+    },
+    {
+      "id": 82,
+      "name": "Andamio",
+      "logo": "https://www.andamio.io/andamio-logo.svg",
+      "description": "Andamio is a set of protocols that support collaboration and allow anyone to create and earn credentials.",
+      "fullDescription": "The Andamio ecosystem consists of a foundational layer—the core Andamio Protocol—that provides universal identity through access tokens and tamper-proof state management, plus application protocols that build specific functionality on top of this foundation.\n\nThe first application protocols are Course (for learning and credentialing) and Project (for collaborative work). Like the internet's layered architecture, these protocols leverage the foundational layer without needing to solve identity and state management independently.",
+      "keySolutions": [
+        "Andamio Platform",
+        "Andamio SDK+API",
+        "Andamio Protocol"
+      ],
+      "website": "https://www.andamio.io/",
+      "social": {
+        "github": "https://github.com/Andamio-Platform",
+        "discord": "https://discord.gg/mkSBHDmzPB",
+        "x": "https://x.com/andamio_teams"
+      },
+      "category": "Infrastructure & APIs",
+      "type": "organization",
+      "organization": "Andamio-Platform",
+      "repository": null,
+      "repo_path": "Andamio-Platform"
     }
   ],
   "Minting and NFTs": [
@@ -763,6 +786,29 @@ export const cardanoResources = {
       "organization": "CharlesHoskinson",
       "repository": "jolt-tla",
       "repo_path": "CharlesHoskinson/jolt-tla"
+    },
+    {
+      "id": 83,
+      "name": "No Witness Labs",
+      "logo": "https://nowitnesslabs.com/favicon.ico",
+      "description": "Smart contract development, security audit services, and open source tools",
+      "fullDescription": "We deliver world-class smart contract development, security audit services and open source developer tools to power secure blockchain development.",
+      "keySolutions": [
+        "Smart contract development",
+        "Security audit services",
+        "Open source tools"
+      ],
+      "website": "https://nowitnesslabs.com/",
+      "social": {
+        "github": "https://github.com/no-witness-labs",
+        "discord": "https://discord.com/invite/eqZDvHvW6k",
+        "x": "https://x.com/nowitnesslabs"
+      },
+      "category": "Security & Auditing",
+      "type": "organization",
+      "organization": "no-witness-labs",
+      "repository": null,
+      "repo_path": "no-witness-labs"
     }
   ],
   "Analytics & Data": [
