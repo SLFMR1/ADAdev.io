@@ -12,6 +12,7 @@ import ResourceCard from './components/ResourceCard';
 import AIResults from './components/AIResults';
 import AIModal from './components/AIModal';
 import Footer from './components/Footer';
+import CatalystBanner from './components/CatalystBanner';
 import { cardanoResources } from './data/resources';
 import { preloadCache, initializeRateLimit } from './services/github';
 import cacheManager from './services/cacheManager';
@@ -882,6 +883,7 @@ function App() {
                 </div>
               </div>
 
+              <CatalystBanner />
               <Header />
               {/* <BetaBanner /> */}
               <Hero 
