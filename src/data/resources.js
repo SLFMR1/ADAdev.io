@@ -379,6 +379,28 @@ export const cardanoResources = {
         github: "https://github.com/input-output-hk/cardano-db-sync"
       },
       category: "Analytics & Data"
+    },
+    {
+      id: 63,
+      name: "Catalyst Explorer",
+      logo: "https://catalystexplorer.s3.2lovelaces.com/brand/catalyst-explorer-mini-light.png",
+      description: "Project Catalyst on-chain and off-chain explorer",
+      fullDescription: "Catalyst explorer is home the most on chain and off chain data about companies, people, and projects coming out of Cardano Project Catalyst decentralised innovation funding program.  \n\nThe tool also has a social component for creating profiles, building research and voting lists as well as claiming your official catalyst profiles and profiles for team participating in Project Catalyst. \n\nWe also provide a free api to our cleaned up and structured catalyst data. ",
+      keySolutions: [
+        "explorer",
+        "catalyst api",
+        "catalyst data"
+      ],
+      website: "https://www.catalystexplorer.com",
+      social: {
+        github: "https://github.com/lidonation/catalystexplorer",
+        x: "https://x.com/LidoNation"
+      },
+      category: "Analytics & Data",
+      type: "repository",
+      organization: "lidonation",
+      repository: "catalystexplorer",
+      repo_path: "lidonation/catalystexplorer"
     }
   ],
   "Education & Documentation": [
