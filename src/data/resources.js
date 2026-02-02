@@ -388,10 +388,10 @@ export const cardanoResources = {
         "x": "https://x.com/scalus3"
       },
       "category": "Libraries & Languages",
-      "type": "organization",
+      "type": "repository",
       "organization": "scalus3",
-      "repository": null,
-      "repo_path": "scalus3",
+      "repository": "scalus",
+      "repo_path": "scalus3/scalus",
       "docs": "https://scalus.org/"
     },
     {
@@ -417,6 +417,26 @@ export const cardanoResources = {
       "organization": "dQuadrant",
       "repository": "kuber",
       "repo_path": "dQuadrant/kuber"
+    },
+    {
+      "id": 85,
+      "name": "CGOV",
+      "logo": null,
+      "description": "Cardano governance tools by Nomos Guild.",
+      "fullDescription": "CGOV is a Cardano governance toolkit developed by Nomos Guild, providing tools and utilities for governance-related functionality on the Cardano blockchain.",
+      "keySolutions": [
+        "Governance"
+      ],
+      "website": "https://nomos.cgov.io/",
+      "social": {
+        "github": "https://github.com/nomos-guild/cgov",
+        "x": "https://x.com/meshsdk"
+      },
+      "category": "Libraries & Languages",
+      "type": "repository",
+      "organization": "nomos-guild",
+      "repository": "cgov",
+      "repo_path": "nomos-guild/cgov"
     }
   ],
   "Infrastructure & APIs": [
@@ -638,6 +658,28 @@ export const cardanoResources = {
       "organization": "Andamio-Platform",
       "repository": null,
       "repo_path": "Andamio-Platform"
+    },
+    {
+      "id": 84,
+      "name": "Cexplorer.io",
+      "logo": "https://cexplorer.io/assets/navbar_logo_light-Da7G9Gki.svg",
+      "description": "Cardano explorer.",
+      "fullDescription": "We are building most OG Cardano explorer.",
+      "keySolutions": [
+        "explorer"
+      ],
+      "website": "https://cexplorer.io",
+      "social": {
+        "github": "https://github.com/vellum-labs",
+        "discord": "https://discord.gg/PGCmmQC3dj",
+        "x": "https://x.com/cexplorer_io"
+      },
+      "category": "Infrastructure & APIs",
+      "type": "organization",
+      "organization": "vellum-labs",
+      "repository": null,
+      "repo_path": "vellum-labs",
+      "docs": "https://github.com/vellum-labs/cexplorer-fe"
     }
   ],
   "Minting and NFTs": [
