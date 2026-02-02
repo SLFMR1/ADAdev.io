@@ -421,7 +421,7 @@ export const cardanoResources = {
     {
       "id": 85,
       "name": "CGOV",
-      "logo": null,
+      "logo": "https://nomos.cgov.io/nomos-trircle.png",
       "description": "Cardano governance tools by Nomos Guild.",
       "fullDescription": "CGOV is a Cardano governance toolkit developed by Nomos Guild, providing tools and utilities for governance-related functionality on the Cardano blockchain.",
       "keySolutions": [
