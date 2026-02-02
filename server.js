@@ -2342,7 +2342,8 @@ app.get('/api/development-activity', async (req, res) => {
     logger.debug(`🚀 Preloading ALL periods for ${filteredResources.length} filtered resources (was ${resources.length})`);
     
     // Process resources in smaller batches to avoid overwhelming the API
-    const BATCH_SIZE = 5;
+    // Reduced from 5 to 2 for 1GB RAM servers to prevent memory crashes
+    const BATCH_SIZE = 2;
     const allPeriodsData = new Map(); // Store data for all periods
     
     // Preload data for ALL periods at once

@@ -894,8 +894,8 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
       const memUsage = process.memoryUsage()
       const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024)
 
-      if (heapUsedMB > 400) {
-        logger.warn(`⚠️ ${orgLogin}: Breaking at ${processedRepos} repos due to memory (${heapUsedMB}MB)`)
+      if (heapUsedMB > 250) {
+        logger.warn(`⚠️ ${orgLogin}: Breaking at ${processedRepos} repos due to memory (${heapUsedMB}MB) - limit 250MB for 1GB server`)
         break
       }
 
