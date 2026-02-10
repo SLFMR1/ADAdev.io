@@ -3331,7 +3331,7 @@ async function maintainReleasesCache(resourceId, releases) {
 function checkMemoryUsage() {
   const memUsage = process.memoryUsage()
   const heapUsedMB = memUsage.heapUsed / 1024 / 1024
-  const maxMemoryMB = 400 // Threshold for 512MB server (leaving headroom)
+  const maxMemoryMB = 250 // Threshold for 1GB server with --max-old-space-size=512
 
   return {
     heapUsedMB: Math.round(heapUsedMB),
@@ -3416,9 +3416,9 @@ async function populateUpdatesCache(priority = 'all') {
 
           logger.debug(`🔍 Processing ${resource.name} (${resource.type})...`)
           
-          // Get complete commit history (no date filtering for historical data collection)
-          const since = null // Fetch complete history instead of limiting to 4 weeks
-          
+          // Fetch only recent data — historical data lives in the database
+          const since = new Date(Date.now() - 4 * 7 * 24 * 60 * 60 * 1000).toISOString()
+
           let rawCommits = []
           try {
             if (resource.type === 'organization') {
@@ -3597,8 +3597,8 @@ async function populateUpdatesCache(priority = 'all') {
         try {
           logger.debug(`🔍 Processing ${resource.name} (${resource.type})...`)
 
-          // Get complete commit history (no date filtering for historical data collection)
-          const since = null // Fetch complete history instead of limiting to 4 weeks
+          // Fetch only recent data — historical data lives in the database
+          const since = new Date(Date.now() - 4 * 7 * 24 * 60 * 60 * 1000).toISOString()
 
           let rawCommits = []
           try {
@@ -3990,6 +3990,17 @@ const ensureHistoricalDataCompleteness = async () => {
             // MEMORY LEAK FIX: Use chunked processing for known large orgs
             const KNOWN_LARGE_ORGS = ['cardano-foundation', 'marlowe-lang', 'OpShin', 'blockfrost', 'input-output-hk', 'Emurgo'];
             if (KNOWN_LARGE_ORGS.includes(orgName)) {
+              // Guard: skip large orgs that already have sufficient historical data (backfilled locally)
+              const { count: weekCount } = await supabase
+                .from('github_activity')
+                .select('*', { count: 'exact', head: true })
+                .eq('repo_path', orgName)
+              if ((weekCount ?? 0) > 200) {
+                console.log(`✅ ${orgName}: Already has ${weekCount} weeks of data — skipping startup backfill`);
+                successCount++;
+                continue;
+              }
+
               console.log(`🎯 ${orgName}: Using memory-safe chunked processing`);
               commits = await fetchLargeOrgDataChunked(orgName, since, resource, processCommitsToWeekly, supabaseService);
 

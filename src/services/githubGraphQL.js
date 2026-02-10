@@ -1030,19 +1030,23 @@ const fetchLargeOrgDataChunked = async (orgLogin, since = null, resource = null,
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
 
-    // Final storage of aggregated weekly data after all repositories are processed
+    // Only store aggregated data if ALL repositories were processed
+    // Partial data from memory-interrupted processing would overwrite correct totals in the database
+    const processingComplete = !hasNextPage
     const finalWeeklyData = Object.entries(weeklyTotals).map(([weekStart, count]) => ({
       weekStart,
       count
     }));
 
-    if (resource && finalWeeklyData.length > 0 && supabaseService) {
+    if (!processingComplete) {
+      logger.warn(`⚠️ ${orgLogin}: Processing incomplete (${processedRepos}/${totalRepos} repos) - skipping database storage to preserve existing data`)
+    } else if (resource && finalWeeklyData.length > 0 && supabaseService) {
       await supabaseService.storeWeeklyActivity(resource, finalWeeklyData);
-      logger.info(`✅ ${orgLogin}: Stored final aggregated data for ${finalWeeklyData.length} weeks.`);
+      logger.info(`✅ ${orgLogin}: Stored final aggregated data for ${finalWeeklyData.length} weeks (all ${processedRepos} repos processed).`);
     }
     
-    // Store organization-level daily data after processing all repositories (last 7 days only)
-    if (resource && supabaseService) {
+    // Store organization-level daily data only if all repos were processed
+    if (resource && supabaseService && processingComplete) {
       // Initialize all 7 days with zero counts (same logic as processCommitsToDaily)
       const nowUTC = new Date()
       const orgDailyData = []
