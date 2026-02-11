@@ -1900,6 +1900,30 @@ export const cardanoResources = {
       "organization": null,
       "repository": null,
       "repo_path": null
+    },
+    {
+      "id": 86,
+      "name": "Clarity",
+      "logo": "https://adastat.net/img/tokens/1e76aaec4869308ef5b61e81ebf229f2e70f75a50223defa087f807b436c61726974792044414f20546f6b656e.png?1735053839",
+      "description": "Governance and DAO tooling, ranging from simple off-chain voting to complex, automated on-chain governance and enforcement",
+      "fullDescription": "Clarity is a decentralized governance protocol that enables DAOs and other tokenized projects to formalize on-chain governance.",
+      "keySolutions": [
+        "DAO Voting",
+        "Cryptographic Proofs",
+        "Secure Governance"
+      ],
+      "website": "https://www.clarity.community/",
+      "social": {
+        "github": "https://github.com/ClearContracts",
+        "discord": "https://discord.gg/SUWpTtsJaA",
+        "x": "https://x.com/clarity_dao"
+      },
+      "category": "Governance & DAOs",
+      "type": "organization",
+      "organization": "ClearContracts",
+      "repository": null,
+      "repo_path": "ClearContracts",
+      "docs": "https://docs.clarity.vote/"
     }
   ]
 };
