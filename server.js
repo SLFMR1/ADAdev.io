@@ -133,7 +133,7 @@ const retryFailedRequests = async () => {
 const CACHE = {
   data: new Map(),
   timestamps: new Map(),
-  maxSize: 10000, // Restored to original size for optimal performance
+  maxSize: 200, // ~100 resources × a few period combos; misses fall through to Supabase
   ttl: {
     recent: process.env.NODE_ENV === 'production' ? 2 * 60 * 60 * 1000 : 30 * 60 * 1000, // 2 hours in prod, 30 min in dev
     weekly: 30 * 24 * 60 * 60 * 1000, // 30 days for weekly data (immutable)
@@ -315,6 +315,10 @@ const getCachedData = (key) => {
     return null
   }
   
+  // Refresh LRU position on read (delete + re-insert moves to end of Map)
+  CACHE.timestamps.delete(key)
+  CACHE.timestamps.set(key, now)
+
   CACHE.stats.memoryHits++
   return data
 }
@@ -330,6 +334,7 @@ const setCachedData = (key, data) => {
   }
   
   CACHE.data.set(key, data)
+  CACHE.timestamps.delete(key)
   CACHE.timestamps.set(key, Date.now())
 }
 
@@ -346,7 +351,7 @@ const resetCacheStats = () => {
 }
 
 // Reset cache stats every hour
-setInterval(resetCacheStats, 60 * 60 * 1000)
+const cacheStatsInterval = setInterval(resetCacheStats, 60 * 60 * 1000)
 
 // API stats and error tracking for dashboard
 const API_STATS = {
@@ -2106,6 +2111,54 @@ const ORGANIZATION_DATA_CACHE_TTL = 110 * 60 * 1000; // 110 minutes (90 min refr
 const HISTORICAL_MAXIMUMS_CACHE = new Map();
 const HISTORICAL_MAXIMUMS_TTL = 90 * 24 * 60 * 60 * 1000; // 90 days
 
+// Periodic cache cleanup - evicts expired entries that are never re-read
+function runPeriodicCacheCleanup() {
+  const now = Date.now()
+  let totalRemoved = 0
+
+  // Sweep VIEW_MODE_CACHE
+  for (const [key, entry] of VIEW_MODE_CACHE.entries()) {
+    if (now - entry.timestamp > VIEW_MODE_CACHE_TTL) {
+      VIEW_MODE_CACHE.delete(key)
+      totalRemoved++
+    }
+  }
+
+  // Sweep ORGANIZATION_DATA_CACHE
+  for (const [key, entry] of ORGANIZATION_DATA_CACHE.entries()) {
+    if (now - entry.timestamp > ORGANIZATION_DATA_CACHE_TTL) {
+      ORGANIZATION_DATA_CACHE.delete(key)
+      totalRemoved++
+    }
+  }
+
+  // Sweep HISTORICAL_MAXIMUMS_CACHE
+  for (const [key, entry] of HISTORICAL_MAXIMUMS_CACHE.entries()) {
+    if (now - entry.timestamp > HISTORICAL_MAXIMUMS_TTL) {
+      HISTORICAL_MAXIMUMS_CACHE.delete(key)
+      totalRemoved++
+    }
+  }
+
+  // Sweep main CACHE using key-prefix TTL logic (same as getCachedData)
+  for (const [key, timestamp] of CACHE.timestamps.entries()) {
+    let ttl = CACHE.ttl.recent
+    if (key.includes('weekly')) ttl = CACHE.ttl.weekly
+    if (key.includes('historical')) ttl = CACHE.ttl.historical
+    if (now - timestamp > ttl) {
+      CACHE.data.delete(key)
+      CACHE.timestamps.delete(key)
+      totalRemoved++
+    }
+  }
+
+  if (totalRemoved > 0) {
+    logger.info(`🧹 Periodic cache cleanup: removed ${totalRemoved} expired entries (CACHE: ${CACHE.data.size}, VIEW: ${VIEW_MODE_CACHE.size}, ORG: ${ORGANIZATION_DATA_CACHE.size}, HIST: ${HISTORICAL_MAXIMUMS_CACHE.size})`)
+  }
+}
+
+const cacheCleanupInterval = setInterval(runPeriodicCacheCleanup, 15 * 60 * 1000)
+
 // Get development activity for dashboard - preload all periods
 app.get('/api/development-activity', async (req, res) => {
   try {
@@ -2538,11 +2591,10 @@ app.get('/api/development-activity', async (req, res) => {
       timestamp: Date.now()
     });
     
-    // Store all views - no cleanup needed for optimal performance
-    // if (VIEW_MODE_CACHE.size > 20) {
-    //   const oldestKey = VIEW_MODE_CACHE.keys().next().value;
-    //   VIEW_MODE_CACHE.delete(oldestKey);
-    // }
+    if (VIEW_MODE_CACHE.size > 10) {
+      const oldestKey = VIEW_MODE_CACHE.keys().next().value;
+      VIEW_MODE_CACHE.delete(oldestKey);
+    }
 
     res.json(response);
   } catch (error) {
@@ -3331,7 +3383,7 @@ async function maintainReleasesCache(resourceId, releases) {
 function checkMemoryUsage() {
   const memUsage = process.memoryUsage()
   const heapUsedMB = memUsage.heapUsed / 1024 / 1024
-  const maxMemoryMB = 250 // Threshold for 1GB server with --max-old-space-size=512
+  const maxMemoryMB = 200 // Threshold for 512MB heap on basic-xxs
 
   return {
     heapUsedMB: Math.round(heapUsedMB),
@@ -3366,6 +3418,22 @@ async function waitForMemoryToClear(resourceName = 'unknown') {
       if (!newMemStats.isOverThreshold) {
         console.log(`🟢 ${resourceName}: Memory usage normalized (${newMemStats.heapUsedMB}MB)`)
         break
+      }
+
+      // Emergency cache eviction after 3 failed GC attempts
+      if (attempts === 3) {
+        console.log(`🚨 ${resourceName}: Emergency cache eviction — clearing VIEW_MODE_CACHE (${VIEW_MODE_CACHE.size}), ORGANIZATION_DATA_CACHE (${ORGANIZATION_DATA_CACHE.size}), evicting 50% of main CACHE (${CACHE.data.size})`)
+        VIEW_MODE_CACHE.clear()
+        ORGANIZATION_DATA_CACHE.clear()
+        const evictCount = Math.floor(CACHE.data.size / 2)
+        let evicted = 0
+        for (const key of CACHE.timestamps.keys()) {
+          if (evicted >= evictCount) break
+          CACHE.data.delete(key)
+          CACHE.timestamps.delete(key)
+          evicted++
+        }
+        if (global.gc) global.gc()
       }
 
       attempts++
@@ -5156,7 +5224,7 @@ const startBackgroundProcesses = () => {
   // Phase 4: Cache refresh schedules (lowest priority)
           setTimeout(() => {
     console.log('📦 Phase 4: Setting up cache refresh schedules...')
-    setupCacheRefreshSchedules()
+    refreshIntervalIds = setupCacheRefreshSchedules()
     console.log('✅ Phase 4: Cache refresh schedules configured')
   }, 10000) // 10 second delay
 }
@@ -5219,21 +5287,41 @@ const setupCacheRefreshSchedules = () => {
 
   // High priority: All projects every 90 minutes (optimized for low traffic)
   const refreshInterval = process.env.NODE_ENV === 'production' ? 90 * 60 * 1000 : 30 * 60 * 1000
-  setInterval(() => {
+  const highPriorityInterval = setInterval(() => {
     console.log('⚡ Running high-priority cache refresh...')
+    VIEW_MODE_CACHE.clear()
+    ORGANIZATION_DATA_CACHE.clear()
     populateUpdatesCache('all').catch(error => {
       console.error('❌ High-priority cache refresh failed:', error.message)
     })
   }, refreshInterval)
-  
+
   // Standard priority: All projects every 24 hours (immutable data)
-  setInterval(() => {
+  const fullRefreshInterval = setInterval(() => {
     console.log('🔄 Running full cache refresh...')
     populateUpdatesCache('all').catch(error => {
       console.error('❌ Full cache refresh failed:', error.message)
     })
   }, 24 * 60 * 60 * 1000) // 24 hours
+
+  return { highPriorityInterval, fullRefreshInterval }
 }
+
+const shutdownGracefully = (signal) => {
+  console.log(`\n${signal} received — clearing intervals and shutting down...`)
+  clearInterval(cacheStatsInterval)
+  clearInterval(cacheCleanupInterval)
+  if (refreshIntervalIds) {
+    clearInterval(refreshIntervalIds.highPriorityInterval)
+    clearInterval(refreshIntervalIds.fullRefreshInterval)
+  }
+  process.exit(0)
+}
+
+let refreshIntervalIds = null
+
+process.on('SIGTERM', () => shutdownGracefully('SIGTERM'))
+process.on('SIGINT', () => shutdownGracefully('SIGINT'))
 
 startServer()
 
@@ -5397,6 +5485,10 @@ const preloadOrganizationDataForAll = async () => {
           totalCommits,
           timestamp: Date.now()
         })
+        if (ORGANIZATION_DATA_CACHE.size > 100) {
+          const oldestKey = ORGANIZATION_DATA_CACHE.keys().next().value
+          ORGANIZATION_DATA_CACHE.delete(oldestKey)
+        }
       }
       successCount++
     } catch (error) {
