@@ -1799,6 +1799,31 @@ export const cardanoResources = {
       "repository": "dingo",
       "repo_path": "blinklabs-io/dingo",
       "docs": "https://docs.blinklabs.io/home/"
+    },
+    {
+      "id": 88,
+      "name": "Blink Labs",
+      "logo": "https://blinklabs.io/static/media/blink-labs-logo.478f51c57fbda2b8924e1739a3bb47ae.svg",
+      "description": "Blink Labs creates open source software and custom solutions on the Cardano blockchain.",
+      "fullDescription": "Blink Labs began with the idea to run a Cardano stake pool in the summer of 2021. We were operating as CloudStruct, a DevOps as a Service consulting company and launched the CloudStruct Cardano Staking pool which operated until the end of 2022. Since then, we have focused on creating open source software and custom solutions on the Cardano blockchain. Our seasoned team at Blink Labs possesses a diverse range of expertise acquired from decades of experience across a variety of industries. Our experience ranges projects of all scale, from one man solopreneurs to global-scale projects in communications, storage, cloud computing, big data analytics, and the highly regulated fields of global life science and advertising. We harness this wealth of experience to craft robust and scalable systems tailored specifically for the Cardano blockchain.\n\nOur primary mission is to deliver top-tier software and services to enhance the Cardano ecosystem, streamlining time-to-market and bolstering reliability through open source solutions. We are dedicated to building high-quality, highly available, and repeatable solutions that empower the Cardano community and contribute to the blockchain's success.",
+      "keySolutions": [
+        "gOuroboros",
+        "Adder",
+        "Bursa",
+        "Dingo"
+      ],
+      "website": "https://blinklabs.io/",
+      "social": {
+        "github": "https://github.com/blinklabs-io",
+        "discord": "https://discord.gg/5fPRZnX4qW",
+        "x": "https://x.com/blinklabs_io"
+      },
+      "category": "Core Infrastructure",
+      "type": "organization",
+      "organization": "blinklabs-io",
+      "repository": null,
+      "repo_path": "blinklabs-io",
+      "docs": "https://docs.blinklabs.io/home/"
     }
   ],
   "Layer 2 Scaling Solutions": [
